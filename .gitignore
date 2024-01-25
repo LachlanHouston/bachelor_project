@@ -181,3 +181,10 @@ personal/
 
 # Outputs
 outputs/
+
+# Data
+data/clean_raw/
+data/clean_processed/
+data/noisy_raw/
+data/noisy_processed/
+/data
