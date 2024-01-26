@@ -5,9 +5,8 @@ from torch.nn import functional as F
 
 def get_data(path):
     """Get the data from the path"""
-
     files = os.listdir(path)
-    
+
     # Load all .wav files
     waveforms = []
     sample_rates = []
@@ -25,7 +24,6 @@ def process_data(waveforms, sample_rates):
     """Process the data into spectrograms"""
     # Pad the waveforms to have the same length
     max_length = max([waveform.shape[1] for waveform in waveforms])
-    print('Max length: {}'.format(max_length))
     waveforms = [F.pad(waveform, (0, max_length - waveform.shape[1])) for waveform in waveforms]
 
     # Process the data into spectrograms
@@ -38,10 +36,10 @@ def process_data(waveforms, sample_rates):
 
     return spectrograms
 
-def save_data(spectrograms, sample_rate, path):
+def save_data(waveform, sample_rate, spectrograms, path):
     """Save the data to the path"""
     for i, spectrogram in enumerate(spectrograms):
-        torch.save((spectrogram, sample_rate[i]), path + str(i) + '.pt')
+        torch.save((waveform[i], sample_rate[i], spectrogram), path + str(i) + '.pt')
 
 
 if __name__ == '__main__':
@@ -50,11 +48,11 @@ if __name__ == '__main__':
 
     waveforms, sample_rates = get_data(clean_data_path)
     spectrograms = process_data(waveforms, sample_rates)
-    save_data(spectrograms, sample_rates, clean_processed_path)
+    save_data(waveforms, sample_rates, spectrograms, clean_processed_path)
 
     noisy_data_path = 'data/noisy_raw/'
     noisy_processed_path = 'data/noisy_processed/'
 
     waveforms, sample_rates = get_data(noisy_data_path)
     spectrograms = process_data(waveforms, sample_rates)
-    save_data(spectrograms, sample_rates, noisy_processed_path)
+    save_data(waveforms, sample_rates, spectrograms, noisy_processed_path)
