@@ -46,6 +46,11 @@ def plot_waveform_and_spectrogram(waveform, spectrogram, sample_rate, title, sav
 def plot_waveform_and_spectrogram_from_path(path, title, save_name):
     """Plot the waveform and spectrogram from the path"""
     waveform, sample_rate, spectrogram = torch.load(path)
+    
+    print('Waveform shape: {}'.format(waveform.shape))
+    print('Sample rate: {}'.format(sample_rate))
+    print('Spectrogram shape: {}'.format(spectrogram.shape))
+
     plot_waveform_and_spectrogram(waveform, spectrogram, sample_rate, title, save_name)
 
 if __name__ == '__main__':
