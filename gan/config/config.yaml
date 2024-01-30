@@ -5,5 +5,5 @@ hyperparameters:
   max_epochs: 2
   data_fraction: 0.1
 wandb:
-  project: "dtu_bachelor_wandb"
+  project: "Bachelor_Project"
   name: "test_run"
