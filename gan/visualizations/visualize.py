@@ -4,17 +4,20 @@ import torch
 import torchaudio
 import scipy.stats as stats
 
-def plot_waveform(waveform, sample_rate, title, save_name):
-    """Plot the waveform"""
+def stft_spectrogram(waveform, sample_rate, title, save_name):
+    spectrogram = torchaudio.transforms.Spectrogram(n_fft=512, hop_length=100, win_length=400)(waveform)
+    spectrogram = torch.squeeze(spectrogram, dim=0)
+
     fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(waveform.t().numpy())
+    ax.imshow(spectrogram, aspect='auto', origin='lower')
     plt.xlabel('Time')
-    plt.ylabel('Amplitude')
+    plt.ylabel('Frequency')
     plt.title(title)
 
     # Save the plot
-    plt.savefig('reports/figures/' + save_name + '_waveform.png')
+    plt.savefig('reports/figures/' + save_name + '_stft_spectrogram.png')
     plt.show()
+
 
 def amplitude_density(waveform, sample_rate, title, save_name):
     """Plot the amplitude density"""
@@ -40,6 +43,45 @@ def amplitude_density(waveform, sample_rate, title, save_name):
     plt.savefig('reports/figures/' + save_name + '_amplitude_density.png')
     plt.show()
 
+def spectral_envelope(waveform, sample_rate, title, save_name):
+    """Plot the spectral envelope"""
+    # Apply STFT
+    Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    Xstft_real = Xstft.real
+    Xstft_imag = Xstft.imag
+    Xstft = torch.stack([Xstft_real, Xstft_imag], dim=1)
+    Xstft = torch.squeeze(Xstft, dim=0)
+
+    # Get the magnitude of the complex-valued spectrogram
+    Xmag = torch.sqrt(Xstft_real ** 2 + Xstft_imag ** 2)
+    Xmag = torch.squeeze(Xmag, dim=0)
+
+    # Get the phase of the complex-valued spectrogram
+    Xphase = torch.atan2(Xstft_imag, Xstft_real)
+    Xphase = torch.squeeze(Xphase, dim=0)
+
+    # Plot the magnitude of the complex-valued spectrogram
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.imshow(Xmag.t().numpy(), aspect='auto', origin='lower')
+    plt.xlabel('Time')
+    plt.ylabel('Frequency')
+    plt.title(title)
+
+    # Save the plot
+    plt.savefig('reports/figures/' + save_name + '_spectral_envelope.png')
+    plt.show()
+
+    # Plot the phase of the complex-valued spectrogram
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.imshow(Xphase.t().numpy(), aspect='auto', origin='lower')
+    plt.xlabel('Time')
+    plt.ylabel('Frequency')
+    plt.title(title)
+
+    # Save the plot
+    plt.savefig('reports/figures/' + save_name + '_spectral_envelope.png')
+    plt.show()
+
 
 if __name__ == '__main__':
     filename = "p226_009"
@@ -55,6 +97,10 @@ if __name__ == '__main__':
     # plot_waveform(noisy_waveform, noisy_sample_rate, 'Noisy waveform', filename)
 
     # Plot the amplitude density
-    amplitude_density(clean_waveform, clean_sample_rate, 'Clean amplitude density', filename)
-    amplitude_density(noisy_waveform, noisy_sample_rate, 'Noisy amplitude density', filename)
+    # amplitude_density(clean_waveform, clean_sample_rate, 'Clean amplitude density', filename)
+    # amplitude_density(noisy_waveform, noisy_sample_rate, 'Noisy amplitude density', filename)
+
+    # Plot the STFT spectrogram
+    stft_spectrogram(clean_waveform, clean_sample_rate, 'Clean STFT spectrogram_clean', filename + '_clean')
+    stft_spectrogram(noisy_waveform, noisy_sample_rate, 'Noisy STFT spectrogram_noisy', filename + '_noisy')
 
