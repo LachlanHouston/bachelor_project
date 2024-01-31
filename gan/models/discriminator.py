@@ -43,7 +43,7 @@ class Discriminator(nn.Module):
         x = self.fc_layers2(x)
         
         return x
-    
+
 def get_gradient_penalty(real_output, fake_output, model):
     alpha = torch.rand(real_output.shape[0], 1, 1, 1).requires_grad_(True)
 
@@ -57,12 +57,14 @@ def get_gradient_penalty(real_output, fake_output, model):
 
     return gradient_penalty
 
-def get_discriminator_loss(real_output, fake_output, model, alpha=10.):
-    real_loss = torch.mean(real_output)
-    fake_loss = torch.mean(fake_output)
-    gradient_penalty = get_gradient_penalty(real_output, fake_output, model)
-    total_loss = fake_loss - real_loss + alpha * gradient_penalty
-    return total_loss
+def get_discriminator_loss(D_real, D_fake, model, alpha_fidelity=10.):
+    D_real_mean = torch.mean(D_real)
+    D_fake_mean = torch.mean(D_fake)
+    D_adv_loss = D_fake_mean - D_real_mean
+    gradient_penalty = get_gradient_penalty(D_real, D_fake, model)
+    D_loss = D_adv_loss + alpha_fidelity * gradient_penalty
+    return D_loss
+
 
 if __name__ == '__main__':
     real1, sample_rate1 = torchaudio.load('data/clean_raw/p226_004.wav')

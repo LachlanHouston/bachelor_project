@@ -1,10 +1,17 @@
-from models.DPRNN import DPRNN
+import sys
+import os
+base_path = os.path.expanduser('~/bachelor_project')
+if base_path not in sys.path:
+    sys.path.insert(0, base_path)
+    sys.path =  base_path
+print("sys.path:", sys.path)
+from gan.models.DPRNN import DPRNN
 import torch
 from torch import nn
 import torch.nn.functional as F
 import torchaudio
-import matplotlib.pyplot as plt
 
+plot = False
 
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
@@ -151,29 +158,30 @@ if __name__ == '__main__':
     print("Shape of in_waveform:", in_waveform.shape)
     print("Shape of out_waveform:", out_waveform.shape)
 
-    '''Plot old waveform'''
-    # Convert the waveform tensor to a numpy array
-    waveform_np = in_waveform.squeeze().detach().numpy()
-    # Create a time axis for the waveform
-    time_axis = torch.arange(0, waveform_np.shape[0])
-    # Plot the waveform
-    plt.plot(time_axis, waveform_np)
-    plt.xlabel('Time')
-    plt.ylabel('Amplitude')
-    plt.title('Old Waveform')
-    plt.show()
+    if plot:
+        '''Plot old waveform'''
+        # Convert the waveform tensor to a numpy array
+        waveform_np = in_waveform.squeeze().detach().numpy()
+        # Create a time axis for the waveform
+        time_axis = torch.arange(0, waveform_np.shape[0])
+        # Plot the waveform
+        plt.plot(time_axis, waveform_np)
+        plt.xlabel('Time')
+        plt.ylabel('Amplitude')
+        plt.title('Old Waveform')
+        plt.show()
 
-    '''Plot new waveform'''
-    # Convert the waveform tensor to a numpy array
-    waveform_np = out_waveform.squeeze().detach().numpy()
-    # Create a time axis for the waveform
-    time_axis = torch.arange(0, waveform_np.shape[0])
-    # Plot the waveform
-    plt.plot(time_axis, waveform_np)
-    plt.xlabel('Time')
-    plt.ylabel('Amplitude')
-    plt.title('New Waveform')
-    plt.show()
+        '''Plot new waveform'''
+        # Convert the waveform tensor to a numpy array
+        waveform_np = out_waveform.squeeze().detach().numpy()
+        # Create a time axis for the waveform
+        time_axis = torch.arange(0, waveform_np.shape[0])
+        # Plot the waveform
+        plt.plot(time_axis, waveform_np)
+        plt.xlabel('Time')
+        plt.ylabel('Amplitude')
+        plt.title('New Waveform')
+        plt.show()
 
 
 

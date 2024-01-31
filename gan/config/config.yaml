@@ -4,11 +4,13 @@ hyperparameters:
   learning_rate: 1e-4
   max_epochs: 2
   data_fraction: 0.1
-  alpha_fidelity_loss: 10   # 10 used in UnSE paper
+  alpha_fidelity: 10   # 10 used in UnSE paper
   alpha_gp: 10              # 10 used in UnSE paper
 wandb:
   project: "Bachelor_Project"
   name: "test_run"
 training:
-  device: "cuda" if torch.cuda.is_available() else "cpu"
+  device: "cuda"
   save_model: False
+  clean_processed_path: 'data/clean_raw/'
+  noisy_processed_path: 'data/noisy_raw/'

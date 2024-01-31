@@ -2,7 +2,7 @@ import torchaudio
 import os
 import torch
 from torch.nn import functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, new_sample_rate=16000):
@@ -59,10 +59,9 @@ def collate_fn(batch):
 if __name__ == '__main__':
     clean_processed_path = 'data/clean_raw/'
     noisy_processed_path = 'data/noisy_raw/'
-    
     dataset = AudioDataset(clean_processed_path, noisy_processed_path)
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
-
+    loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+    
     for i, (clean_stft, noisy_stft) in enumerate(dataloader):
         print(clean_stft[0].shape)
         print(noisy_stft[0].shape)
