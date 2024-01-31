@@ -183,8 +183,8 @@ personal/
 outputs/
 
 # Data
-dataset/clean_raw/
-dataset/clean_processed/
-dataset/noisy_raw/
-dataset/noisy_processed/
-/dataset
+data/clean_raw/
+data/clean_processed/
+data/noisy_raw/
+data/noisy_processed/
+/data
