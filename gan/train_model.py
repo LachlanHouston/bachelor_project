@@ -13,6 +13,8 @@ torch.manual_seed(42)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+    # Print current config
+    print(f"configuration: \n {OmegaConf.to_yaml(cfg)}")
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
