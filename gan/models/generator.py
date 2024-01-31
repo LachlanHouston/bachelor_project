@@ -1,12 +1,12 @@
-import sys
-import os
 from gan.models.DPRNN import DPRNN
 import torch
 from torch import nn
 import torch.nn.functional as F
 import torchaudio
+import matplotlib.pyplot as plt
+# from gan import waveform_to_stft, stft_to_waveform
 
-plot = False
+plot = True
 
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
@@ -118,6 +118,22 @@ params = {
          (128,  32, (5, 2), (2, 1), (2, 0), (1, 0)),
          [ 64,   0, (5, 2), (2, 1), (1, 0), (0, 0), True]]
 }
+def stft_to_waveform(stft):
+    # Separate the real and imaginary components
+    stft_real = stft[:, 0, :, :]
+    stft_imag = stft[:, 1, :, :]
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    stft = torch.complex(stft_real, stft_imag)
+    # Perform inverse STFT to obtain the waveform
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
+    return waveform
+
+def waveform_to_stft(waveform):
+    # Perform STFT to obtain the complex-valued spectrogram
+    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    # Separate the real and imaginary components
+    stft = torch.stack([stft.real, stft.imag], dim=1)
+    return stft
 
 if __name__ == '__main__':
     # Load the waveform
@@ -126,11 +142,9 @@ if __name__ == '__main__':
     # Downsample to 16 kHz
     in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
     sample_rate = 16000
+    
+    input = waveform_to_stft(in_waveform)
 
-    # Apply STFT
-    Xstft = torch.stft(in_waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
-    input = torch.stack([Xstft.real, Xstft.imag], dim=1)
-    # input = torch.cat(input_list, dim=1)
     print("input shape:", input.shape)
 
     # Initialize the generator
@@ -140,14 +154,7 @@ if __name__ == '__main__':
     output = generator(input)
     print("Output shape:", output.shape)
 
-    '''Convert to waveform'''
-    # Separate the real and imaginary components
-    Ystft_real = output[:, 0, :, :]
-    Ystft_imag = output[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    Ystft = torch.complex(Ystft_real, Ystft_imag)
-    # Perform inverse STFT to obtain the waveform
-    out_waveform = torch.istft(Ystft, n_fft=512, hop_length=100, win_length=400)
+    out_waveform = stft_to_waveform(output)
 
     # Print the shape of the waveform tensor
     print("Shape of in_waveform:", in_waveform.shape)
