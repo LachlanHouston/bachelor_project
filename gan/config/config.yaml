@@ -9,8 +9,8 @@ hyperparameters:
 wandb:
   project: "Bachelor_Project"
   name: "test_run"
-training:
-  device: "cuda"
-  save_model: False
-  clean_processed_path: 'data/clean_raw/'
-  noisy_processed_path: 'data/noisy_raw/'
+
+device: "cuda"
+save_model: False
+clean_processed_path: 'dataset/clean_raw/'
+noisy_processed_path: 'dataset/noisy_raw/'

@@ -2,7 +2,7 @@ import torchaudio
 import os
 import torch
 from torch.nn import functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, new_sample_rate=16000):
@@ -56,13 +56,32 @@ def collate_fn(batch):
     clean_stft, noisy_stft = zip(*batch)
     return clean_stft, noisy_stft
 
+def stft_to_waveform(stft):
+    # Separate the real and imaginary components
+    stft_real = stft[:, 0, :, :]
+    stft_imag = stft[:, 1, :, :]
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    stft = torch.complex(stft_real, stft_imag)
+    # Perform inverse STFT to obtain the waveform
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
+    return waveform
+
+def waveform_to_stft(waveform):
+    # Perform STFT to obtain the complex-valued spectrogram
+    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    # Separate the real and imaginary components
+    stft = torch.stack([stft.real, stft.imag], dim=1)
+    return stft
+
+
 if __name__ == '__main__':
     clean_processed_path = 'data/clean_raw/'
     noisy_processed_path = 'data/noisy_raw/'
+    
     dataset = AudioDataset(clean_processed_path, noisy_processed_path)
     loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
     
-    for i, (clean_stft, noisy_stft) in enumerate(dataloader):
+    for i, (clean_stft, noisy_stft) in enumerate(loader):
         print(clean_stft[0].shape)
         print(noisy_stft[0].shape)
         break

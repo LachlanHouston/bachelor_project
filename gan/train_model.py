@@ -9,14 +9,14 @@ from tqdm import tqdm
 torch.manual_seed(42)
 from data.data_loader import AudioDataset, collate_fn
 # Import models
-from gan import Generator, Discriminator
+from gan import Generator, Discriminator, get_discriminator_loss
 
 
 
 @hydra.main(config_name="config.yaml", config_path="config")
-def main(cfg, D_optimizer, G_optimizer):
+def main(cfg):
 
-    dataset = AudioDataset(cfg.clean_processed_path, cfg.noisy_processed_path)
+    dataset = AudioDataset("dataset/clean_raw/", "dataset/noisy_raw/")
     loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
 
     D_optimizer = None
@@ -48,7 +48,10 @@ def main(cfg, D_optimizer, G_optimizer):
         # Train the generator
         G_adv_loss = - torch.mean(D_fake)
         # wasserstein distance between noisy and generated:
-        G_fidelity_loss = wasserstein_distance(real_noisy.squeeze(0), fake_clean.squeeze(0))
+        # G_fidelity_loss = wasserstein_distance(real_noisy.squeeze(0), fake_clean.squeeze(0))
+        fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
+        real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
+        G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=2)**2
 
         G_loss = cfg.alpha_fidelity * G_fidelity_loss + G_adv_loss
 
