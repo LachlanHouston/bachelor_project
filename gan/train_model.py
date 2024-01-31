@@ -5,18 +5,21 @@ import hydra
 import os
 import wandb
 from omegaconf import OmegaConf
+import torchaudio
 from tqdm import tqdm
 torch.manual_seed(42)
 from data.data_loader import AudioDataset, collate_fn
 # Import models
 from gan import Generator, Discriminator, get_discriminator_loss
 
-
+wandb.init(mode="disabled")
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
-
-    dataset = AudioDataset("dataset/clean_raw/", "dataset/noisy_raw/")
+    # Load the waveform
+    clean_path = os.path.join(hydra.utils.get_original_cwd(), cfg.clean_processed_path)
+    noisy_path = os.path.join(hydra.utils.get_original_cwd(), cfg.noisy_processed_path)
+    dataset = AudioDataset(clean_path, noisy_path)
     loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
 
     D_optimizer = None
@@ -28,15 +31,16 @@ def main(cfg):
 
     epoch = 0
     discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
+    generator = Generator()
 
     # Model training
     for idx, (real_noisy, real_clean) in enumerate(tqdm(loader, leave=True)):
-        real_noisy = real_noisy.to(cfg.device)
+        # real_noisy = real_noisy.to(cfg.device)
 
         # Get outputs of discriminator and generator
-        fake_clean = Generator(real_noisy)
-        D_real = Discriminator(real_clean)
-        D_fake = Discriminator(fake_clean)
+        fake_clean = generator(real_noisy[0])
+        D_real = discriminator(real_clean)
+        D_fake = discriminator(fake_clean)
 
         # Train the discriminator
         D_loss = get_discriminator_loss(D_real, D_fake, discriminator, alpha=cfg.alpha_gp)

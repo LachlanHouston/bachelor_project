@@ -1,5 +1,5 @@
 hyperparameters:
-  batch_size: 64
+  batch_size: 1
   num_workers: 2
   learning_rate: 1e-4
   max_epochs: 2
@@ -12,5 +12,5 @@ wandb:
 
 device: "cuda"
 save_model: False
-clean_processed_path: 'dataset/clean_raw/'
-noisy_processed_path: 'dataset/noisy_raw/'
+clean_processed_path: 'data/clean_raw/'
+noisy_processed_path: 'data/noisy_raw/'

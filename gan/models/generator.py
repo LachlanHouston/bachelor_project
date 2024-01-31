@@ -59,9 +59,20 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(torch.nn.Module):
-    def __init__(self, param, in_channels=2, **kwargs):
+    def __init__(self, param=None, in_channels=2, **kwargs):
+        param = {
+        # (in_channels, out_channels, kernel_size, stride, padding)
+        "encoder":
+            [[  0,  32, (5, 2), (2, 1), (1, 1)],
+            ( 32,  64, (5, 2), (2, 1), (2, 1)),
+            ( 64, 128, (5, 2), (2, 1), (2, 1))],
+        # (in_channels, out_channels, kernel_size, stride, padding, output_padding, is_last)
+        "decoder":
+            [(256,  64, (5, 2), (2, 1), (2, 0), (1, 0)),
+            (128,  32, (5, 2), (2, 1), (2, 0), (1, 0)),
+            [ 64,   0, (5, 2), (2, 1), (1, 0), (0, 0), True]]
+        } 
         super().__init__()
-        self.debug = False
         self.mask = kwargs.get('mask', True)     
         self.mask_bound = kwargs.get('mask_bound', 'tanh')
         param["encoder"][0][0] = in_channels
@@ -106,18 +117,7 @@ class Generator(torch.nn.Module):
 # Define parameters for the generator
     # generator
 # model_nlayer_nchannel
-params = {
-    # (in_channels, out_channels, kernel_size, stride, padding)
-    "encoder":
-        [[  0,  32, (5, 2), (2, 1), (1, 1)],
-         ( 32,  64, (5, 2), (2, 1), (2, 1)),
-         ( 64, 128, (5, 2), (2, 1), (2, 1))],
-    # (in_channels, out_channels, kernel_size, stride, padding, output_padding, is_last)
-    "decoder":
-        [(256,  64, (5, 2), (2, 1), (2, 0), (1, 0)),
-         (128,  32, (5, 2), (2, 1), (2, 0), (1, 0)),
-         [ 64,   0, (5, 2), (2, 1), (1, 0), (0, 0), True]]
-}
+
 def stft_to_waveform(stft):
     # Separate the real and imaginary components
     stft_real = stft[:, 0, :, :]
@@ -137,10 +137,10 @@ def waveform_to_stft(waveform):
 
 if __name__ == '__main__':
     # Load the waveform
-    in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_004.wav', normalize=True)
+    in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_037.wav', normalize=True)
 
     # Downsample to 16 kHz
-    in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
+    in_waveform = torchaudio.transforms.Resample(16000, 16000)#(in_waveform)
     sample_rate = 16000
     
     input = waveform_to_stft(in_waveform)
@@ -148,7 +148,7 @@ if __name__ == '__main__':
     print("input shape:", input.shape)
 
     # Initialize the generator
-    generator = Generator(param=params, in_channels=2, debug=True)
+    generator = Generator()
 
     # Get the output from the generator
     output = generator(input)
