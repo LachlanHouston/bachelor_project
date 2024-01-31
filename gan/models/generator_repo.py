@@ -3,6 +3,8 @@ from DPRNN import DPRNN
 import torch
 from torch import nn
 import torch.nn.functional as F
+import torchaudio
+
 
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
@@ -116,17 +118,37 @@ params = {
 }
 
 
+waveform, sample_rate = torchaudio.load('data/clean_raw/p226_004.wav', normalize=True)
+print(waveform.shape)
 
-# Initialize the generator
+# Downsample to 16 kHz
+waveform = torchaudio.transforms.Resample(sample_rate, 16000)(waveform)
+sample_rate = 16000
+
+if len(waveform.shape) == 3 and waveform.shape[1] == 1:
+    waveform = waveform.squeeze(1)
+    print("yes")
+
+# Apply STFT
+Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+input = torch.stack([Xstft.real, Xstft.imag], dim=1)
+# input = torch.cat(input_list, dim=1)
+print("input shape:", input.shape)
+
+# # Initialize the generator
 generator = Generator(param=params, in_channels=2, debug=True)
 
-# Create a sample input tensor
-# Example dimensions: [batch size, channels, frequency bins, time frames]
-sample_input = torch.randn(1, 2, 257, 317)  # Adjust dimensions as needed
+# # Create a sample input tensor
+# # Example dimensions: [batch size, channels, frequency bins, time frames]
+# sample_input = torch.randn(1, 2, 257, 317)  # Adjust dimensions as needed
 
-# Get the output from the generator
-output = generator(sample_input)
+# # Get the output from the generator
+output = generator(input)
 
 # Output shape
 print("Output shape:", output.shape)
-print(torch.mean(sample_input), torch.mean(output))
+spectrogram = output.squeeze(0)
+# waveform = torchaudio.functional.istft(spectrogram, n_fft=512, hop_length=100, win_length=400, length=waveform.shape[1])
+torch.save((output, sample_rate, spectrogram), 'data/noisy_processed/' + "50000" + '.pt')
+
+
