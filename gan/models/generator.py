@@ -1,5 +1,4 @@
-
-from DPRNN import DPRNN
+from models.DPRNN import DPRNN
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -118,62 +117,63 @@ params = {
          [ 64,   0, (5, 2), (2, 1), (1, 0), (0, 0), True]]
 }
 
+if __name__ == '__main__':
+    # Load the waveform
+    in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_004.wav', normalize=True)
 
-in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_004.wav', normalize=True)
+    # Downsample to 16 kHz
+    in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
+    sample_rate = 16000
 
-# Downsample to 16 kHz
-in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
-sample_rate = 16000
+    # Apply STFT
+    Xstft = torch.stft(in_waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    input = torch.stack([Xstft.real, Xstft.imag], dim=1)
+    # input = torch.cat(input_list, dim=1)
+    print("input shape:", input.shape)
 
-# Apply STFT
-Xstft = torch.stft(in_waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
-input = torch.stack([Xstft.real, Xstft.imag], dim=1)
-# input = torch.cat(input_list, dim=1)
-print("input shape:", input.shape)
+    # Initialize the generator
+    generator = Generator(param=params, in_channels=2, debug=True)
 
-# Initialize the generator
-generator = Generator(param=params, in_channels=2, debug=True)
+    # Get the output from the generator
+    output = generator(input)
+    print("Output shape:", output.shape)
 
-# Get the output from the generator
-output = generator(input)
-print("Output shape:", output.shape)
+    '''Convert to waveform'''
+    # Separate the real and imaginary components
+    Ystft_real = output[:, 0, :, :]
+    Ystft_imag = output[:, 1, :, :]
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    Ystft = torch.complex(Ystft_real, Ystft_imag)
+    # Perform inverse STFT to obtain the waveform
+    out_waveform = torch.istft(Ystft, n_fft=512, hop_length=100, win_length=400)
 
-'''Convert to waveform'''
-# Separate the real and imaginary components
-Ystft_real = output[:, 0, :, :]
-Ystft_imag = output[:, 1, :, :]
-# Combine the real and imaginary components to form the complex-valued spectrogram
-Ystft = torch.complex(Ystft_real, Ystft_imag)
-# Perform inverse STFT to obtain the waveform
-out_waveform = torch.istft(Ystft, n_fft=512, hop_length=100, win_length=400)
+    # Print the shape of the waveform tensor
+    print("Shape of in_waveform:", in_waveform.shape)
+    print("Shape of out_waveform:", out_waveform.shape)
 
-# Print the shape of the waveform tensor
-print("Shape of in_waveform:", in_waveform.shape)
-print("Shape of out_waveform:", out_waveform.shape)
+    '''Plot old waveform'''
+    # Convert the waveform tensor to a numpy array
+    waveform_np = in_waveform.squeeze().detach().numpy()
+    # Create a time axis for the waveform
+    time_axis = torch.arange(0, waveform_np.shape[0])
+    # Plot the waveform
+    plt.plot(time_axis, waveform_np)
+    plt.xlabel('Time')
+    plt.ylabel('Amplitude')
+    plt.title('Old Waveform')
+    plt.show()
 
-'''Plot old waveform'''
-# Convert the waveform tensor to a numpy array
-waveform_np = in_waveform.squeeze().detach().numpy()
-# Create a time axis for the waveform
-time_axis = torch.arange(0, waveform_np.shape[0])
-# Plot the waveform
-plt.plot(time_axis, waveform_np)
-plt.xlabel('Time')
-plt.ylabel('Amplitude')
-plt.title('Old Waveform')
-plt.show()
-
-'''Plot new waveform'''
-# Convert the waveform tensor to a numpy array
-waveform_np = out_waveform.squeeze().detach().numpy()
-# Create a time axis for the waveform
-time_axis = torch.arange(0, waveform_np.shape[0])
-# Plot the waveform
-plt.plot(time_axis, waveform_np)
-plt.xlabel('Time')
-plt.ylabel('Amplitude')
-plt.title('New Waveform')
-plt.show()
+    '''Plot new waveform'''
+    # Convert the waveform tensor to a numpy array
+    waveform_np = out_waveform.squeeze().detach().numpy()
+    # Create a time axis for the waveform
+    time_axis = torch.arange(0, waveform_np.shape[0])
+    # Plot the waveform
+    plt.plot(time_axis, waveform_np)
+    plt.xlabel('Time')
+    plt.ylabel('Amplitude')
+    plt.title('New Waveform')
+    plt.show()
 
 
 
