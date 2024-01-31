@@ -54,9 +54,9 @@ def plot_waveform_and_spectrogram_from_path(path, title, save_name):
     plot_waveform_and_spectrogram(waveform, spectrogram, sample_rate, title, save_name)
 
 if __name__ == '__main__':
-    filename = 50000
-    # path = 'data/clean_processed/' + str(filename) + '.pt'
-    # plot_waveform_and_spectrogram_from_path(path, 'Clean', 'Clean_' + str(filename))
+    filename = 0
+    path = 'data/clean_processed/' + str(filename) + '.pt'
+    plot_waveform_and_spectrogram_from_path(path, 'Clean', 'Clean_' + str(filename))
 
     path = 'data/noisy_processed/' + str(filename) + '.pt'
     plot_waveform_and_spectrogram_from_path(path, 'Noisy', 'Noisy_' + str(filename))
