@@ -44,14 +44,12 @@ class Discriminator(nn.Module):
         
         return x
     
-def get_gradient_penalty(real_output, fake_output, Discriminator):
+def get_gradient_penalty(real_output, fake_output, model):
     alpha = torch.rand(real_output.shape[0], 1, 1, 1).requires_grad_(True)
-
-    Discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
 
     difference = fake_output - real_output
     interpolates = real_output + (alpha * difference)
-    out = Discriminator(interpolates)
+    out = model(interpolates)
 
     gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=torch.ones(out.size()), create_graph=True, retain_graph=True, only_inputs=True)[0]
     slopes = torch.sqrt(torch.sum(torch.square(gradients), axis=[1, 2, 3]))
@@ -59,10 +57,10 @@ def get_gradient_penalty(real_output, fake_output, Discriminator):
 
     return gradient_penalty
 
-def get_discriminator_loss(real_output, fake_output, alpha=10.):
+def get_discriminator_loss(real_output, fake_output, model, alpha=10.):
     real_loss = torch.mean(real_output)
     fake_loss = torch.mean(fake_output)
-    gradient_penalty = get_gradient_penalty(real_output, fake_output, Discriminator)
+    gradient_penalty = get_gradient_penalty(real_output, fake_output, model)
     total_loss = fake_loss - real_loss + alpha * gradient_penalty
     return total_loss
 
@@ -111,7 +109,9 @@ if __name__ == '__main__':
     print(x_real.shape)
     print(x_fake.shape)
 
-    loss = get_gradient_penalty(x_real, x_fake, Discriminator)
+    model = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
+
+    loss = get_discriminator_loss(x_real, x_fake, model)
     print(loss)
         
         
