@@ -1,10 +1,5 @@
 import sys
 import os
-base_path = os.path.expanduser('~/bachelor_project')
-if base_path not in sys.path:
-    sys.path.insert(0, base_path)
-    sys.path =  base_path
-print("sys.path:", sys.path)
 from gan.models.DPRNN import DPRNN
 import torch
 from torch import nn

@@ -2,28 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torchaudio
-
-def plot_spectrogram(spectrogram, sample_rate, title, save_name):
-    """Plot the spectrogram"""
-    fig, ax = plt.subplots(figsize=(12, 4))
-
-    # Remove all the zero padding
-    for i in range(spectrogram.shape[2]):
-        if torch.sum(spectrogram[:,:,i]) == 0:
-            spectrogram = spectrogram[:,:,:i]
-            break
-
-    im = ax.imshow(spectrogram.log2()[0,:,:].numpy(), aspect='auto', origin='lower',
-            interpolation='none')
-    plt.colorbar(im, ax=ax)
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
-    plt.title(title)
-
-    # Save the plot
-    plt.savefig('reports/figures/' + save_name + '_spectrogram.png')
-
-    plt.show()
+import scipy.stats as stats
 
 def plot_waveform(waveform, sample_rate, title, save_name):
     """Plot the waveform"""
@@ -35,28 +14,47 @@ def plot_waveform(waveform, sample_rate, title, save_name):
 
     # Save the plot
     plt.savefig('reports/figures/' + save_name + '_waveform.png')
-
     plt.show()
 
-def plot_waveform_and_spectrogram(waveform, spectrogram, sample_rate, title, save_name):
-    """Plot the waveform and spectrogram"""
-    plot_waveform(waveform, sample_rate, title, save_name)
-    plot_spectrogram(spectrogram, sample_rate, title, save_name)
+def amplitude_density(waveform, sample_rate, title, save_name):
+    """Plot the amplitude density"""
+    mean = waveform.mean()
+    std = waveform.std()
 
-def plot_waveform_and_spectrogram_from_path(path, title, save_name):
-    """Plot the waveform and spectrogram from the path"""
-    waveform, sample_rate, spectrogram = torch.load(path)
-    
-    print('Waveform shape: {}'.format(waveform.shape))
-    print('Sample rate: {}'.format(sample_rate))
-    print('Spectrogram shape: {}'.format(spectrogram.shape))
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.hist(waveform.t().numpy(), bins=100, density=True)
 
-    plot_waveform_and_spectrogram(waveform, spectrogram, sample_rate, title, save_name)
+    # Plot the PDF as an line
+    xmin, xmax = -0.3, 0.3
+    x = np.linspace(xmin, xmax, 100)
+    p = stats.norm.pdf(x, mean, std)
+    ax.plot(x, p, 'k', linewidth=2, color='r')
+
+
+    plt.xlabel('Amplitude')
+    plt.ylabel('Density')
+    plt.xlim(xmin, xmax)
+    plt.title(title)
+
+    # Save the plot
+    plt.savefig('reports/figures/' + save_name + '_amplitude_density.png')
+    plt.show()
+
 
 if __name__ == '__main__':
-    filename = 0
-    path = 'data/clean_processed/' + str(filename) + '.pt'
-    plot_waveform_and_spectrogram_from_path(path, 'Clean', 'Clean_' + str(filename))
+    filename = "p226_009"
 
-    path = 'data/noisy_processed/' + str(filename) + '.pt'
-    plot_waveform_and_spectrogram_from_path(path, 'Noisy', 'Noisy_' + str(filename))
+    clean_path = 'data/clean_raw/' + str(filename) + '.wav'
+    noisy_path = 'data/noisy_raw/' + str(filename) + '.wav'
+
+    clean_waveform, clean_sample_rate = torchaudio.load(clean_path)
+    noisy_waveform, noisy_sample_rate = torchaudio.load(noisy_path)
+
+    # Plot the waveform
+    # plot_waveform(clean_waveform, clean_sample_rate, 'Clean waveform', filename)
+    # plot_waveform(noisy_waveform, noisy_sample_rate, 'Noisy waveform', filename)
+
+    # Plot the amplitude density
+    amplitude_density(clean_waveform, clean_sample_rate, 'Clean amplitude density', filename)
+    amplitude_density(noisy_waveform, noisy_sample_rate, 'Noisy amplitude density', filename)
+

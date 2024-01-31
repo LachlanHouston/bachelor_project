@@ -9,9 +9,7 @@ from tqdm import tqdm
 torch.manual_seed(42)
 from data.data_loader import AudioDataset, collate_fn
 # Import models
-from models.generator import Generator
-from models.discriminator import Discriminator
-from models.discriminator import get_discriminator_loss
+from gan import Generator, Discriminator
 
 
 

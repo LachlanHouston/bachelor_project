@@ -1,2 +1,3 @@
-from gan.models.model import MyNeuralNet
-from gan.predict_model import predict
+from gan.models.generator import Generator
+from gan.models.discriminator import Discriminator
+from gan.models.DPRNN import DPRNN

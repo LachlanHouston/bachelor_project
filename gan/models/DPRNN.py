@@ -1,6 +1,5 @@
+import torch
 import torch.nn as nn
-
-# from https://github.com/yluo42/TAC/blob/master/utility/models.py
 
 class SingleRNN(nn.Module):
     """
@@ -97,3 +96,10 @@ class DPRNN(nn.Module):
         output = self.output(output)
             
         return output
+    
+if __name__ == '__main__':
+    # Test the model
+    model = DPRNN(256)
+    input = torch.randn(1, 2, 256, 256)
+    output = model(input)
+    print(output.shape)
