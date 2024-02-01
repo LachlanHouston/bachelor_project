@@ -16,21 +16,23 @@ class AudioDataset(Dataset):
         self.new_sample_rate = new_sample_rate
 
     def __len__(self):
-        return len(self.clean_files)
+        return len(self.noisy_files)
     
     def transform(self, waveform, sample_rate, max_length):
+        # Cut the waveform to 2 seconds
+        waveform = waveform[:, 0:2*sample_rate]
+
+        # If the waveform is shorter than 2 seconds, pad it with zeros
+        if waveform.shape[1] < 2*sample_rate:
+            waveform = F.pad(waveform, (0, 2*sample_rate - waveform.shape[1]), 'constant', 0)
+
         # Downsample to 16 kHz
         waveform = torchaudio.transforms.Resample(sample_rate, self.new_sample_rate)(waveform)
-        
-        # Pad the waveform to have the same length
-        waveform = F.pad(waveform, (0, max_length - waveform.shape[1]))
 
         # Process with stft
         Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hamming_window(400), return_complex=True)
-        data_list = [Xstft.real, Xstft.imag]
-        data = torch.cat(data_list, dim=1)
-
-        return data
+        stft = torch.stack([Xstft.real, Xstft.imag], dim=1)
+        return stft
 
     def __getitem__(self, idx, transform=True):
         if torch.is_tensor(idx):
@@ -73,13 +75,18 @@ def waveform_to_stft(waveform):
     stft = torch.stack([stft.real, stft.imag], dim=1)
     return stft
 
+def data_loader(clean_path, noisy_path, batch_size=32, num_workers=4):
+    dataset = AudioDataset(clean_path, noisy_path)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=num_workers, drop_last=True)
+    return loader
+
 
 if __name__ == '__main__':
     clean_processed_path = 'data/clean_raw/'
     noisy_processed_path = 'data/noisy_raw/'
     
     dataset = AudioDataset(clean_processed_path, noisy_processed_path)
-    loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+    loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn, drop_last=True)
     
     for i, (clean_stft, noisy_stft) in enumerate(loader):
         print(clean_stft[0].shape)

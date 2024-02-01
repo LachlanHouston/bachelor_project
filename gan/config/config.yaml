@@ -1,16 +1,19 @@
 hyperparameters:
-  batch_size: 1
-  num_workers: 2
+  batch_size: 16
+  num_workers: 8
   learning_rate: 1e-4
-  max_epochs: 2
-  data_fraction: 0.1
+  max_epochs: 5
+  data_fraction: 1
   alpha_fidelity: 10   # 10 used in UnSE paper
   alpha_gp: 10              # 10 used in UnSE paper
 wandb:
-  project: "Bachelor_Project"
-  name: "test_run"
+  entity: bachelor_gan
+  name: run_${now:%Y-%m-%d_%H-%M-%S}
+  project: test_runs
 
 device: "cuda"
 save_model: False
-clean_processed_path: 'data/clean_raw/'
-noisy_processed_path: 'data/noisy_raw/'
+
+data:
+  clean_processed_path: 'data/clean_raw/'
+  noisy_processed_path: 'data/noisy_raw/'

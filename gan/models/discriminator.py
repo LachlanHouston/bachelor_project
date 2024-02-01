@@ -44,24 +44,24 @@ class Discriminator(nn.Module):
         
         return x
 
-def get_gradient_penalty(real_output, fake_output, model):
-    alpha = torch.rand(real_output.shape[0], 1, 1, 1).requires_grad_(True)
+def get_gradient_penalty(real_output, fake_output, model, batch_size):
+    alpha = torch.rand(batch_size, 1, 1, 1).requires_grad_(True).cuda()
 
     difference = fake_output - real_output
     interpolates = real_output + (alpha * difference)
     out = model(interpolates)
 
-    gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=torch.ones(out.size()), create_graph=True, retain_graph=True, only_inputs=True)[0]
+    gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=torch.ones(out.size()), create_graph=True, retain_graph=True, only_inputs=True).cuda()[0]
     slopes = torch.sqrt(torch.sum(torch.square(gradients), axis=[1, 2, 3]))
     gradient_penalty = torch.mean((slopes - 1.) ** 2)
 
     return gradient_penalty
 
-def get_discriminator_loss(D_real, D_fake, model, alpha_fidelity=10.):
-    D_real_mean = torch.mean(D_real)
-    D_fake_mean = torch.mean(D_fake)
-    D_adv_loss = D_fake_mean - D_real_mean
-    gradient_penalty = get_gradient_penalty(D_real, D_fake, model)
+def get_discriminator_loss(D_real, D_fake, 
+                           real_input, fake_input,
+                           model, batch_size, alpha_fidelity=10.):
+    D_adv_loss = D_fake.mean() - D_real.mean()
+    gradient_penalty = get_gradient_penalty(real_input, fake_input, model, batch_size)
     D_loss = D_adv_loss + alpha_fidelity * gradient_penalty
     return D_loss
 
@@ -81,6 +81,7 @@ if __name__ == '__main__':
     fake5, _ = torchaudio.load('data/noisy_raw/p226_012.wav')
     fake6, _ = torchaudio.load('data/noisy_raw/p226_014.wav')
     sample_rate = sample_rate1
+    print(sample_rate)
     
     # Cut into 2 second chunks
     waveform1 = real1[:, 0:2*sample_rate]
@@ -99,12 +100,14 @@ if __name__ == '__main__':
     waveform6 = fake6[:, 0:2*sample_rate]
     fake_input = torch.cat((waveform1, waveform2, waveform3, waveform4, waveform5, waveform6), dim=0)
 
-    real_input = torchaudio.transforms.Resample(sample_rate, 16000)(real_input)
-    fake_input = torchaudio.transforms.Resample(sample_rate, 16000)(fake_input)
+    real_input = torchaudio.transforms.Resample(sample_rate, 16000)(real2[:, 0:2*sample_rate])
+    fake_input = torchaudio.transforms.Resample(sample_rate, 16000)(fake2[:, 0:2*sample_rate])
 
     # Apply STFT
     Xstft_real = torch.stft(real_input, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
+    print(Xstft_real.shape)
     Xstft_fake = torch.stft(fake_input, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
+    print(Xstft_fake.shape)
 
     x_real = torch.stack((Xstft_real.real, Xstft_real.imag), dim=1)
     x_fake = torch.stack((Xstft_fake.real, Xstft_fake.imag), dim=1)

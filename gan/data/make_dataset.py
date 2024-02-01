@@ -46,7 +46,7 @@ def save_data(waveform, sample_rate, spectrograms, path):
 
 
 if __name__ == '__main__':
-    # clean_data_path = 'data/clean_raw/'
+    clean_data_path = 'data/clean_raw/'
     # clean_processed_path = 'data/clean_processed/'
 
     # waveforms, sample_rates = get_data(clean_data_path)
@@ -54,8 +54,14 @@ if __name__ == '__main__':
     # save_data(waveforms, sample_rates, spectrograms, clean_processed_path)
 
     noisy_data_path = 'data/noisy_raw/'
-    noisy_processed_path = 'data/noisy_processed/'
+    # noisy_processed_path = 'data/noisy_processed/'
 
-    waveforms, sample_rates = get_data(noisy_data_path)
-    spectrograms = process_data(waveforms, sample_rates)
-    save_data(waveforms, sample_rates, spectrograms, noisy_processed_path)
+    # waveforms, sample_rates = get_data(noisy_data_path)
+    # spectrograms = process_data(waveforms, sample_rates)
+    # save_data(waveforms, sample_rates, spectrograms, noisy_processed_path)
+
+    # Check amount of data in each folder
+    clean_files = os.listdir(clean_data_path)
+    noisy_files = os.listdir(noisy_data_path)
+    print('Clean files: {}'.format(len(clean_files)))
+    print('Noisy files: {}'.format(len(noisy_files)))

@@ -181,6 +181,7 @@ personal/
 
 # Outputs
 outputs/
+lightning_logs/
 
 # Data
 data/clean_raw/
