@@ -1,22 +1,18 @@
 import torch
-from torch.utils.data import DataLoader
 import hydra
 import os
 import wandb
 from omegaconf import OmegaConf
-import torchaudio
-from tqdm import tqdm
-
-from data.data_loader import AudioDataset, collate_fn
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-import yaml
+
 # Import models
-from gan import Generator, Discriminator, get_discriminator_loss
+from gan import Generator, Discriminator
 from gan import Autoencoder
 
 torch.manual_seed(42)
+#wandb.init(False)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
@@ -24,7 +20,7 @@ def main(cfg):
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
-    # Load the waveform
+    # Define paths
     clean_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.clean_processed_path)
     noisy_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.noisy_processed_path)
 
@@ -32,6 +28,8 @@ def main(cfg):
                         generator=Generator(), 
                         batch_size=cfg.hyperparameters.batch_size, 
                         num_workers=cfg.hyperparameters.num_workers,
+                        alpha_penalty=cfg.hyperparameters.alpha_penalty,
+                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
                         clean_path=clean_path,
                         noisy_path=noisy_path)
     
@@ -40,8 +38,7 @@ def main(cfg):
         filename="{epoch}-{val_acc:.2f}",  # Checkpoint file name
         save_top_k=1,  # Save the top k models
         verbose=True,  # Print a message when a checkpoint is saved
-        monitor="val_acc",  # Metric to monitor for deciding the best model
-        mode="max",  # Mode for the monitored quantity for model selection
+        every_n_epochs = 1 # Save checkpoint every n epochs
     )
 
     trainer = Trainer(
@@ -61,3 +58,4 @@ def main(cfg):
 
 if __name__ == "__main__":
     main()
+    print("Done!")

@@ -10,6 +10,8 @@ class Autoencoder(L.LightningModule):
                     generator: Generator = None,
                     batch_size=6,
                     num_workers=4,
+                    alpha_penalty=10,
+                    alpha_fidelity=10,
                     clean_path='data/clean_raw/',
                     noisy_path='data/noisy_raw/'
                  ):
@@ -18,6 +20,8 @@ class Autoencoder(L.LightningModule):
         self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.alpha_penalty = alpha_penalty
+        self.alpha_fidelity = alpha_fidelity
         self.clean_path = clean_path
         self.noisy_path = noisy_path
 
@@ -33,7 +37,7 @@ class Autoencoder(L.LightningModule):
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=2)**2
 
-        G_loss = 10 * G_fidelity_loss + G_adv_loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         return G_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
@@ -51,7 +55,7 @@ class Autoencoder(L.LightningModule):
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
 
         D_adv_loss = d_fake.mean() - d_real.mean()
-        D_loss = D_adv_loss + 10 * gradient_penalty
+        D_loss = D_adv_loss + self.alpha_penalty * gradient_penalty
 
         return D_loss
         

@@ -4,8 +4,9 @@ hyperparameters:
   learning_rate: 1e-4
   max_epochs: 5
   data_fraction: 1
+  alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
-  alpha_gp: 10              # 10 used in UnSE paper
+  
 wandb:
   entity: bachelor_gan
   name: run_${now:%Y-%m-%d_%H-%M-%S}
