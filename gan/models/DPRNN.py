@@ -82,13 +82,13 @@ class DPRNN(nn.Module):
         output = input
         for i in range(len(self.row_rnn)):
             row_input = output.permute(0,3,2,1).contiguous().view(batch_size*dim2, dim1, -1)  # B*dim2, dim1, N
-            row_output = self.row_rnn[i](row_input)  # B*dim2, dim1, H
+            row_output = self.row_rnn[i](row_input)  # B*dim2, dim1, H ##### tager lang tid #####
             row_output = row_output.view(batch_size, dim2, dim1, -1).permute(0,3,2,1).contiguous()  # B, N, dim1, dim2
             row_output = self.row_norm[i](row_output)
             output = output + row_output
             
             col_input = output.permute(0,2,3,1).contiguous().view(batch_size*dim1, dim2, -1)  # B*dim1, dim2, N
-            col_output = self.col_rnn[i](col_input)  # B*dim1, dim2, H
+            col_output = self.col_rnn[i](col_input)  # B*dim1, dim2, H ##### tager lang tid #####
             col_output = col_output.view(batch_size, dim1, dim2, -1).permute(0,3,1,2).contiguous()  # B, N, dim1, dim2
             col_output = self.col_norm[i](col_output)
             output = output + col_output

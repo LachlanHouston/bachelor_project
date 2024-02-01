@@ -34,13 +34,14 @@ def main(cfg):
     generator = Generator()
 
     # Model training
-    for idx, (real_noisy, real_clean) in enumerate(tqdm(loader, leave=True)):
+    for idx, (real_clean, real_noisy) in enumerate(tqdm(loader, leave=True)):
         # real_noisy = real_noisy.to(cfg.device)
 
         # Get outputs of discriminator and generator
-        fake_clean = generator(real_noisy[0])
+        # fake_clean = generator(real_noisy)
         D_real = discriminator(real_clean)
-        D_fake = discriminator(fake_clean)
+        # D_fake = discriminator(fake_clean)
+        D_fake = torch.randn_like(D_real)
 
         # Train the discriminator
         D_loss = get_discriminator_loss(D_real, D_fake, discriminator, alpha=cfg.alpha_gp)

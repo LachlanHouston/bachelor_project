@@ -4,6 +4,23 @@ import torch
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 
+def stft_to_waveform(stft):
+    # Separate the real and imaginary components
+    stft_real = stft[:, 0, :, :]
+    stft_imag = stft[:, 1, :, :]
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    stft = torch.complex(stft_real, stft_imag)
+    # Perform inverse STFT to obtain the waveform
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
+    return waveform
+
+def waveform_to_stft(waveform):
+    # Perform STFT to obtain the complex-valued spectrogram
+    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    # Separate the real and imaginary components
+    stft = torch.stack([stft.real, stft.imag], dim=1)
+    return stft
+
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, new_sample_rate=16000):
         super(AudioDataset, self).__init__()
@@ -25,10 +42,12 @@ class AudioDataset(Dataset):
         # Pad the waveform to have the same length
         waveform = F.pad(waveform, (0, max_length - waveform.shape[1]))
 
-        # Process with stft
-        Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hamming_window(400), return_complex=True)
-        data_list = [Xstft.real, Xstft.imag]
-        data = torch.cat(data_list, dim=1)
+        # # Process with stft
+        # Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hamming_window(400), return_complex=True)
+        # data_list = [Xstft.real, Xstft.imag]
+        # data = torch.cat(data_list, dim=1)
+        
+        data = waveform_to_stft(waveform)
 
         return data
 
@@ -42,37 +61,21 @@ class AudioDataset(Dataset):
         clean_waveform, clean_sample_rate = torchaudio.load(self.clean_path + clean_file)
         noisy_waveform, noisy_sample_rate = torchaudio.load(self.noisy_path + noisy_file)
 
-        clean_stft = None
-        noisy_stft = None
         max_length = 725379
 
         if transform:
-            clean_stft = self.transform(clean_waveform, clean_sample_rate, max_length)
-            noisy_stft = self.transform(noisy_waveform, noisy_sample_rate, max_length)
+            clean_stft = self.transform(clean_waveform, clean_sample_rate, max_length)[0]
+            noisy_stft = self.transform(noisy_waveform, noisy_sample_rate, max_length)[0]
+        else:
+            clean_stft = noisy_stft = None
 
         return clean_stft, noisy_stft
     
 def collate_fn(batch):
     clean_stft, noisy_stft = zip(*batch)
+    clean_stft = torch.stack(clean_stft, dim=0)
+    noisy_stft = torch.stack(noisy_stft, dim=0)
     return clean_stft, noisy_stft
-
-def stft_to_waveform(stft):
-    # Separate the real and imaginary components
-    stft_real = stft[:, 0, :, :]
-    stft_imag = stft[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
-    # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
-    return waveform
-
-def waveform_to_stft(waveform):
-    # Perform STFT to obtain the complex-valued spectrogram
-    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
-    # Separate the real and imaginary components
-    stft = torch.stack([stft.real, stft.imag], dim=1)
-    return stft
-
 
 if __name__ == '__main__':
     clean_processed_path = 'data/clean_raw/'

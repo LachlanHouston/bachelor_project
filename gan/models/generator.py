@@ -59,7 +59,7 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(torch.nn.Module):
-    def __init__(self, param=None, in_channels=2, **kwargs):
+    def __init__(self, param=None, in_channels=2, debug=False, **kwargs):
         param = {
         # (in_channels, out_channels, kernel_size, stride, padding)
         "encoder":
@@ -73,6 +73,7 @@ class Generator(torch.nn.Module):
             [ 64,   0, (5, 2), (2, 1), (1, 0), (0, 0), True]]
         } 
         super().__init__()
+        self.debug = debug
         self.mask = kwargs.get('mask', True)     
         self.mask_bound = kwargs.get('mask_bound', 'tanh')
         param["encoder"][0][0] = in_channels
@@ -140,8 +141,8 @@ if __name__ == '__main__':
     in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_037.wav', normalize=True)
 
     # Downsample to 16 kHz
-    in_waveform = torchaudio.transforms.Resample(16000, 16000)#(in_waveform)
-    sample_rate = 16000
+    resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
+    in_waveform = resampler(in_waveform)
     
     input = waveform_to_stft(in_waveform)
 

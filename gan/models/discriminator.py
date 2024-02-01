@@ -113,6 +113,8 @@ if __name__ == '__main__':
 
     model = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
 
+    
+
     loss = get_discriminator_loss(x_real, x_fake, model)
     print(loss)
         
