@@ -3,6 +3,7 @@ import os
 import torch
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
 
 def stft_to_waveform(stft):
     # Separate the real and imaginary components
@@ -85,6 +86,7 @@ if __name__ == '__main__':
     loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
     
     for i, (clean_stft, noisy_stft) in enumerate(loader):
-        print(clean_stft[0].shape)
-        print(noisy_stft[0].shape)
+        print(clean_stft.shape)
+        print(noisy_stft.shape)        
+        
         break
