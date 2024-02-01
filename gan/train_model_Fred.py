@@ -38,10 +38,10 @@ def main(cfg):
         # real_noisy = real_noisy.to(cfg.device)
 
         # Get outputs of discriminator and generator
-        # fake_clean = generator(real_noisy)
+        fake_clean = generator(real_noisy)
         D_real = discriminator(real_clean)
-        # D_fake = discriminator(fake_clean)
-        D_fake = torch.randn_like(D_real)
+        D_fake = discriminator(fake_clean)
+
 
         # Train the discriminator
         D_loss = get_discriminator_loss(D_real, D_fake, discriminator, alpha=cfg.alpha_gp)
