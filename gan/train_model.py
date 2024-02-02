@@ -11,6 +11,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from gan import Generator, Discriminator
 from gan import Autoencoder
 
+# Import data
+from gan import data_loader
+
 torch.manual_seed(42)
 #wandb.init(False)
 
@@ -23,14 +26,14 @@ def main(cfg):
     clean_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.clean_processed_path)
     noisy_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.noisy_processed_path)
 
+    # Load the data loaders
+    train_loader, val_loader, test_loader = data_loader(clean_path, noisy_path, cfg.data.split, cfg.hyperparameters.batch_size, cfg.hyperparameters.num_workers)
+    print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(), 
-                        batch_size=cfg.hyperparameters.batch_size, 
-                        num_workers=cfg.hyperparameters.num_workers,
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
-                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
-                        clean_path=clean_path,
-                        noisy_path=noisy_path)
+                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
@@ -53,7 +56,8 @@ def main(cfg):
         callbacks=[checkpoint_callback],
     )
 
-    trainer.fit(model)
+    trainer.fit(model, train_loader, val_loader)
+    trainer.test(model, test_loader)
 
 
 if __name__ == "__main__":

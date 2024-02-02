@@ -18,50 +18,70 @@ def get_data(path):
     
     print('Loaded {} files'.format(len(waveforms)))
 
-    return waveforms, sample_rates
+    # Split into train and test
+    num_test = len(waveforms) // 10
+    test_waveforms = waveforms[:num_test]
+    test_sample_rates = sample_rates[:num_test]
+    waveforms = waveforms[num_test:]
+    sample_rates = sample_rates[num_test:]
 
-def process_data(waveforms, sample_rates):
-    """Process the data into spectrograms"""
-    # Pad the waveforms to have the same length
-    max_length = max([waveform.shape[1] for waveform in waveforms])
-    # Round up to nearest 2 ** n
-    max_length = 2 ** (max_length - 1).bit_length()
-    print('Max length after rounding up to nearest 2 ** n: {}'.format(max_length))
-    waveforms = [F.pad(waveform, (0, max_length - waveform.shape[1])) for waveform in waveforms]
+    print('Train: {} files, Test: {} files'.format(len(waveforms), len(test_waveforms)))
 
-    # Process the data into spectrograms
-    spectrograms = []
-    for waveform, sample_rate in zip(waveforms, sample_rates):
-        spectrogram = torchaudio.transforms.Spectrogram()(waveform)
-        spectrograms.append(spectrogram)
+    return waveforms, sample_rates, test_waveforms, test_sample_rates
 
-    print('Processed {} spectrograms'.format(len(spectrograms)))
+def process_data(waveforms, sample_rates, n_seconds=2):
+    # Cut the waveforms to n seconds chunks
+    new_waveforms = []
+    
+    # Cut the waveforms to n seconds chunks, pad the last one if necessary
+    for i, waveform in enumerate(waveforms):
+        # Downsample the waveform to 16kHz
+        new_freq=16000
+        waveform = torchaudio.transforms.Resample(orig_freq=sample_rates[i], new_freq=new_freq)(waveform)
 
-    return spectrograms
+        n_samples = n_seconds * new_freq
+        n_chunks = waveform.size(1) // n_samples
+        for j in range(n_chunks):
+            new_waveforms.append(waveform[:, j*n_samples:(j+1)*n_samples])
+        if waveform.size(1) != n_chunks * n_samples:
+            padding = n_samples - (waveform.size(1) - n_chunks * n_samples)
+            new_waveforms.append(F.pad(waveform[:, n_chunks*n_samples:], (0, padding)))
 
-def save_data(waveform, sample_rate, spectrograms, path):
-    """Save the data to the path"""
-    for i, spectrogram in enumerate(spectrograms):
-        torch.save((waveform[i], sample_rate[i], spectrogram), path + str(i) + '.pt')
+    print('Processed {} files'.format(len(new_waveforms)))
 
+    return new_waveforms
+
+def save_data(waveforms, path):
+    """Save the data into the path"""
+    for i, waveform in enumerate(waveforms):
+        torchaudio.save(path + 'waveform_{}.wav'.format(i), waveform, 16000)
+
+    print('Saved {} files'.format(len(waveforms)))
+
+def assert_data(waveforms):
+    """Assert that the data is correct"""
+    for i, waveform in enumerate(waveforms):
+        assert waveform.size(1) == 32000 or waveform.size(1) == 16000
 
 if __name__ == '__main__':
+    print('Processing clean and noisy data...')
     clean_data_path = 'data/clean_raw/'
-    # clean_processed_path = 'data/clean_processed/'
-
-    # waveforms, sample_rates = get_data(clean_data_path)
-    # spectrograms = process_data(waveforms, sample_rates)
-    # save_data(waveforms, sample_rates, spectrograms, clean_processed_path)
-
     noisy_data_path = 'data/noisy_raw/'
-    # noisy_processed_path = 'data/noisy_processed/'
 
-    # waveforms, sample_rates = get_data(noisy_data_path)
-    # spectrograms = process_data(waveforms, sample_rates)
-    # save_data(waveforms, sample_rates, spectrograms, noisy_processed_path)
+    clean_waveforms, clean_sample_rates, test_clean_waveforms, test_clean_sample_rates = get_data(clean_data_path)
+    noisy_waveforms, noisy_sample_rates, test_noisy_waveforms, test_noisy_sample_rates = get_data(noisy_data_path)
 
-    # Check amount of data in each folder
-    clean_files = os.listdir(clean_data_path)
-    noisy_files = os.listdir(noisy_data_path)
-    print('Clean files: {}'.format(len(clean_files)))
-    print('Noisy files: {}'.format(len(noisy_files)))
+    clean_waveforms = process_data(clean_waveforms, clean_sample_rates)
+    noisy_waveforms = process_data(noisy_waveforms, noisy_sample_rates)
+    test_clean_waveforms = process_data(test_clean_waveforms, test_clean_sample_rates)
+    test_noisy_waveforms = process_data(test_noisy_waveforms, test_noisy_sample_rates)
+
+    assert_data(clean_waveforms)
+    assert_data(noisy_waveforms)
+    assert_data(test_clean_waveforms)
+    assert_data(test_noisy_waveforms)
+
+    save_data(clean_waveforms, 'data/clean_processed/')
+    save_data(noisy_waveforms, 'data/noisy_processed/')
+    save_data(test_clean_waveforms, 'data/test_clean_processed/')
+    save_data(test_noisy_waveforms, 'data/test_noisy_processed/')

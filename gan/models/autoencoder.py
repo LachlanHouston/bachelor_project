@@ -1,3 +1,5 @@
+from typing import Any
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.data.data_loader import data_loader
@@ -8,22 +10,30 @@ class Autoencoder(L.LightningModule):
     def __init__(self, 
                     discriminator: Discriminator = None,
                     generator: Generator = None,
-                    batch_size=6,
-                    num_workers=4,
                     alpha_penalty=10,
-                    alpha_fidelity=10,
-                    clean_path='data/clean_raw/',
-                    noisy_path='data/noisy_raw/'
+                    alpha_fidelity=10
                  ):
         super().__init__()
         self.generator = Generator()
         self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
-        self.batch_size = batch_size
-        self.num_workers = num_workers
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
-        self.clean_path = clean_path
-        self.noisy_path = noisy_path
+        
+    def on_validation_model_eval(self, *args, **kwargs):
+        super().on_validation_model_eval(*args, **kwargs)
+        torch.set_grad_enabled(True)
+
+    def on_validation_model_train(self, *args, **kwargs):
+        super().on_validation_model_train(*args, **kwargs)
+        torch.set_grad_enabled(False)
+
+    def on_test_model_eval(self, *args, **kwargs):
+        super().on_test_model_eval(*args, **kwargs)
+        torch.set_grad_enabled(True)
+
+    def on_test_model_train(self, *args, **kwargs):
+        super().on_test_model_train(*args, **kwargs)
+        torch.set_grad_enabled(False)
 
     def forward(self, real_clean, real_noisy):
         d_real = self.discriminator(real_clean)
@@ -41,7 +51,7 @@ class Autoencoder(L.LightningModule):
         return G_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
-        alpha = torch.rand(self.batch_size, 1, 1, 1).to(self.device)
+        alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
 
         difference = (fake_input - real_input)
         interpolates = (real_input + (alpha * difference))
@@ -59,7 +69,6 @@ class Autoencoder(L.LightningModule):
 
         return D_loss
         
-    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
 
@@ -89,16 +98,71 @@ class Autoencoder(L.LightningModule):
         self.log('Combined loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         return loss
-
     
-    def train_dataloader(self):
-        loader = data_loader(self.clean_path, self.noisy_path, batch_size=self.batch_size, num_workers=self.num_workers)
-        return loader
+    def validation_step(self, batch, batch_idx):
+        torch.set_grad_enabled(True)
+        real_clean = batch[0]
+        real_noisy = batch[1]
+
+        # Remove tuples and convert to tensors
+        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+
+        d_real = self.discriminator(real_clean)
+        fake_clean = self.generator(real_noisy)
+        d_fake = self.discriminator(fake_clean)
+
+        # Train the generator
+        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+
+        # Train the discriminator
+        D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+        
+        # Compute total loss
+        loss = D_loss + G_loss
+
+        self.log('Val D_loss', D_loss)
+        self.log('Val G_loss', G_loss)
+        self.log('Val Combined loss', loss)
+
+    def test_step(self, batch, batch_idx):
+        torch.set_grad_enabled(True)
+        real_clean = batch[0]
+        real_noisy = batch[1]
+
+        # Remove tuples and convert to tensors
+        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+
+        d_real = self.discriminator(real_clean)
+        fake_clean = self.generator(real_noisy)
+        d_fake = self.discriminator(fake_clean)
+
+        # Train the discriminator
+        D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+        
+        # Train the generator
+        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+
+        # Compute total loss
+        test_loss = D_loss + G_loss
+
+        self.log('Test D_loss', D_loss)
+        self.log('Test G_loss', G_loss)
+        self.log('Test Combined loss', test_loss)
+
     
 
 if __name__ == "__main__":
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), batch_size=16, num_workers=8)
-    trainer = L.Trainer(max_epochs=10, accelerator='auto')
-    trainer.fit(model)
+    # Print Device
+    print(torch.cuda.is_available())
+    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=16, num_workers=8)
+    print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+
+    model = Autoencoder(discriminator=Discriminator(), generator=Generator())
+    trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=2,
+                        log_every_n_steps=1, limit_train_batches=10, limit_val_batches=10, limit_test_batches=10)
+    trainer.fit(model, train_loader, val_loader)
+    trainer.test(model, test_loader)
 
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
