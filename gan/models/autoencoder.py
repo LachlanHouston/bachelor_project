@@ -41,7 +41,7 @@ class Autoencoder(L.LightningModule):
         return G_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
-        alpha = torch.rand(self.batch_size, 1, 1, 1).requires_grad_().to(self.device)
+        alpha = torch.rand(self.batch_size, 1, 1, 1).to(self.device)
 
         difference = (fake_input - real_input)
         interpolates = (real_input + (alpha * difference))
