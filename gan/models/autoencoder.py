@@ -5,6 +5,7 @@ from gan.models.discriminator import Discriminator
 from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
+from torchmetrics.audio import SignalNoiseRatio
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
@@ -18,22 +19,6 @@ class Autoencoder(L.LightningModule):
         self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
-        
-    def on_validation_model_eval(self, *args, **kwargs):
-        super().on_validation_model_eval(*args, **kwargs)
-        torch.set_grad_enabled(True)
-
-    def on_validation_model_train(self, *args, **kwargs):
-        super().on_validation_model_train(*args, **kwargs)
-        torch.set_grad_enabled(False)
-
-    def on_test_model_eval(self, *args, **kwargs):
-        super().on_test_model_eval(*args, **kwargs)
-        torch.set_grad_enabled(True)
-
-    def on_test_model_train(self, *args, **kwargs):
-        super().on_test_model_train(*args, **kwargs)
-        torch.set_grad_enabled(False)
 
     def forward(self, real_clean, real_noisy):
         d_real = self.discriminator(real_clean)
@@ -100,7 +85,7 @@ class Autoencoder(L.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        torch.set_grad_enabled(True)
+        # Compute batch SNR
         real_clean = batch[0]
         real_noisy = batch[1]
 
@@ -108,25 +93,16 @@ class Autoencoder(L.LightningModule):
         real_clean = torch.stack(real_clean, dim=1).squeeze(0)
         real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
-        d_real = self.discriminator(real_clean)
         fake_clean = self.generator(real_noisy)
-        d_fake = self.discriminator(fake_clean)
 
-        # Train the generator
-        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+        # Signal to Noise Ratio
+        snr = SignalNoiseRatio()
+        snr_val = snr(fake_clean, real_clean)
 
-        # Train the discriminator
-        D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
-        
-        # Compute total loss
-        loss = D_loss + G_loss
-
-        self.log('Val D_loss', D_loss)
-        self.log('Val G_loss', G_loss)
-        self.log('Val Combined loss', loss)
+        self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
-        torch.set_grad_enabled(True)
+        # Compute test SNR
         real_clean = batch[0]
         real_noisy = batch[1]
 
@@ -134,29 +110,18 @@ class Autoencoder(L.LightningModule):
         real_clean = torch.stack(real_clean, dim=1).squeeze(0)
         real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
-        d_real = self.discriminator(real_clean)
         fake_clean = self.generator(real_noisy)
-        d_fake = self.discriminator(fake_clean)
 
-        # Train the discriminator
-        D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
-        
-        # Train the generator
-        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+        # Signal to Noise Ratio
+        snr = SignalNoiseRatio()
+        snr_val = snr(fake_clean, real_clean)
 
-        # Compute total loss
-        test_loss = D_loss + G_loss
-
-        self.log('Test D_loss', D_loss)
-        self.log('Test G_loss', G_loss)
-        self.log('Test Combined loss', test_loss)
-
-    
+        self.log('test_SNR', snr_val)
 
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=16, num_workers=8)
+    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=4, num_workers=4)
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
@@ -166,3 +131,4 @@ if __name__ == "__main__":
     trainer.test(model, test_loader)
 
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
+
