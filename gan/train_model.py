@@ -20,6 +20,9 @@ torch.manual_seed(42)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+    # Print device
+    print(torch.cuda.is_available())
+
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
@@ -41,8 +44,8 @@ def main(cfg):
         filename="{epoch}-{val_acc:.2f}",  # Checkpoint file name
         save_top_k=1,  # Save the top k models
         verbose=True,  # Print a message when a checkpoint is saved
-        monitor="train_loss",  # Metric to monitor for deciding the best model
-        mode="min",  # Mode for the monitored quantity for model selection
+        monitor="val_SNR",  # Metric to monitor for deciding the best model
+        mode="max",  # Mode for the monitored quantity for model selection
     )
 
     trainer = Trainer(
@@ -62,6 +65,5 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    print(torch.cuda.is_available())
     main()
     print("Done!")

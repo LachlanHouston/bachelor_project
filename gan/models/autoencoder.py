@@ -29,6 +29,7 @@ def visualize_stft_spectrogram(stft_data, use_wandb = False):
         raise ValueError("stft_data should have a shape (2, Frequency bins, Frames)")
     
     complex_stft = stft_data[0] + 1j * stft_data[1]
+    complex_stft = complex_stft.cpu()
     magnitude_spectrum = np.abs(complex_stft.detach().numpy())
     
     
@@ -59,7 +60,7 @@ def visualize_stft_spectrogram(stft_data, use_wandb = False):
     else:
         plt.show()
 
-def stft_to_waveform(stft):
+def stft_to_waveform(stft, device=torch.device('cuda')):
     if len(stft.shape) == 3:
         stft = stft.unsqueeze(0)
     # Separate the real and imaginary components
@@ -68,7 +69,7 @@ def stft_to_waveform(stft):
     # Combine the real and imaginary components to form the complex-valued spectrogram
     stft = torch.complex(stft_real, stft_imag)
     # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
     return waveform
 
 class Autoencoder(L.LightningModule):
@@ -146,7 +147,7 @@ class Autoencoder(L.LightningModule):
         if self.current_epoch > self.previous_epoch:
             visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
             # self.log('fake_clean', spectrogram, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            fake_clean_waveform = stft_to_waveform(fake_clean[0])
+            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
 
             # wavfile.write('clean.wav', 16000, fake_clean_waveform.detach().numpy().reshape(-1))
             waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
@@ -171,7 +172,7 @@ class Autoencoder(L.LightningModule):
         fake_clean = self.generator(real_noisy)
 
         # Signal to Noise Ratio
-        snr = SignalNoiseRatio()
+        snr = SignalNoiseRatio().to(self.device)
         snr_val = snr(fake_clean, real_clean)
 
         self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -188,7 +189,7 @@ class Autoencoder(L.LightningModule):
         fake_clean = self.generator(real_noisy)
 
         # Signal to Noise Ratio
-        snr = SignalNoiseRatio()
+        snr = SignalNoiseRatio().to(self.device)
         snr_val = snr(fake_clean, real_clean)
 
         self.log('test_SNR', snr_val)
