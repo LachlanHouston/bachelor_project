@@ -3,6 +3,7 @@ import os
 import torch
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
+from scipy.io import wavfile
 
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path,
@@ -39,6 +40,8 @@ def collate_fn(batch):
     return clean_waveforms, noisy_waveforms
 
 def stft_to_waveform(stft):
+    if len(stft.shape) == 3:
+        stft = stft.unsqueeze(0)
     # Separate the real and imaginary components
     stft_real = stft[:, 0, :, :]
     stft_imag = stft[:, 1, :, :]
@@ -82,6 +85,10 @@ if __name__ == '__main__':
     for batch in train_loader:
         clean_waveforms, noisy_waveforms = batch
         print(clean_waveforms[0].size(), noisy_waveforms[0].size())
+        clean_wav = stft_to_waveform(clean_waveforms[0])
+        wavfile.write('clean.wav', 16000, clean_wav.numpy().reshape(-1))
+        torch.save(clean_wav, 'clean.wav', format = 'wav')
+        print(clean_wav.size())
         break
     for batch in val_loader:
         clean_waveforms, noisy_waveforms = batch

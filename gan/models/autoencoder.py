@@ -6,6 +6,70 @@ from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import SignalNoiseRatio
+from matplotlib import pyplot as plt
+import numpy as np
+import io
+import wandb
+from scipy.io import wavfile
+
+
+def visualize_stft_spectrogram(stft_data, use_wandb = False):
+    """
+    Visualizes an STFT-transformed file as a spectrogram and returns the plot as an image object
+    for logging to wandb.
+    
+    Parameters:
+    - stft_data: np.ndarray with shape (2, Frequency bins, Frames). The first dimension contains
+                 the real and imaginary parts of the STFT.
+    
+    Returns:
+    - A BytesIO object containing the image of the plot.
+    """
+    if stft_data.shape[0] != 2:
+        raise ValueError("stft_data should have a shape (2, Frequency bins, Frames)")
+    
+    complex_stft = stft_data[0] + 1j * stft_data[1]
+    magnitude_spectrum = np.abs(complex_stft.detach().numpy())
+    
+    
+    # Create figure without displaying it
+    plt.figure(figsize=(10, 6))
+    plt.imshow(magnitude_spectrum, aspect='auto', origin='lower', 
+               extent=[0, magnitude_spectrum.shape[1], 0, magnitude_spectrum.shape[0]])
+    plt.colorbar(label='Magnitude')
+    plt.xlabel('Time (Frames)')
+    plt.ylabel('Frequency (Bins)')
+    plt.title('Amplitude Spectrogram')
+    
+    if use_wandb:
+        image =  wandb.Image(plt)
+        wandb.log({"Spectrogram": wandb.Image(plt)})
+        # Create a bytes buffer for the image to avoid saving to disk
+        buf = io.BytesIO()
+        # Save the plot to the buffer
+        plt.savefig(buf, format='png')
+        # Important: Close the plot to free memory
+        plt.close()
+        
+        # Reset buffer's cursor to the beginning
+        buf.seek(0)
+        # image = Image.open(buf)
+        # return image
+        return buf
+    else:
+        plt.show()
+
+def stft_to_waveform(stft):
+    if len(stft.shape) == 3:
+        stft = stft.unsqueeze(0)
+    # Separate the real and imaginary components
+    stft_real = stft[:, 0, :, :]
+    stft_imag = stft[:, 1, :, :]
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    stft = torch.complex(stft_real, stft_imag)
+    # Perform inverse STFT to obtain the waveform
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
+    return waveform
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
@@ -19,6 +83,7 @@ class Autoencoder(L.LightningModule):
         self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
+        self.previous_epoch = -1
 
     def forward(self, real_clean, real_noisy):
         d_real = self.discriminator(real_clean)
@@ -78,10 +143,20 @@ class Autoencoder(L.LightningModule):
         # Compute total loss
         loss = D_loss + G_loss
         
+        if self.current_epoch > self.previous_epoch:
+            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+            # self.log('fake_clean', spectrogram, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            fake_clean_waveform = stft_to_waveform(fake_clean[0])
+
+            # wavfile.write('clean.wav', 16000, fake_clean_waveform.detach().numpy().reshape(-1))
+            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            # Log the audio
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('Combined loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-
+        
+        self.previous_epoch = self.current_epoch
         return loss
     
     def validation_step(self, batch, batch_idx):

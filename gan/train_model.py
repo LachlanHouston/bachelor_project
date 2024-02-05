@@ -7,6 +7,7 @@ import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+
 # Import models
 from gan import Generator, Discriminator
 from gan import Autoencoder
