@@ -22,17 +22,19 @@ class SingleRNN(nn.Module):
         self.hidden_size = hidden_size
         self.num_direction = int(bidirectional) + 1
         
-        self.rnn = getattr(nn, rnn_type)(input_size, hidden_size, 1, dropout=dropout, batch_first=True, bidirectional=bidirectional)
+        #self.rnn = getattr(nn, rnn_type)(input_size, hidden_size, 1, dropout=dropout, batch_first=True, bidirectional=bidirectional)
+        self.rnn = nn.LSTM(input_size, hidden_size, 1, dropout=dropout, batch_first=True, bidirectional=bidirectional)
 
         # linear projection layer
         self.proj = nn.Linear(hidden_size*self.num_direction, input_size)
 
     def forward(self, input):
         # input shape: batch, seq, dim
-        output = input
-        self.rnn.flatten_parameters() # UserWarning: RNN module weights are not part of single contiguous chunk of memory
+        output = input  # B, N, T
+        # self.rnn.flatten_parameters() # UserWarning: RNN module weights are not part of single contiguous chunk of memory
         rnn_output, _ = self.rnn(output)
-        rnn_output = self.proj(rnn_output.contiguous().view(-1, rnn_output.shape[2])).view(output.shape)
+        rnn_output = self.proj(rnn_output.contiguous().view(-1, rnn_output.shape[2]))
+        rnn_output=rnn_output.view(output.shape)
         return rnn_output
     
 # dual-path RNN
@@ -50,13 +52,14 @@ class DPRNN(nn.Module):
         num_layers: int, number of stacked RNN layers. Default is 1.
         bidirectional: bool, whether the RNN layers are bidirectional. Default is False.
     """
-    def __init__(self, encoder_dim, rnn_type='LSTM', hidden_size=None, output_size=None, 
-                 dropout=0, num_layers=1, bidirectional=True):
+    def __init__(self, encoder_dim=2, rnn_type='LSTM', hidden_size=128, output_size=128, 
+                 dropout=0, num_layers=2, bidirectional=False):
         super(DPRNN, self).__init__()
         
+        # self.encoder_dim = encoder_dim
         self.encoder_dim = encoder_dim
-        self.output_size = encoder_dim if output_size is None else output_size
-        self.hidden_size = encoder_dim if hidden_size is None else hidden_size        
+        self.output_size = output_size
+        self.hidden_size = hidden_size
         
         # dual-path RNN
         self.row_rnn = nn.ModuleList([])
@@ -64,11 +67,11 @@ class DPRNN(nn.Module):
         self.row_norm = nn.ModuleList([])
         self.col_norm = nn.ModuleList([])
         for i in range(num_layers):
-            self.row_rnn.append(SingleRNN(rnn_type, encoder_dim, self.hidden_size, dropout, bidirectional=True))  # intra-segment RNN is always noncausal
-            self.col_rnn.append(SingleRNN(rnn_type, encoder_dim, self.hidden_size, dropout, bidirectional=bidirectional))
-            self.row_norm.append(nn.GroupNorm(1, encoder_dim, eps=1e-8))
+            self.row_rnn.append(SingleRNN(rnn_type, self.encoder_dim, self.hidden_size, dropout, bidirectional=True))  # intra-segment RNN is always noncausal
+            self.col_rnn.append(SingleRNN(rnn_type, self.encoder_dim, self.hidden_size, dropout, bidirectional=bidirectional))
+            self.row_norm.append(nn.GroupNorm(1, self.encoder_dim, eps=1e-8))
             # default is to use noncausal LayerNorm for inter-chunk RNN. For causal setting change it to causal normalization techniques accordingly.
-            self.col_norm.append(nn.GroupNorm(1, encoder_dim, eps=1e-8))
+            self.col_norm.append(nn.GroupNorm(1, self.encoder_dim, eps=1e-8))
 
         # output layer    
         self.output = nn.Sequential(nn.PReLU(),
@@ -99,7 +102,7 @@ class DPRNN(nn.Module):
     
 if __name__ == '__main__':
     # Test the model
-    model = DPRNN(256)
-    input = torch.randn(1, 2, 256, 256)
+    model = DPRNN(128)
+    input = torch.randn(16, 128, 32, 321)
     output = model(input)
     print(output.shape)

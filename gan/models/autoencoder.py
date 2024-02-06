@@ -97,8 +97,8 @@ def SI_SNR(target, estimate, eps=1e-8):
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
-                    discriminator: Discriminator = None,
-                    generator: Generator = None,
+                    discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]),
+                    generator = Generator(),
                     alpha_penalty=10,
                     alpha_fidelity=10,
                     n_critic=10,
@@ -116,20 +116,16 @@ class Autoencoder(L.LightningModule):
 
 
 
-    def forward(self, real_clean, real_noisy):
-        fake_clean = self.generator(real_noisy)
-        d_real = self.discriminator(real_clean)
-        d_fake = self.discriminator(fake_clean)
+    def forward(self, real_noisy):
+        return self.generator(real_noisy)
 
-        return d_real, d_fake, fake_clean
-    
     def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
-        G_adv_loss = - torch.mean(d_fake)
+        G_adv_loss = torch.mean(d_fake)
         fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
 
-        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss - G_adv_loss
         return G_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
@@ -168,7 +164,9 @@ class Autoencoder(L.LightningModule):
         real_clean = torch.stack(real_clean, dim=1).squeeze(0)
         real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
-        d_real, d_fake, fake_clean = self.forward(real_clean, real_noisy)
+        d_real = self.discriminator(real_clean)
+        fake_clean = self.generator(real_noisy)
+        d_fake = self.discriminator(fake_clean)
 
         # Train the generator
         G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
@@ -178,8 +176,6 @@ class Autoencoder(L.LightningModule):
 
         g_opt.zero_grad()
         d_opt.zero_grad()
-        
-        # For every n_critic iterations, train the generator
 
         self.manual_backward(G_loss, retain_graph=True)
             
@@ -190,7 +186,8 @@ class Autoencoder(L.LightningModule):
 
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
-        
+
+        distance = torch.norm(real_noisy - fake_clean, p=1)
         
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
             visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
@@ -205,6 +202,7 @@ class Autoencoder(L.LightningModule):
 
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('distance', distance, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
@@ -247,7 +245,7 @@ if __name__ == "__main__":
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=12, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=2, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=12, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
     trainer.fit(model, train_loader, val_loader)

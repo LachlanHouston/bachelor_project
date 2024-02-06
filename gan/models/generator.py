@@ -82,7 +82,7 @@ class Generator(nn.Module):
         for i, layer in enumerate(self.encoder):
             e = layer(e)
             e_list.append(e)
-        rnn_out = self.rnn_block(e)
+        rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         idx = len(e_list)
         d = rnn_out
         for i, layer in enumerate(self.decoder):
@@ -102,22 +102,24 @@ class Generator(nn.Module):
 
 def waveform_to_stft(waveform):
     # Perform STFT to obtain the complex-valued spectrogram
-    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
+    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
     # Separate the real and imaginary components
     stft = torch.stack([stft.real, stft.imag], dim=1)
     return stft
 
 if __name__ == '__main__':
     # Load the waveform
-    in_waveform, sample_rate = torchaudio.load('data/clean_raw/p226_037.wav', normalize=True)
+    in_waveform, sample_rate = torchaudio.load('data/clean_processed/p230_074_0.wav')
 
     # Downsample to 16 kHz
-    in_waveform = torchaudio.transforms.Resample(16000, 16000)(in_waveform)
+    in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
     sample_rate = 16000
     
     input = waveform_to_stft(in_waveform)
 
     print("input shape:", input.shape)
+
+    input = torch.rand(16, 2, 257, 321)
 
     # Initialize the generator
     generator = Generator()
