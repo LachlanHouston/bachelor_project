@@ -53,7 +53,7 @@ def main(cfg):
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         max_epochs=cfg.hyperparameters.max_epochs,
-        check_val_every_n_epoch=5,
+        check_val_every_n_epoch=1,
         logger=L.loggers.WandbLogger(
             project=cfg.wandb.project,
             name=cfg.wandb.name,

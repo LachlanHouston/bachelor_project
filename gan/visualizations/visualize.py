@@ -5,10 +5,25 @@ import torchaudio
 import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+import os
 
+def get_data(path):
+    """Get the data from the path"""
+    files = os.listdir(path)
 
+    # Load all .wav files
+    waveforms = []
+    sample_rates = []
+    for file in files:
+        if file.endswith('.wav'):
+            waveform, sample_rate = torchaudio.load(path + file)
+            waveforms.append(waveform)
+            sample_rates.append(sample_rate)
+    
+    print('Loaded {} files'.format(len(waveforms)))
 
-
+    return waveforms, sample_rates
 
 def stft_spectrogram(waveform, sample_rate, title, save_name):
     spectrogram = torchaudio.transforms.Spectrogram(n_fft=512, hop_length=100, win_length=400)(waveform)
