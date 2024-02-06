@@ -37,11 +37,13 @@ def main(cfg):
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(), 
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
-                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity)
+                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
+                        n_critic=cfg.hyperparameters.n_critic,
+                        logging_freq=cfg.wandb.logging_freq)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
-        filename="{epoch}-{val_acc:.2f}",  # Checkpoint file name
+        filename="{epoch}-{val_SNR:.2f}",  # Checkpoint file name
         save_top_k=1,  # Save the top k models
         verbose=True,  # Print a message when a checkpoint is saved
         monitor="val_SNR",  # Metric to monitor for deciding the best model
@@ -51,7 +53,7 @@ def main(cfg):
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         max_epochs=cfg.hyperparameters.max_epochs,
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=5,
         logger=L.loggers.WandbLogger(
             project=cfg.wandb.project,
             name=cfg.wandb.name,

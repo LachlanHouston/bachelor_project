@@ -50,7 +50,7 @@ class TransConvBlock(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         if self.causal is True:
-            x = x[:, :, :, :-1]  # chomp size
+            x = x[:, :, :, :-1]
         if self.is_last is False:
             x = self.norm(x)
             x = self.activation(x)
