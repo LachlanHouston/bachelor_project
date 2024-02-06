@@ -5,7 +5,7 @@ from gan.models.discriminator import Discriminator
 from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
-from torchmetrics.audio import SignalNoiseRatio
+from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from matplotlib import pyplot as plt
 import numpy as np
 import io
@@ -77,14 +77,19 @@ class Autoencoder(L.LightningModule):
                     discriminator: Discriminator = None,
                     generator: Generator = None,
                     alpha_penalty=10,
-                    alpha_fidelity=10
+                    alpha_fidelity=10,
+                    n_critic=10,
+                    logging_freq=5
                  ):
         super().__init__()
         self.generator = Generator()
         self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
-        self.previous_epoch = -1
+        self.n_critic = n_critic
+        self.logging_freq = logging_freq
+
+        self.automatic_optimization = False
 
     def forward(self, real_clean, real_noisy):
         d_real = self.discriminator(real_clean)
@@ -92,11 +97,11 @@ class Autoencoder(L.LightningModule):
         d_fake = self.discriminator(fake_clean)
         return d_real, d_fake, fake_clean
     
-    def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy):
+    def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
         G_adv_loss = - torch.mean(d_fake)
         fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
-        G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=2)**2
+        G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
 
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         return G_loss
@@ -105,7 +110,7 @@ class Autoencoder(L.LightningModule):
         alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
 
         difference = (fake_input - real_input)
-        interpolates = (real_input + (alpha * difference))
+        interpolates = real_input * alpha + difference * (1 - alpha)
         interpolates = interpolates
         
         out = self.discriminator(interpolates)
@@ -121,11 +126,13 @@ class Autoencoder(L.LightningModule):
         return D_loss
         
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
-
-        return optimizer
+        g_opt = torch.optim.Adam(self.G.parameters(), lr=1e-4)
+        d_opt = torch.optim.Adam(self.D.parameters(), lr=1e-4)
+        return g_opt, d_opt
 
     def training_step(self, batch, batch_idx):
+        g_opt, d_opt = self.optimizers()
+
         real_clean = batch[0]
         real_noisy = batch[1]
 
@@ -137,14 +144,22 @@ class Autoencoder(L.LightningModule):
 
         # Train the discriminator
         D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+        d_opt.zero_grad()
+        self.manual_backward(D_loss)
+        d_opt.step()
         
         # Train the generator
-        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
 
-        # Compute total loss
-        loss = D_loss + G_loss
+        # For every n_critic epochs, train the generator
+        if self.current_epoch % self.n_critic == 0:
+            g_opt.zero_grad()
+            self.manual_backward(G_loss)
+            g_opt.step()
+
+        # For every 5 epochs, log the generated clean audio
         
-        if self.current_epoch > self.previous_epoch:
+        if self.current_epoch % self.logging_freq == 0:
             visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
             # self.log('fake_clean', spectrogram, on_step=True, on_epoch=True, prog_bar=True, logger=True)
             fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
@@ -153,12 +168,11 @@ class Autoencoder(L.LightningModule):
             waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
             # Log the audio
             self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
-        self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('Combined loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            
+        self.log('D_loss', D_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('G_loss', G_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        self.previous_epoch = self.current_epoch
-        return loss
+        return G_loss, D_loss
     
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
@@ -172,7 +186,7 @@ class Autoencoder(L.LightningModule):
         fake_clean = self.generator(real_noisy)
 
         # Signal to Noise Ratio
-        snr = SignalNoiseRatio().to(self.device)
+        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(fake_clean, real_clean)
 
         self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -189,7 +203,7 @@ class Autoencoder(L.LightningModule):
         fake_clean = self.generator(real_noisy)
 
         # Signal to Noise Ratio
-        snr = SignalNoiseRatio().to(self.device)
+        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(fake_clean, real_clean)
 
         self.log('test_SNR', snr_val)
