@@ -72,6 +72,29 @@ def stft_to_waveform(stft, device=torch.device('cuda')):
     waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
     return waveform
 
+def SI_SNR(target, estimate, eps=1e-8):
+    target = torch.stack(target, dim=1).squeeze(0)
+    estimate = torch.stack(estimate, dim=1).squeeze(0)
+
+    target = target - torch.mean(target, -1, keepdim=True)
+    estimate = estimate - torch.mean(estimate, -1, keepdim=True)
+
+    s1 = torch.sum(target * estimate, -1, keepdim=True)
+    s2 = torch.sum(estimate * estimate, -1, keepdim=True)
+
+    s_target = s1 * estimate / (s2 + eps) * estimate
+    e_noise = target - s_target
+
+    target_norm = torch.sum(s_target * s_target, -1, keepdim=True)
+    noise_norm = torch.sum(e_noise * e_noise, -1, keepdim=True)
+
+    snr = 10 * torch.log10(target_norm / (noise_norm + eps) + eps)
+    return torch.mean(snr)
+
+
+
+
+
 class Autoencoder(L.LightningModule):
     def __init__(self, 
                     discriminator: Discriminator = None,
@@ -119,7 +142,7 @@ class Autoencoder(L.LightningModule):
         grad_outputs = torch.ones(out.size(), device=self.device)
 
         gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=grad_outputs, create_graph=True, retain_graph=True, only_inputs=True)[0]
-        slopes = torch.sqrt(torch.sum(torch.square(gradients), axis=[1, 2, 3]))
+        slopes = gradients.view(gradients.size(0), -1).norm(2, dim=1)
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
 
         D_adv_loss = d_fake.mean() - d_real.mean()
@@ -157,28 +180,29 @@ class Autoencoder(L.LightningModule):
         d_opt.zero_grad()
         
         # For every n_critic iterations, train the generator
-        if batch_idx % self.n_critic == 0:
-            self.manual_backward(G_loss, retain_graph=True)
+
+        self.manual_backward(G_loss, retain_graph=True)
             
 
         self.manual_backward(D_loss)
 
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0:
+        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+            print("Generator step")
             g_opt.step()
         
         
-        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+        # if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+        #     visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+        #     fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        #     waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+        #     self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
             
-            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+        #     real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+        #     waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+        #     self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -220,14 +244,23 @@ class Autoencoder(L.LightningModule):
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=4, num_workers=4)
+    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=16, num_workers=8)
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=10, limit_val_batches=10, limit_test_batches=10)
+    trainer = L.Trainer(max_epochs=12, accelerator='auto', num_sanity_val_steps=0,
+                        log_every_n_steps=1, limit_train_batches=12, limit_val_batches=3, limit_test_batches=1,
+                        logger=False)
     trainer.fit(model, train_loader, val_loader)
     trainer.test(model, test_loader)
 
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
+
+    # Create dummy data of one batch
+    # batch = next(iter(train_loader))
+    # real_clean = batch[0]
+    # real_noisy = batch[1]
+    
+    # SNR = SI_SNR(real_clean, real_noisy)
+    # print(SNR)
 
