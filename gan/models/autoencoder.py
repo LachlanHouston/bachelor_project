@@ -131,8 +131,8 @@ class Autoencoder(L.LightningModule):
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
         alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
 
-        difference = fake_input - real_input
-        interpolates = real_input + alpha * difference
+        #difference = fake_input - real_input
+        interpolates = alpha * real_input + (1 - alpha) * fake_input
         
         out = self.discriminator(interpolates)
         grad_outputs = torch.ones(out.size(), device=self.device)
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=2, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=10, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=12, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
     trainer.fit(model, train_loader, val_loader)

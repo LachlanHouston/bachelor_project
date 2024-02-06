@@ -58,5 +58,9 @@ if __name__ == '__main__':
     
     print("output shape:", output.shape)
 
+    # Calculate the norm distance between the input and the output
+    norm = torch.norm(waveform - output, p=1)
+    print("Norm distance:", norm)
+
     # save the output to a file
     torchaudio.save('reports/waveform_output.wav', output, 16000)

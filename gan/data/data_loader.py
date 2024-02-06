@@ -84,18 +84,9 @@ if __name__ == '__main__':
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
     for batch in train_loader:
         clean_waveforms, noisy_waveforms = batch
-        print(clean_waveforms[0].size(), noisy_waveforms[0].size())
-        clean_wav = stft_to_waveform(clean_waveforms[0])
-        wavfile.write('clean.wav', 16000, clean_wav.numpy().reshape(-1))
-        torch.save(clean_wav, 'clean.wav', format = 'wav')
-        print(clean_wav.size())
+        print('Clean:', clean_waveforms[0].shape, 'Noisy:', noisy_waveforms[0].shape)
+
+        test1 = batch[0]
+        test2 = batch[1]
+        print(test1[0].shape, test2[0].shape)
         break
-    for batch in val_loader:
-        clean_waveforms, noisy_waveforms = batch
-        print(clean_waveforms[0].size(), noisy_waveforms[0].size())
-        break
-    for batch in test_loader:
-        clean_waveforms, noisy_waveforms = batch
-        print(clean_waveforms[0].size(), noisy_waveforms[0].size())
-        break
-    
