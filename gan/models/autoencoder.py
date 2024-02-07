@@ -184,16 +184,16 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
         d_opt.step()
         
-        # if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-        #     visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-        #     fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        #     waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
             
-        #     real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-        #     waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
