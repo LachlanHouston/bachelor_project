@@ -18,18 +18,7 @@ def get_data(path):
     
     print('Loaded {} files'.format(len(waveforms)))
 
-    # Split into train and test
-    num_test = len(waveforms) // 10
-    test_names = files[:num_test]
-    test_waveforms = waveforms[:num_test]
-    test_sample_rates = sample_rates[:num_test]
-    files = files[num_test:]
-    waveforms = waveforms[num_test:]
-    sample_rates = sample_rates[num_test:]
-
-    print('Train: {} files, Test: {} files'.format(len(waveforms), len(test_waveforms)))
-
-    return waveforms, sample_rates, test_waveforms, test_sample_rates, files, test_names
+    return waveforms, sample_rates, files
 
 def save_data(waveforms, path, filenames):
     """Save the data into the path"""
@@ -76,24 +65,26 @@ if __name__ == '__main__':
     clean_data_path = 'data/clean_raw/'
     noisy_data_path = 'data/noisy_raw/'
 
-    clean_waveforms, clean_sample_rates, test_clean_waveforms, test_clean_sample_rates, clean_filenames, clean_test_filenames = get_data(clean_data_path)
-    noisy_waveforms, noisy_sample_rates, test_noisy_waveforms, test_noisy_sample_rates, noisy_filenames, noisy_test_filenames = get_data(noisy_data_path)
+    clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
+    # noisy_waveforms, noisy_sample_rates, noisy_filenames = get_data(noisy_data_path)
+    # test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('data/test_clean_raw/')
+    # test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data('data/test_noisy_raw/')
 
     clean_waveforms, clean_filenames = process_data(clean_waveforms, clean_sample_rates, clean_filenames)
-    noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
-    test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
-    test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
+    # noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
+    # test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
+    # test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
 
     # print(len(clean_waveforms), len(clean_filenames))
     # print(clean_filenames[:10])
 
 
-    # assert_data(clean_waveforms)
+    assert_data(clean_waveforms)
     # assert_data(noisy_waveforms)
     # assert_data(test_clean_waveforms)
     # assert_data(test_noisy_waveforms)
 
     save_data(clean_waveforms, 'data/clean_processed/', clean_filenames)
-    save_data(noisy_waveforms, 'data/noisy_processed/', noisy_filenames)
-    save_data(test_clean_waveforms, 'data/test_clean_processed/', clean_test_filenames)
-    save_data(test_noisy_waveforms, 'data/test_noisy_processed/', noisy_test_filenames)
+    # save_data(noisy_waveforms, 'data/noisy_processed/', noisy_filenames)
+    # save_data(test_clean_waveforms, 'data/test_clean_processed/', clean_test_filenames)
+    # save_data(test_noisy_waveforms, 'data/test_noisy_processed/', noisy_test_filenames)
