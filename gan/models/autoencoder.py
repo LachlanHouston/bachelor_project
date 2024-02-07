@@ -1,5 +1,5 @@
 from typing import Any
-from pytorch_lightning.utilities.types import STEP_OUTPUT
+from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.data.data_loader import data_loader
@@ -102,6 +102,7 @@ class Autoencoder(L.LightningModule):
                     alpha_penalty=10,
                     alpha_fidelity=10,
                     n_critic=10,
+                    n_generator=1,
                     logging_freq=5
                  ):
         super().__init__()
@@ -110,6 +111,7 @@ class Autoencoder(L.LightningModule):
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
         self.n_critic = n_critic
+        self.n_generator = n_generator
         self.logging_freq = logging_freq
 
         self.automatic_optimization = False
@@ -118,6 +120,11 @@ class Autoencoder(L.LightningModule):
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
+    
+    def get_infinite_dataloader(self, dataloader):
+        while True:
+            for batch in dataloader:
+                yield batch
 
     def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
         G_adv_loss = torch.mean(d_fake)
@@ -152,57 +159,86 @@ class Autoencoder(L.LightningModule):
 
         return [g_opt, d_opt], []
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, train_loader):
         #torch.autograd.set_detect_anomaly(True)
         g_opt, d_opt = self.optimizers()
-        
 
-        real_clean = batch[0]
-        real_noisy = batch[1]
+        data = self.get_infinite_dataloader(train_loader)
 
-        # Remove tuples and convert to tensors
-        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+        for i in range(0, self.n_generator):
+            for i in range(0, self.n_critic):
+                real_clean, real_noisy = next(data)
 
-        d_real = self.discriminator(real_clean)
-        fake_clean = self.generator(real_noisy)
-        d_fake = self.discriminator(fake_clean)
+                d_opt.zero_grad()
 
-        # Train the generator
-        G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
+                d_real = self.discriminator(real_clean)
+                fake_clean = self.generator(real_noisy)
+                d_fake = self.discriminator(fake_clean)
 
-        # Train the discriminator
-        D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+                D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
 
-        g_opt.zero_grad()
-        d_opt.zero_grad()
+                self.manual_backward(D_loss)
+                d_opt.step()
 
-        self.manual_backward(G_loss, retain_graph=True)
-            
+            real_clean, real_noisy = next(data)
 
-        self.manual_backward(D_loss)
+            d_opt.zero_grad()
+            g_opt.zero_grad()
 
-        d_opt.step()
+            d_real = self.discriminator(real_clean)
+            fake_clean = self.generator(real_noisy)
+            d_fake = self.discriminator(fake_clean)
 
-        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+            G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
+
+            self.manual_backward(G_loss)
             g_opt.step()
-
-        distance = torch.norm(real_noisy - fake_clean, p=1)
-        
-        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
-
-            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
             
-            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+            
+
+        # # Remove tuples and convert to tensors
+        # real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        # real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+
+        # d_real = self.discriminator(real_clean)
+        # fake_clean = self.generator(real_noisy)
+        # d_fake = self.discriminator(fake_clean)
+
+        # # Train the generator
+        # G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
+
+        # # Train the discriminator
+        # D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+
+        # g_opt.zero_grad()
+        # d_opt.zero_grad()
+
+        # self.manual_backward(G_loss, retain_graph=True)
+            
+
+        # self.manual_backward(D_loss)
+
+        # d_opt.step()
+
+        # if batch_idx % self.n_critic == 0 and batch_idx > 0:
+        #     g_opt.step()
+
+        # distance = torch.norm(real_noisy - fake_clean, p=1)
+        
+        # if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+        #     visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+
+        #     fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        #     waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+        #     self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+            
+        #     real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+        #     waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+        #     self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('distance', distance, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        # self.log('distance', distance, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR

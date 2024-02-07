@@ -53,7 +53,7 @@ class DPRNN(nn.Module):
         bidirectional: bool, whether the RNN layers are bidirectional. Default is False.
     """
     def __init__(self, encoder_dim=2, rnn_type='LSTM', hidden_size=128, output_size=128, 
-                 dropout=0, num_layers=2, bidirectional=False):
+                 dropout=0, num_layers=1, bidirectional=False):
         super(DPRNN, self).__init__()
         
         # self.encoder_dim = encoder_dim
