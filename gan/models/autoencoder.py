@@ -126,7 +126,7 @@ class Autoencoder(L.LightningModule):
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
 
-        G_loss = self.alpha_fidelity * G_fidelity_loss - G_adv_loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         return G_loss, G_adv_loss, G_fidelity_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
