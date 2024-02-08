@@ -10,6 +10,7 @@ hyperparameters:
   n_critic: 10         # 10 used in UnSE paper
   
 wandb:
+  use_wandb: True
   logging_freq: 5
   entity: bachelor_gan
   name: ${now:%d/%m %H:%M:%S}

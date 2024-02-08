@@ -7,6 +7,8 @@ import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+import warnings
+warnings.filterwarnings("ignore")
 
 
 # Import models
@@ -17,13 +19,11 @@ from gan import Autoencoder
 from gan import data_loader
 
 torch.manual_seed(42)
-#wandb.init(False)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
-    # Print device
-    print(torch.cuda.is_available())
-
+    if not cfg.wandb.use_wandb: 
+        wandb.init(False)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
