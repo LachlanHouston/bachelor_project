@@ -113,10 +113,7 @@ class Autoencoder(L.LightningModule):
         self.n_critic = n_critic
         self.n_generator = n_generator
         self.logging_freq = logging_freq
-
         self.automatic_optimization = False
-
-
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -127,18 +124,17 @@ class Autoencoder(L.LightningModule):
                 yield batch
 
     def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
-        G_adv_loss = torch.mean(d_fake)
+        G_adv_loss = - torch.mean(d_fake)
         fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
 
-        G_loss = self.alpha_fidelity * G_fidelity_loss - G_adv_loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         return G_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
         alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
 
-        #difference = fake_input - real_input
         interpolates = alpha * real_input + (1 - alpha) * fake_input
         
         out = self.discriminator(interpolates)
@@ -175,7 +171,7 @@ class Autoencoder(L.LightningModule):
                 fake_clean = self.generator(real_noisy)
                 d_fake = self.discriminator(fake_clean)
 
-                D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+                D_loss = self._get_discriminator_loss(d_real=d_real, d_fake=d_fake, real_clean=real_clean, fake_clean=fake_clean)
 
                 self.manual_backward(D_loss)
                 d_opt.step()
@@ -189,7 +185,7 @@ class Autoencoder(L.LightningModule):
             fake_clean = self.generator(real_noisy)
             d_fake = self.discriminator(fake_clean)
 
-            G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
+            G_loss = self._get_reconstruction_loss(d_fake=d_fake, fake_clean=fake_clean, real_noisy=real_noisy, p=1)
 
             self.manual_backward(G_loss)
             g_opt.step()
