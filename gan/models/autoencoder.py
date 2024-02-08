@@ -167,17 +167,20 @@ class Autoencoder(L.LightningModule):
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
         d_opt.step()
-        
-        # if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-        #     visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-        #     fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        #     waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+        # Distance between real noisy and fake clean
+        dist = torch.norm(real_noisy - fake_clean, p=1)
+        
+        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+
+            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
             
-        #     real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-        #     waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
         self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -185,6 +188,7 @@ class Autoencoder(L.LightningModule):
         self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_cost', disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('G_cost', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Distance', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
