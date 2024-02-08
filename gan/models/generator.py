@@ -5,8 +5,6 @@ import torch.nn.functional as F
 import torchaudio
 import matplotlib.pyplot as plt
 
-plot = True
-
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
     x_pad = F.pad(x, (0, y.shape[3] - x.shape[3], 
@@ -74,6 +72,8 @@ class Generator(nn.Module):
         self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(64, 2, kernel_size=(5, 2), stride=(2, 1), padding=(1, 0), output_padding=(0, 0), is_last=True))
 
+        self.activation = nn.Tanh()
+
     def forward(self, x):
         e = x
         e_list = []
@@ -87,6 +87,7 @@ class Generator(nn.Module):
             idx = idx - 1
             d = layer(_padded_cat(d, e_list[idx]))
 
+        d = self.activation(d)
         # Add skip connection (element-wise addition)
         # Make sure the dimensions match before adding
         skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
