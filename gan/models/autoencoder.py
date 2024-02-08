@@ -82,7 +82,8 @@ class Autoencoder(L.LightningModule):
                     n_generator=1,
                     logging_freq=5,
                     d_learning_rate=1e-4,
-                    g_learning_rate=1e-4
+                    g_learning_rate=1e-4,
+                    visualize=False
                  ):
         super().__init__()
         self.generator = generator
@@ -94,6 +95,8 @@ class Autoencoder(L.LightningModule):
         self.logging_freq = logging_freq
         self.d_learning_rate = d_learning_rate
         self.g_learning_rate = g_learning_rate
+        self.visualize = visualize
+
         self.automatic_optimization = False
         self.save_hyperparameters()
 
@@ -173,26 +176,27 @@ class Autoencoder(L.LightningModule):
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
-        
-        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
-            
-            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+        if self.visualize:
+            if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+                visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-        self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_real', d_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('G_adv', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Fidelity', fidelity, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+                fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+                waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+                
+                real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+                waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+
+            self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_real', d_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_adv', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('Penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('Fidelity', fidelity, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR

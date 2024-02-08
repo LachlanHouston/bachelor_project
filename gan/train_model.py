@@ -43,7 +43,8 @@ def main(cfg):
                         n_critic=cfg.hyperparameters.n_critic,
                         logging_freq=cfg.wandb.logging_freq,
                         d_learning_rate=cfg.hyperparameters.d_learning_rate,
-                        g_learning_rate=cfg.hyperparameters.g_learning_rate)
+                        g_learning_rate=cfg.hyperparameters.g_learning_rate,
+                        visualize=True)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
