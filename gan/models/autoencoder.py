@@ -145,7 +145,7 @@ class Autoencoder(L.LightningModule):
         D_adv_loss = d_fake.mean() - d_real.mean()
         D_loss = D_adv_loss + self.alpha_penalty * gradient_penalty
 
-        return D_loss, D_adv_loss, gradient_penalty
+        return D_loss, D_adv_loss, gradient_penalty, d_fake.mean(), d_real.mean()
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=1e-4)
@@ -170,7 +170,7 @@ class Autoencoder(L.LightningModule):
         G_loss, G_adv_loss, G_fidelity_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
 
         # Train the discriminator
-        D_loss, D_adv_loss, gradient_penalty = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
+        D_loss, D_adv_loss, gradient_penalty, d_fake_mean, d_real_mean = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
 
         # Update the discriminator
         g_opt.zero_grad()
@@ -194,12 +194,14 @@ class Autoencoder(L.LightningModule):
             waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
             self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
-        self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_adv_loss', D_adv_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('G_adv_loss', G_adv_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('G_fidelity_loss', G_fidelity_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('gradient_penalty', gradient_penalty, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('D_loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_adv_loss', D_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('d_fake_mean', d_fake_mean, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('d_real_mean', d_real_mean, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_adv_loss', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_fidelity_loss', G_fidelity_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('gradient_penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR

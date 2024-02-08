@@ -11,7 +11,7 @@ hyperparameters:
 wandb:
   logging_freq: 5
   entity: bachelor_gan
-  name: run_${now:%Y-%m-%d_%H-%M-%S}
+  name: ${now:%d/%m %H:%M:%S}
   project: test_runs
 
 data:
