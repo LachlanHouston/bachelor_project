@@ -159,8 +159,7 @@ class Autoencoder(L.LightningModule):
 
         t_disc_cost = disc_cost + gradient_penalty
         t_gen_cost = (gen_cost + fidelity) / self.n_critic
-
-        g_opt.zero_grad()
+        
         d_opt.zero_grad()
 
         self.manual_backward(t_disc_cost, retain_graph=True)
@@ -168,6 +167,8 @@ class Autoencoder(L.LightningModule):
         
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
+            g_opt.zero_grad()
+
         d_opt.step()
 
         # Distance between real clean and fake clean
