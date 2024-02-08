@@ -136,10 +136,6 @@ class Autoencoder(L.LightningModule):
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
-        # Update the discriminator
-        g_opt.zero_grad()
-        d_opt.zero_grad()
-
         real_clean = batch[0]
         real_noisy = batch[1]
 
@@ -152,8 +148,8 @@ class Autoencoder(L.LightningModule):
 
         fake_clean = self.generator(real_noisy)
 
-        d_real = self.discriminator(real_clean).detach()
-        d_fake = self.discriminator(fake_clean).detach()
+        d_real = self.discriminator(real_clean)
+        d_fake = self.discriminator(fake_clean)
 
         disc_cost = d_fake.mean() - d_real.mean()
         gen_cost = -d_fake.mean()
@@ -162,7 +158,10 @@ class Autoencoder(L.LightningModule):
         fidelity = self._get_reconstruction_loss(fake_clean, real_noisy)
 
         t_disc_cost = disc_cost + gradient_penalty
-        t_gen_cost = gen_cost + fidelity
+        t_gen_cost = (gen_cost + fidelity) / self.n_critic
+
+        g_opt.zero_grad()
+        d_opt.zero_grad()
 
         self.manual_backward(t_disc_cost, retain_graph=True)
         self.manual_backward(t_gen_cost)
