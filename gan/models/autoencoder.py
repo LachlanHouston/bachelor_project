@@ -91,37 +91,34 @@ def SI_SNR(target, estimate, eps=1e-8):
     snr = 10 * torch.log10(target_norm / (noise_norm + eps) + eps)
     return torch.mean(snr)
 
-
-
-
-
 class Autoencoder(L.LightningModule):
     def __init__(self, 
-                    discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]),
+                    discriminator = Discriminator(input_sizes=[2, 16, 32, 64, 128, 256], output_sizes=[16, 32, 64, 128, 256, 256]),
                     generator = Generator(),
                     alpha_penalty=10,
                     alpha_fidelity=10,
-                    n_critic=10,
+                    n_critic=5,
                     n_generator=1,
                     logging_freq=5
                  ):
         super().__init__()
         self.generator = Generator()
-        self.discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128])
+        self.discriminator = Discriminator(input_sizes=[2, 16, 32, 64, 128, 256], output_sizes=[16, 32, 64, 128, 256, 256])
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
         self.n_critic = n_critic
         self.n_generator = n_generator
         self.logging_freq = logging_freq
         self.automatic_optimization = False
+        self.save_hyperparameters()
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
     
-    def get_infinite_dataloader(self, dataloader):
-        while True:
-            for batch in dataloader:
-                yield batch
+    # def get_infinite_dataloader(self, batch):
+    #     while True:
+    #         for data in batch:
+    #             yield data
 
     def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
         G_adv_loss = - torch.mean(d_fake)
@@ -129,8 +126,8 @@ class Autoencoder(L.LightningModule):
         real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
 
-        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        return G_loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss - G_adv_loss
+        return G_loss, G_adv_loss, G_fidelity_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
         alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
@@ -147,94 +144,61 @@ class Autoencoder(L.LightningModule):
         D_adv_loss = d_fake.mean() - d_real.mean()
         D_loss = D_adv_loss + self.alpha_penalty * gradient_penalty
 
-        return D_loss
+        return D_loss, D_adv_loss, gradient_penalty
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=1e-4)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=1e-4)
-
         return [g_opt, d_opt], []
 
-    def training_step(self, train_loader):
-        #torch.autograd.set_detect_anomaly(True)
+    def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
-        data = self.get_infinite_dataloader(train_loader)
+        real_clean = batch[0]
+        real_noisy = batch[1]
 
-        for i in range(0, self.n_generator):
-            for i in range(0, self.n_critic):
-                real_clean, real_noisy = next(data)
+        # Remove tuples and convert to tensors
+        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
-                d_opt.zero_grad()
+        d_real = self.discriminator(real_clean)
+        fake_clean = self.generator(real_noisy)
+        d_fake = self.discriminator(fake_clean)
 
-                d_real = self.discriminator(real_clean)
-                fake_clean = self.generator(real_noisy)
-                d_fake = self.discriminator(fake_clean)
+        # Train the generator
+        G_loss, G_adv_loss, G_fidelity_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
 
-                D_loss = self._get_discriminator_loss(d_real=d_real, d_fake=d_fake, real_clean=real_clean, fake_clean=fake_clean)
+        # Train the discriminator
+        D_loss, D_adv_loss, gradient_penalty = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
 
-                self.manual_backward(D_loss)
-                d_opt.step()
+        # Update the discriminator
+        g_opt.zero_grad()
+        d_opt.zero_grad()
 
-            real_clean, real_noisy = next(data)
-
-            d_opt.zero_grad()
-            g_opt.zero_grad()
-
-            d_real = self.discriminator(real_clean)
-            fake_clean = self.generator(real_noisy)
-            d_fake = self.discriminator(fake_clean)
-
-            G_loss = self._get_reconstruction_loss(d_fake=d_fake, fake_clean=fake_clean, real_noisy=real_noisy, p=1)
-
-            self.manual_backward(G_loss)
-            g_opt.step()
-            
-            
-
-        # # Remove tuples and convert to tensors
-        # real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        # real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
-
-        # d_real = self.discriminator(real_clean)
-        # fake_clean = self.generator(real_noisy)
-        # d_fake = self.discriminator(fake_clean)
-
-        # # Train the generator
-        # G_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy, p=1)
-
-        # # Train the discriminator
-        # D_loss = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
-
-        # g_opt.zero_grad()
-        # d_opt.zero_grad()
-
-        # self.manual_backward(G_loss, retain_graph=True)
-            
-
-        # self.manual_backward(D_loss)
-
-        # d_opt.step()
-
-        # if batch_idx % self.n_critic == 0 and batch_idx > 0:
-        #     g_opt.step()
-
-        # distance = torch.norm(real_noisy - fake_clean, p=1)
+        self.manual_backward(G_loss, retain_graph=True)
+        self.manual_backward(D_loss)
         
-        # if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-        #     visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+            g_opt.step()
+        d_opt.step()
+        
+        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
 
-        #     fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        #     waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
             
-        #     real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-        #     waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-        #     self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
 
         self.log('D_loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_loss', G_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        # self.log('distance', distance, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('D_adv_loss', D_adv_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('G_adv_loss', G_adv_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('G_fidelity_loss', G_fidelity_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('gradient_penalty', gradient_penalty, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
@@ -273,17 +237,36 @@ class Autoencoder(L.LightningModule):
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=16, num_workers=8)
-    print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=1, num_workers=8)
+    # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+
+    # Dummy train_loader
+    # train_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=2,
+    #     shuffle=True
+    # )
+
+    # val_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
+
+    # test_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=10, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=12, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
-    trainer.fit(model, train_loader, val_loader)
-    trainer.test(model, test_loader)
+    trainer.fit(model, train_loader)
+    # trainer.test(model, test_loader)
 
-    trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
+    # trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
 
     # Create dummy data of one batch
     # batch = next(iter(train_loader))

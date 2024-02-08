@@ -23,8 +23,16 @@ class AudioDataset(Dataset):
     def __getitem__(self, idx):
         clean_file = self.clean_files[idx]
         noisy_file = self.noisy_files[idx]
-        clean_waveform, _ = torchaudio.load(self.clean_path + clean_file)
+        clean_waveform, cur_sample_rate = torchaudio.load(self.clean_path + clean_file)
         noisy_waveform, _ = torchaudio.load(self.noisy_path + noisy_file)
+
+        # Normalize the waveforms
+        clean_waveform = clean_waveform / clean_waveform.abs().max()
+        noisy_waveform = noisy_waveform / noisy_waveform.abs().max()
+
+        # Resample the waveforms
+        clean_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(clean_waveform)
+        noisy_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(noisy_waveform)
 
         # Transform with ftst
         clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
@@ -62,7 +70,6 @@ def data_loader(clean_path, noisy_path, split =[0.8, 0.1, 0.1],
                 batch_size=16, num_workers=4):
     
     dataset = AudioDataset(clean_path, noisy_path)
-    print('Dataset:', len(dataset))
     train_size = int(split[0] * len(dataset))
     val_size = int(split[1] * len(dataset))
     test_size = len(dataset) - train_size - val_size

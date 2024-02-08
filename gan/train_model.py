@@ -6,6 +6,7 @@ from omegaconf import OmegaConf
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 
 
 # Import models
@@ -51,17 +52,23 @@ def main(cfg):
         mode="max",  # Mode for the monitored quantity for model selection
     )
 
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        name=cfg.wandb.name,
+        entity=cfg.wandb.entity,
+        log_model='all',
+    )
+
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=L.loggers.WandbLogger(
-            project=cfg.wandb.project,
-            name=cfg.wandb.name,
-            entity=cfg.wandb.entity,
-        ),
+        logger=wandb_logger,
         callbacks=[checkpoint_callback],
     )
+
+    # log gradients and model topology
+    wandb_logger.watch(model)
 
     trainer.fit(model, train_loader, val_loader)
     trainer.test(model, test_loader)
