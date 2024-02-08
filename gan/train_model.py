@@ -22,8 +22,8 @@ torch.manual_seed(42)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
-    if not cfg.wandb.use_wandb: 
-        wandb.init(False)
+    # if not cfg.wandb.use_wandb: 
+    #     wandb.init(False)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
@@ -36,7 +36,7 @@ def main(cfg):
                                                         cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
-    model = Autoencoder(discriminator=Discriminator(input_sizes=[2, 16, 32, 64, 128, 256], output_sizes=[16, 32, 64, 128, 256, 256]), 
+    model = Autoencoder(discriminator=Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]), 
                         generator=Generator(), 
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
