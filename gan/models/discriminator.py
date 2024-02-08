@@ -7,9 +7,7 @@ class Conv2DBlock(nn.Module):
         super().__init__()
         norm_f = nn.utils.spectral_norm
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), n_power_iterations=4)
-        self.activation = nn.LeakyReLU(0.1)
-        nn.init.xavier_uniform_(self.conv.weight)
-        nn.init.zeros_(self.conv.bias)
+        self.activation = nn.LeakyReLU(0.01)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)

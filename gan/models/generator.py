@@ -23,8 +23,6 @@ class ConvBlock(nn.Module):
         self.norm = nn.BatchNorm2d(out_channels)
         self.activation = nn.PReLU()
         self.causal = causal        
-        nn.init.xavier_uniform_(self.conv.weight)
-        nn.init.zeros_(self.conv.bias)
 
     def forward(self, x):
         x = self.conv(x)
