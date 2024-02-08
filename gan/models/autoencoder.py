@@ -158,8 +158,11 @@ class Autoencoder(L.LightningModule):
         disc_cost = d_fake.mean() - d_real.mean()
         gen_cost = -d_fake.mean()
 
-        t_disc_cost = disc_cost + self._get_discriminator_loss(real_clean, fake_clean)
-        t_gen_cost = gen_cost + self._get_reconstruction_loss(fake_clean, real_noisy)
+        gradient_penalty = self._get_discriminator_loss(real_clean, fake_clean)
+        fidelity = self._get_reconstruction_loss(fake_clean, real_noisy)
+
+        t_disc_cost = disc_cost + gradient_penalty
+        t_gen_cost = gen_cost + fidelity
 
         self.manual_backward(t_disc_cost, retain_graph=True)
         self.manual_backward(t_gen_cost)
@@ -168,8 +171,8 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
         d_opt.step()
 
-        # Distance between real noisy and fake clean
-        dist = torch.norm(real_noisy - fake_clean, p=1)
+        # Distance between real clean and fake clean
+        dist = torch.norm(real_clean - fake_clean, p=1)
         
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
             visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
@@ -186,9 +189,10 @@ class Autoencoder(L.LightningModule):
         self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_real', d_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_cost', disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('G_cost', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Distance', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_adv', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Fidelity', fidelity, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR

@@ -8,6 +8,7 @@ class Conv2DBlock(nn.Module):
         norm_f = nn.utils.spectral_norm
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), n_power_iterations=4)
         self.activation = nn.LeakyReLU(0.1)
+        nn.init.xavier_uniform_(self.conv.weight)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)
@@ -20,7 +21,7 @@ class Discriminator(nn.Module):
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
         self.output_sizes = output_sizes
-        nn.init.xavier_uniform_(self.conv.weight)
+        
 
         norm_f = nn.utils.spectral_norm
 
