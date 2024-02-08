@@ -122,10 +122,11 @@ class Autoencoder(L.LightningModule):
 
     def _get_reconstruction_loss(self, d_fake, fake_clean, real_noisy, p=1):
         G_adv_loss = - torch.mean(d_fake)
-        fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
-        real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
-        G_fidelity_loss = torch.norm(fake_clean_cat - real_noisy_cat, p=p)**p
-
+        # fake_clean_cat = torch.cat((fake_clean, fake_clean), dim=1)
+        # real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
+        G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)**p
+        # scale the loss by the number of elements in the tensor
+        G_fidelity_loss = G_fidelity_loss / len(fake_clean.flatten())
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         return G_loss, G_adv_loss, G_fidelity_loss
     
