@@ -62,7 +62,7 @@ class Generator(nn.Module):
         self.decoder = nn.ModuleList([])
         self.rnn_block = DPRNN(128)
         self.in_channels = in_channels
-        self.out_channels = 1
+        self.out_channels = 2
 
         # Encoder
         self.encoder.append(ConvBlock(in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(1, 1)))
@@ -86,7 +86,13 @@ class Generator(nn.Module):
         for i, layer in enumerate(self.decoder):
             idx = idx - 1
             d = layer(_padded_cat(d, e_list[idx]))
-        return d
+
+        # Add skip connection (element-wise addition)
+        # Make sure the dimensions match before adding
+        skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
+        output = d + skip_connection
+        
+        return output
 
 # def stft_to_waveform(stft):
 #     # Separate the real and imaginary components
