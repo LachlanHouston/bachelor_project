@@ -20,6 +20,7 @@ class Discriminator(nn.Module):
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
         self.output_sizes = output_sizes
+        nn.init.xavier_uniform_(self.conv.weight)
 
         norm_f = nn.utils.spectral_norm
 
