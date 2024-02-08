@@ -99,16 +99,20 @@ class Autoencoder(L.LightningModule):
                     alpha_fidelity=10,
                     n_critic=5,
                     n_generator=1,
-                    logging_freq=5
+                    logging_freq=5,
+                    d_learning_rate=1e-4,
+                    g_learning_rate=1e-4
                  ):
         super().__init__()
-        self.generator = Generator()
-        self.discriminator = Discriminator(input_sizes=[2, 16, 32, 64, 128, 256], output_sizes=[16, 32, 64, 128, 256, 256])
+        self.generator = generator
+        self.discriminator = discriminator
         self.alpha_penalty = alpha_penalty
         self.alpha_fidelity = alpha_fidelity
         self.n_critic = n_critic
         self.n_generator = n_generator
         self.logging_freq = logging_freq
+        self.d_learning_rate = d_learning_rate
+        self.g_learning_rate = g_learning_rate
         self.automatic_optimization = False
         self.save_hyperparameters()
 
@@ -126,9 +130,9 @@ class Autoencoder(L.LightningModule):
         # real_noisy_cat = torch.cat((real_noisy, real_noisy), dim=1)
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)**p
         # scale the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / len(fake_clean.flatten())
+        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        return G_loss, G_adv_loss, G_fidelity_loss
+        return G_loss, G_adv_loss, self.alpha_fidelity * G_fidelity_loss
     
     def _get_discriminator_loss(self, d_real, d_fake, real_input, fake_input):
         alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
@@ -145,15 +149,19 @@ class Autoencoder(L.LightningModule):
         D_adv_loss = d_fake.mean() - d_real.mean()
         D_loss = D_adv_loss + self.alpha_penalty * gradient_penalty
 
-        return D_loss, D_adv_loss, gradient_penalty, d_fake.mean(), d_real.mean()
+        return D_loss, D_adv_loss, self.alpha_penalty * gradient_penalty, d_fake.mean(), d_real.mean()
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=1e-4)
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=1e-4)
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
         return [g_opt, d_opt], []
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+
+        # Update the discriminator
+        g_opt.zero_grad()
+        d_opt.zero_grad()
 
         real_clean = batch[0]
         real_noisy = batch[1]
@@ -167,14 +175,10 @@ class Autoencoder(L.LightningModule):
         d_fake = self.discriminator(fake_clean)
 
         # Train the generator
-        G_loss, G_adv_loss, G_fidelity_loss = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
+        G_loss, G_adv_loss, G_fidelity_loss_alpha = self._get_reconstruction_loss(d_fake, fake_clean, real_noisy)
 
         # Train the discriminator
-        D_loss, D_adv_loss, gradient_penalty, d_fake_mean, d_real_mean = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
-
-        # Update the discriminator
-        g_opt.zero_grad()
-        d_opt.zero_grad()
+        D_loss, D_adv_loss, gradient_penalty_alpha, d_fake_mean, d_real_mean = self._get_discriminator_loss(d_real, d_fake, real_clean, fake_clean)
 
         self.manual_backward(G_loss, retain_graph=True)
         self.manual_backward(D_loss)
@@ -200,8 +204,8 @@ class Autoencoder(L.LightningModule):
         self.log('d_fake_mean', d_fake_mean, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('d_real_mean', d_real_mean, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('G_adv_loss', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('G_fidelity_loss', G_fidelity_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('gradient_penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_fidelity_loss*alpha', G_fidelity_loss_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('gradient_penalty*alpha', gradient_penalty_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
