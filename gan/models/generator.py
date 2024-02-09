@@ -95,16 +95,6 @@ class Generator(nn.Module):
         
         return output
 
-# def stft_to_waveform(stft):
-#     # Separate the real and imaginary components
-#     stft_real = stft[:, 0, :, :]
-#     stft_imag = stft[:, 1, :, :]
-#     # Combine the real and imaginary components to form the complex-valued spectrogram
-#     stft = torch.complex(stft_real, stft_imag)
-#     # Perform inverse STFT to obtain the waveform
-#     waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
-#     return waveform
-
 def waveform_to_stft(waveform):
     # Perform STFT to obtain the complex-valued spectrogram
     stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))

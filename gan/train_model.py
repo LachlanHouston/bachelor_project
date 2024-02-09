@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(42)
 import hydra
 import os
 import wandb
@@ -9,16 +10,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-
-
 # Import models
 from gan import Generator, Discriminator
 from gan import Autoencoder
-
 # Import data
 from gan import data_loader
-
-torch.manual_seed(42)
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):

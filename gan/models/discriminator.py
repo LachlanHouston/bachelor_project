@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import torchaudio
 
 class Conv2DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):
@@ -43,7 +42,6 @@ class Discriminator(nn.Module):
         x = self.fc_layers2(x)
         x = self.activation(x)
         x = self.fc_layers3(x)
-        
         return x
 
 
