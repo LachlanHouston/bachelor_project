@@ -6,7 +6,7 @@ class Conv2DBlock(nn.Module):
         super().__init__()
         norm_f = nn.utils.spectral_norm
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), n_power_iterations=4)
-        self.activation = nn.LeakyReLU(0.1)
+        self.activation = nn.LeakyReLU(0.01)
         nn.init.xavier_uniform_(self.conv.weight)
 
     def forward(self, x) -> torch.Tensor:
@@ -22,22 +22,22 @@ class Discriminator(nn.Module):
         self.output_sizes = output_sizes
         
 
-        norm_f = nn.utils.spectral_norm
-
         assert len(self.input_sizes) == len(self.output_sizes), "Input and output sizes must be the same length"
 
         for i in range(len(self.input_sizes)):
             self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2)))
             
-        self.fc_layers1  = norm_f(nn.Linear(256, 64))
-        self.activation = nn.LeakyReLU(0.1)
-        self.fc_layers2  = norm_f(nn.Linear(64, 1))
+        self.fc_layers1  = nn.Linear(256, 64)
+        self.norm1 = nn.LayerNorm(64)
+        self.activation = nn.LeakyReLU(0.01)
+        self.fc_layers2  = nn.Linear(64, 1)
 
     def forward(self, x) -> torch.Tensor:
-        for i in range(len(self.input_sizes)):
-            x = self.conv_layers[i](x)
-        x = x.flatten(1, -1)
+        for layer in self.conv_layers:
+            x = layer(x)
+        x = torch.flatten(x, 1)
         x = self.fc_layers1(x)
+        x = self.norm1(x)
         x = self.activation(x)
         x = self.fc_layers2(x)
         
