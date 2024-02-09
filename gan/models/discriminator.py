@@ -21,17 +21,18 @@ class Discriminator(nn.Module):
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
         self.output_sizes = output_sizes
+        norm_f = nn.utils.spectral_norm
         
 
         assert len(self.input_sizes) == len(self.output_sizes), "Input and output sizes must be the same length"
 
         for i in range(len(self.input_sizes)):
-            self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(3, 2), stride=(2, 2)))
+            self.conv_layers.append(norm_f(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(3, 2), stride=(2, 2))))
             
-        self.fc_layers1  = nn.Linear(512, 256)
+        self.fc_layers1  = norm_f(nn.Linear(512, 128))
         self.activation = nn.LeakyReLU(0.1)
-        self.fc_layers2 = nn.Linear(256, 32)
-        self.fc_layers3  = nn.Linear(32, 1)
+        self.fc_layers2 = norm_f(nn.Linear(128, 64))
+        self.fc_layers3  = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
         for layer in self.conv_layers:
