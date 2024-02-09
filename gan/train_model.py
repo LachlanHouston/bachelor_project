@@ -18,8 +18,8 @@ from gan import data_loader
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
-    if not cfg.wandb.use_wandb: 
-        wandb.init(False)
+    # if not cfg.wandb.use_wandb: 
+    #     wandb.init(False)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
@@ -32,14 +32,15 @@ def main(cfg):
                                                         cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
-    model = Autoencoder(discriminator=Discriminator(input_sizes=[2, 16, 32, 64, 128, 256], output_sizes=[16, 32, 64, 128, 256, 256]), 
+    model = Autoencoder(discriminator=Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]), 
                         generator=Generator(), 
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
                         n_critic=cfg.hyperparameters.n_critic,
                         logging_freq=cfg.wandb.logging_freq,
                         d_learning_rate=cfg.hyperparameters.d_learning_rate,
-                        g_learning_rate=cfg.hyperparameters.g_learning_rate)
+                        g_learning_rate=cfg.hyperparameters.g_learning_rate,
+                        visualize=True)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved

@@ -1,17 +1,17 @@
 hyperparameters:
-  batch_size: 1 # NEVER SET IT HIGHER THAN 16, IT WILL CRASH
+  batch_size: 10 # NEVER SET IT HIGHER THAN 16, IT WILL CRASH
   num_workers: 8
   d_learning_rate: 1e-4
   g_learning_rate: 1e-4
-  max_epochs: 20
+  max_epochs: 5
   data_fraction: 1
   alpha_penalty: 10    # 10 used in UnSE paper
-  alpha_fidelity: 1    # 10 used in UnSE paper
+  alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
   
 wandb:
-  use_wandb: True
-  logging_freq: 5
+  use_wandb: False
+  logging_freq: 1
   entity: bachelor_gan
   name: ${now:%d/%m %H:%M:%S}
   project: test_runs
