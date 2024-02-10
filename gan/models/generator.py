@@ -41,6 +41,7 @@ class TransConvBlock(nn.Module):
         self.causal = causal
         self.activation = nn.PReLU()
         nn.init.xavier_uniform_(self.conv.weight)
+        nn.init.zeros_(self.conv.bias)
 
     def forward(self, x):
         x = self.conv(x)

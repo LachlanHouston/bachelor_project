@@ -1,0 +1,13 @@
+SHA256:54E6EUTONcfZe9ZmvfLpNag1mOzuJccgBusj/5X7ULg lachl@DESKTOP-DEREC0S
+The key's randomart image is:
++---[RSA 3072]----+
+|     .o o..o     |
+|     + . oo .    |
+|      +.     . ..|
+|       .o.  o o =|
+|      ..Sooo + o.|
+|      .o.oo.O... |
+|     .oo  .E Bo.o|
+|      o.. o O .oo|
+|       ...o*.... |
++----[SHA256]-----+

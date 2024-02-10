@@ -74,7 +74,7 @@ def stft_to_waveform(stft, device=torch.device('cuda')):
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
-                    discriminator = Discriminator(input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]),
+                    discriminator = Discriminator(),
                     generator = Generator(),
                     alpha_penalty=10,
                     alpha_fidelity=10,
@@ -124,7 +124,7 @@ class Autoencoder(L.LightningModule):
         grad_outputs = torch.ones(out.size(), device=self.device)
 
         gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=grad_outputs, create_graph=True, retain_graph=True, only_inputs=True)[0]
-        slopes = gradients.view(gradients.size(0), -1).norm(2, dim=1)
+        slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
 
         D_loss = self.alpha_penalty * gradient_penalty
@@ -132,8 +132,8 @@ class Autoencoder(L.LightningModule):
         return D_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
+        g_opt = torch.optim.RMSprop(self.generator.parameters(), lr=self.g_learning_rate)
+        d_opt = torch.optim.RMSprop(self.discriminator.parameters(), lr=self.d_learning_rate)
         return [g_opt, d_opt], []
 
     def training_step(self, batch, batch_idx):
