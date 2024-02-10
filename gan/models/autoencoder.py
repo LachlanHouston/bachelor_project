@@ -192,6 +192,7 @@ class Autoencoder(L.LightningModule):
             self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('D_real', d_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # d_fake.mean() and G_adv are the same with opposite signs
             self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_adv', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('Penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
