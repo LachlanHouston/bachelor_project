@@ -188,6 +188,10 @@ class Autoencoder(L.LightningModule):
                 real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
                 waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
                 self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+ 
+                real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+                waveform_np = real_clean_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Clean Audio")]})
 
             self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
