@@ -144,8 +144,8 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0]
         real_noisy = batch[1]
 
-        # real_clean = torch.randn(16, 2, 257, 321, device=self.device)
-        # real_noisy = torch.randn(16, 2, 257, 321, device=self.device)
+        # real_clean = torch.randn(2, 2, 257, 321, device=self.device)
+        # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
         # Remove tuples and convert to tensors
         real_clean = torch.stack(real_clean, dim=1).squeeze(0)
@@ -169,6 +169,11 @@ class Autoencoder(L.LightningModule):
 
         self.manual_backward(t_disc_cost, retain_graph=True)
         self.manual_backward(t_gen_cost)
+
+        # Gradient clipping
+        for p in self.discriminator.parameters():
+            # Clamp data to -0.01 and 0.01
+            p = torch.clamp(p, -0.01, 0.01)
         
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
@@ -242,31 +247,31 @@ class Autoencoder(L.LightningModule):
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=1, num_workers=8)
+    # train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=1, num_workers=8)
     # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     # Dummy train_loader
-    # train_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=2,
-    #     shuffle=True
-    # )
+    train_loader = torch.utils.data.DataLoader(
+        torch.randn(2, 2, 257, 321),
+        batch_size=2,
+        shuffle=True
+    )
 
-    # val_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
+    val_loader = torch.utils.data.DataLoader(
+        torch.randn(16, 2, 257, 321),
+        batch_size=16,
+        shuffle=True
+    )
 
-    # test_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
+    test_loader = torch.utils.data.DataLoader(
+        torch.randn(16, 2, 257, 321),
+        batch_size=16,
+        shuffle=True
+    )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=12, limit_val_batches=3, limit_test_batches=1,
+    trainer = L.Trainer(max_epochs=2, accelerator='auto', num_sanity_val_steps=0,
+                        log_every_n_steps=1, limit_train_batches=2, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
     trainer.fit(model, train_loader)
     # trainer.test(model, test_loader)

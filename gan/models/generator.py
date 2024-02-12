@@ -18,7 +18,7 @@ class ConvBlock(nn.Module):
                  padding=(0, 1), causal=True):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)        
-        self.norm = nn.BatchNorm2d(out_channels)
+        #self.norm = nn.BatchNorm2d(out_channels)
         self.activation = nn.PReLU()
         self.causal = causal        
 
@@ -26,7 +26,7 @@ class ConvBlock(nn.Module):
         x = self.conv(x)
         if self.causal is True:
             x = x[:, :, :, :-1]  # chomp size
-        x = self.norm(x)
+        #x = self.norm(x)
         x = self.activation(x)
         return x
 
@@ -36,7 +36,7 @@ class TransConvBlock(nn.Module):
         super().__init__()
         self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, 
                                        padding, output_padding)        
-        self.norm = nn.BatchNorm2d(out_channels)
+        #self.norm = nn.BatchNorm2d(out_channels)
         self.is_last = is_last
         self.causal = causal
         self.activation = nn.PReLU()
@@ -48,7 +48,7 @@ class TransConvBlock(nn.Module):
         if self.causal is True:
             x = x[:, :, :, :-1]
         if self.is_last is False:
-            x = self.norm(x)
+            #x = self.norm(x)
             x = self.activation(x)
         return x
     
@@ -104,17 +104,17 @@ def waveform_to_stft(waveform):
 
 if __name__ == '__main__':
     # Load the waveform
-    in_waveform, sample_rate = torchaudio.load('data/clean_processed/p230_074_0.wav')
+    # in_waveform, sample_rate = torchaudio.load('data/clean_processed/p230_074_0.wav')
 
-    # Downsample to 16 kHz
-    in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
-    sample_rate = 16000
+    # # Downsample to 16 kHz
+    # in_waveform = torchaudio.transforms.Resample(sample_rate, 16000)(in_waveform)
+    # sample_rate = 16000
     
-    input = waveform_to_stft(in_waveform)
+    # input = waveform_to_stft(in_waveform)
 
-    print("input shape:", input.shape)
+    # print("input shape:", input.shape)
 
-    input = torch.rand(16, 2, 257, 321)
+    input = torch.rand(4, 2, 257, 321)
 
     # Initialize the generator
     generator = Generator()
