@@ -190,11 +190,11 @@ class Autoencoder(L.LightningModule):
             self.log('D_loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('D_real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('D_fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             # log generator losses
             self.log('G_loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_adv', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             # self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
@@ -208,11 +208,11 @@ class Autoencoder(L.LightningModule):
 
         fake_clean = self.generator(real_noisy)
 
-        # Signal to Noise Ratio
-        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_val = snr(real_clean, fake_clean)
+        # Signal to Noise Ratio (needs real_clean fake_clean to be paired)
+        # snr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        # snr_val = snr(real_clean, fake_clean)
 
-        self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        # self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         # Compute test SNR
