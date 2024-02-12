@@ -46,19 +46,6 @@ class Discriminator(nn.Module):
 
 
 if __name__ == '__main__':
-    
-
-    # # Apply STFT
-    # Xstft_real = torch.stft(real_input, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
-    # print(Xstft_real.shape)
-    # Xstft_fake = torch.stft(fake_input, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
-    # print(Xstft_fake.shape)
-    
-
-    # x_real = torch.stack((Xstft_real.real, Xstft_real.imag), dim=1)
-    # x_fake = torch.stack((Xstft_fake.real, Xstft_fake.imag), dim=1)
-    # print(x_real.shape)
-    # print(x_fake.shape)
 
     Xstft_real = torch.randn(16, 2, 257, 321)
     Xstft_fake = torch.randn(16, 2, 257, 321)
@@ -66,12 +53,9 @@ if __name__ == '__main__':
     model = Discriminator()
 
     output_real = model(Xstft_real)
-
     output_fake = model(Xstft_fake)
 
     print(output_real.shape)
     print(output_fake.shape)
-    print(output_real)
-    print(output_fake)
         
         

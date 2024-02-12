@@ -137,6 +137,9 @@ class Autoencoder(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+        d_opt.zero_grad()
+        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+            g_opt.zero_grad()
 
         real_clean = torch.stack(batch[0], dim=1).squeeze(0)
         real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
@@ -151,24 +154,21 @@ class Autoencoder(L.LightningModule):
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake=D_fake)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
-        d_opt.zero_grad()
-
         self.manual_backward(D_loss, retain_graph=True)
         self.manual_backward(G_loss)
 
-        # Gradient clipping
-        for p in self.discriminator.parameters():
-            # clip_value = 0.01
-            p.data.clamp_(-0.01, 0.01)
-        
-        if batch_idx % self.n_critic == 0 and batch_idx > 0:
-            g_opt.step()
-            g_opt.zero_grad()
-
         d_opt.step()
 
+        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+            g_opt.step()
+
+        # Gradient clipping
+        # for p in self.discriminator.parameters():
+        #     # clip_value = 0.01
+        #     p.data.clamp_(-0.01, 0.01)
+
         # Distance between real clean and fake clean
-        dist = torch.norm(real_clean - fake_clean, p=1)
+        # dist = torch.norm(real_clean - fake_clean, p=1)
 
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
