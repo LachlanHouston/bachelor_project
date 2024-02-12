@@ -136,7 +136,7 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate, betas = (0., 0.9))
-        return [g_opt, d_opt], []
+        return g_opt, d_opt
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
@@ -144,12 +144,12 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0]
         real_noisy = batch[1]
 
-        real_clean = torch.randn(2, 2, 257, 321, device=self.device)
-        real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
+        # real_clean = torch.randn(2, 2, 257, 321, device=self.device)
+        # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
         # Remove tuples and convert to tensors
-        # real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        # real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
         fake_clean = self.generator(real_noisy)
 
