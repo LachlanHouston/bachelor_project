@@ -27,8 +27,8 @@ class AudioDataset(Dataset):
         noisy_waveform, _ = torchaudio.load(self.noisy_path + noisy_file)
 
         # Normalize the waveforms
-        clean_waveform = clean_waveform / clean_waveform.abs().max()
-        noisy_waveform = noisy_waveform / noisy_waveform.abs().max()
+        clean_waveform = (clean_waveform - clean_waveform.mean()) / (clean_waveform.std() + 1e-8)
+        noisy_waveform = (noisy_waveform - noisy_waveform.mean()) / (noisy_waveform.std() + 1e-8)
 
         # Resample the waveforms
         clean_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(clean_waveform)
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     clean_processed_path = 'data/clean_processed/'
     noisy_processed_path = 'data/noisy_processed/'
     
-    train_loader, val_loader, test_loader = data_loader(clean_processed_path, noisy_processed_path)
+    train_loader, val_loader, test_loader = data_loader(clean_processed_path, noisy_processed_path, batch_size=4, num_workers=4)
     print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
     for batch in train_loader:
         clean_waveforms, noisy_waveforms = batch
