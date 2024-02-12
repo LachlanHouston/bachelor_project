@@ -12,9 +12,9 @@ hyperparameters:
 wandb:
   use_wandb: False
   logging_freq: 1
-  entity: bachelor_gan
+  entity: turtle_team
   name: ${now:%d/%m %H:%M:%S}
-  project: test_runs
+  project: bachelor2
 
 data:
   clean_processed_path: 'data/clean_processed/'
