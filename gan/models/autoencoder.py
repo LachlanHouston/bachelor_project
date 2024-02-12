@@ -132,8 +132,8 @@ class Autoencoder(L.LightningModule):
         return D_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.RMSprop(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.RMSprop(self.discriminator.parameters(), lr=self.d_learning_rate)
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate, betas = (0., 0.9))
         return [g_opt, d_opt], []
 
     def training_step(self, batch, batch_idx):
