@@ -3,14 +3,14 @@ hyperparameters:
   num_workers: 8
   d_learning_rate: 1e-4
   g_learning_rate: 1e-4
-  max_epochs: 5
+  max_epochs: 1000
   data_fraction: 1
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
   
 wandb:
-  use_wandb: False
+  use_wandb: True
   logging_freq: 1
   entity: turtle_team
   name: ${now:%d/%m %H:%M:%S}

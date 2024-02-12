@@ -102,36 +102,33 @@ class Autoencoder(L.LightningModule):
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
-    
-    # def get_infinite_dataloader(self, batch):
-    #     while True:
-    #         for data in batch:
-    #             yield data
 
-    def _get_reconstruction_loss(self, fake_clean, real_noisy, p=1):
+    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, p=1):
+        # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
-
+        # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
-        G_loss = self.alpha_fidelity * G_fidelity_loss
-        return G_loss
+        # compute adversarial loss
+        G_adv_loss = - D_fake.mean()
+        # Compute the total generator loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
+        G_loss /= self.n_critic
+        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
-    def _get_discriminator_loss(self, real_input, fake_input):
-        alpha = torch.rand(real_input.size(0), 1, 1, 1, device=self.device)
-
-        difference = fake_input - real_input
-
-        interpolates = real_input + (alpha * difference)
-        
-        out = self.discriminator(interpolates)
-        grad_outputs = torch.ones(out.size(), device=self.device)
-
-        gradients = torch.autograd.grad(outputs=out, inputs=interpolates, grad_outputs=grad_outputs, create_graph=True, retain_graph=True, only_inputs=True)[0]
+    def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake):
+        # compute gradient penalty
+        alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
+        difference = fake_clean - real_clean
+        interpolates = real_clean + (alpha * difference)
+        D_interpolate = self.discriminator(interpolates)
+        grad_outputs = torch.ones(D_interpolate.size(), device=self.device)
+        gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=grad_outputs, create_graph=True, retain_graph=True, only_inputs=True)[0]
         slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
-
-        D_loss = self.alpha_penalty * gradient_penalty
-
-        return D_loss
+        # compute the adversarial loss
+        D_adv_loss = D_fake.mean() - D_real.mean()
+        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
+        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
@@ -141,34 +138,23 @@ class Autoencoder(L.LightningModule):
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
-        real_clean = batch[0]
-        real_noisy = batch[1]
-
-        real_clean = torch.randn(2, 2, 257, 321, device=self.device)
-        real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
-
-        # Remove tuples and convert to tensors
-        # real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        # real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+        real_clean = torch.stack(batch[0], dim=1).squeeze(0)
+        real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
+        # real_clean = torch.randn(2, 2, 257, 321, device=self.device) # dummy variables for testing
+        # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
         fake_clean = self.generator(real_noisy)
 
-        d_real = self.discriminator(real_clean)
-        d_fake = self.discriminator(fake_clean)
+        D_real = self.discriminator(real_clean)
+        D_fake = self.discriminator(fake_clean)
 
-        disc_cost = d_fake.mean() - d_real.mean()
-        gen_cost = -d_fake.mean()
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake=D_fake)
+        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
-        gradient_penalty = self._get_discriminator_loss(real_clean, fake_clean)
-        fidelity = self._get_reconstruction_loss(fake_clean, real_noisy)
-
-        t_disc_cost = disc_cost + gradient_penalty
-        t_gen_cost = (gen_cost + fidelity) / self.n_critic
-        
         d_opt.zero_grad()
 
-        self.manual_backward(t_disc_cost, retain_graph=True)
-        self.manual_backward(t_gen_cost)
+        self.manual_backward(D_loss, retain_graph=True)
+        self.manual_backward(G_loss)
 
         # Gradient clipping
         for p in self.discriminator.parameters():
@@ -200,15 +186,16 @@ class Autoencoder(L.LightningModule):
                 waveform_np = real_clean_waveform.detach().cpu().numpy().squeeze()
                 self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Clean Audio")]})
 
-            self.log('D_loss', t_disc_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_loss', t_gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_real', d_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            # d_fake.mean() and G_adv are the same with opposite signs
-            self.log('D_fake', d_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_adv', gen_cost, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('Penalty', gradient_penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('Fidelity', fidelity, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # log discriminator losses
+            self.log('D_loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # log generator losses
+            self.log('G_loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_adv', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+            self.log('Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
