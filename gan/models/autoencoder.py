@@ -225,14 +225,11 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
-        real_clean = batch[0]
-        real_noisy = batch[1]
-
         # Remove tuples and convert to tensors
-        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+        real_clean = torch.stack(batch[0], dim=1).squeeze(0)
+        real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
 
-        fake_clean = self.generator(real_noisy)
+        fake_clean, _ = self.generator(real_noisy)
 
         # Signal to Noise Ratio (needs real_clean fake_clean to be paired)
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
@@ -240,53 +237,38 @@ class Autoencoder(L.LightningModule):
 
         self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-    def test_step(self, batch, batch_idx):
-        # Compute test SNR
-        real_clean = batch[0]
-        real_noisy = batch[1]
-
-        # Remove tuples and convert to tensors
-        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
-
-        fake_clean = self.generator(real_noisy)
-
-        # Signal to Noise Ratio
-        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_val = snr(real_clean, fake_clean)
-
-        self.log('test_SNR', snr_val)
-
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    # train_loader, val_loader, test_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', batch_size=1, num_workers=8)
+    train_loader, val_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', 
+                                           'data/test_clean_processed/', 'data/test_noisy_processed/',
+                                           batch_size=1, num_workers=8)
     # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     # Dummy train_loader
-    train_loader = torch.utils.data.DataLoader(
-        torch.randn(2, 2, 257, 321),
-        batch_size=2,
-        shuffle=True
-    )
+    # train_loader = torch.utils.data.DataLoader(
+    #     torch.randn(2, 2, 257, 321),
+    #     batch_size=2,
+    #     shuffle=True
+    # )
 
-    val_loader = torch.utils.data.DataLoader(
-        torch.randn(16, 2, 257, 321),
-        batch_size=16,
-        shuffle=True
-    )
+    # val_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
 
-    test_loader = torch.utils.data.DataLoader(
-        torch.randn(16, 2, 257, 321),
-        batch_size=16,
-        shuffle=True
-    )
+    # test_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=2, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=2,
                         log_every_n_steps=1, limit_train_batches=2, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
-    trainer.fit(model, train_loader)
+    trainer.fit(model, train_loader, val_loader)
     # trainer.test(model, test_loader)
 
     # trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard

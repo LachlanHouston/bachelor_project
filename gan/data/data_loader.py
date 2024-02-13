@@ -68,21 +68,16 @@ def waveform_to_stft(waveform):
     stft = torch.stack([stft.real, stft.imag], dim=1)
     return stft
 
-def data_loader(clean_path, noisy_path, split =[0.8, 0.1, 0.1],
+def data_loader(clean_path = 'data/clean_processed', noisy_path = 'data/noisy_processed', 
+                test_clean_path = 'data/test_clean_processed', test_noisy_path = 'data/test_noisy_processed',
                 batch_size=16, num_workers=4):
     
-    dataset = AudioDataset(clean_path, noisy_path, standardize=False)
-    train_size = int(split[0] * len(dataset))
-    val_size = int(split[1] * len(dataset))
-    test_size = len(dataset) - train_size - val_size
+    train_dataset = AudioDataset(clean_path, noisy_path)
+    val_dataset = AudioDataset(test_clean_path, test_noisy_path)
 
-    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, val_size, test_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, drop_last=True, persistent_workers=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn, drop_last=True, persistent_workers=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn, drop_last=True, persistent_workers=True)
-
-    return train_loader, val_loader, test_loader
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)
+    return train_loader, val_loader
 
 
 if __name__ == '__main__':
