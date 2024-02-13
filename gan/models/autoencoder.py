@@ -222,6 +222,10 @@ class Autoencoder(L.LightningModule):
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             # self.log('Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
+            # Log learning rates
+            self.log('G_learning_rate', g_opt.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_learning_rate', d_opt.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
+
     def validation_step(self, batch, batch_idx):
         # Compute batch SNR
         real_clean = batch[0]
