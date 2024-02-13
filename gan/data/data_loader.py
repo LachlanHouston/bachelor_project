@@ -29,8 +29,8 @@ class AudioDataset(Dataset):
 
         # standardize the waveforms
         if self.standardize:
-            clean_waveform = (clean_waveform - clean_waveform.mean()) / (clean_waveform.std() + 1e-8)
-            noisy_waveform = (noisy_waveform - noisy_waveform.mean()) / (noisy_waveform.std() + 1e-8)
+            clean_waveform = clean_waveform / (torch.max(torch.abs(clean_waveform)) + 1e-8)
+            noisy_waveform = noisy_waveform / (torch.max(torch.abs(noisy_waveform)) + 1e-8)
 
         # Resample the waveforms
         clean_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(clean_waveform)
@@ -72,8 +72,8 @@ def data_loader(clean_path = 'data/clean_processed', noisy_path = 'data/noisy_pr
                 test_clean_path = 'data/test_clean_processed', test_noisy_path = 'data/test_noisy_processed',
                 batch_size=16, num_workers=4):
     
-    train_dataset = AudioDataset(clean_path, noisy_path)
-    val_dataset = AudioDataset(test_clean_path, test_noisy_path)
+    train_dataset = AudioDataset(clean_path, noisy_path, standardize=True)
+    val_dataset = AudioDataset(test_clean_path, test_noisy_path, standardize=True)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)

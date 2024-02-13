@@ -18,19 +18,20 @@ from gan import data_loader
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
-    # if not cfg.wandb.use_wandb: 
-    #     wandb.init(False)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
     # Define paths
-    clean_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.clean_processed_path)
-    noisy_path = os.path.join(hydra.utils.get_original_cwd(), cfg.data.noisy_processed_path)
+    clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_processed/')
+    noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_processed/')
+    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_processed/')
+    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_processed/')
 
     # Load the data loaders
-    train_loader, val_loader, test_loader = data_loader(clean_path, noisy_path, cfg.data.split, cfg.hyperparameters.batch_size, 
-                                                        cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
-    print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+    train_loader, val_loader = data_loader( clean_path, noisy_path, 
+                                            test_clean_path, test_noisy_path,
+                                            cfg.hyperparameters.batch_size, cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
+    print('Train:', len(train_loader), 'Validation:', len(val_loader))
 
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(), 

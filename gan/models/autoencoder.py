@@ -147,6 +147,7 @@ class Autoencoder(L.LightningModule):
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
         g_sch, d_sch = self.lr_schedulers()
+
         d_opt.zero_grad()
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.zero_grad()
@@ -176,9 +177,9 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
 
         # Weight clipping
-        # for p in self.discriminator.parameters():
-        #     clip_value = 0.01
-        #     p.data.clamp_(-clip_value, clip_value)
+        for p in self.discriminator.parameters():
+            clip_value = 0.01
+            p.data.clamp_(-clip_value, clip_value)
             
         # Update learning rate every epoch
         if self.trainer.is_last_batch:
@@ -269,15 +270,3 @@ if __name__ == "__main__":
                         log_every_n_steps=1, limit_train_batches=2, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
     trainer.fit(model, train_loader, val_loader)
-    # trainer.test(model, test_loader)
-
-    # trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
-
-    # Create dummy data of one batch
-    # batch = next(iter(train_loader))
-    # real_clean = batch[0]
-    # real_noisy = batch[1]
-    
-    # SNR = SI_SNR(real_clean, real_noisy)
-    # print(SNR)
-
