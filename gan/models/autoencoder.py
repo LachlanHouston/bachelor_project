@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 import numpy as np
 import io
 import wandb
-from scipy.io import wavfile
 
 
 def visualize_stft_spectrogram(stft_data, use_wandb = False):
@@ -83,6 +82,10 @@ class Autoencoder(L.LightningModule):
                     logging_freq=5,
                     d_learning_rate=1e-4,
                     g_learning_rate=1e-4,
+                    d_scheduler_step_size=10,
+                    d_scheduler_gamma=0.1,
+                    g_scheduler_step_size=10,
+                    g_scheduler_gamma=0.1,
                     visualize=False
                  ):
         super().__init__()
@@ -95,6 +98,10 @@ class Autoencoder(L.LightningModule):
         self.logging_freq = logging_freq
         self.d_learning_rate = d_learning_rate
         self.g_learning_rate = g_learning_rate
+        self.d_scheduler_step_size = d_scheduler_step_size
+        self.d_scheduler_gamma = d_scheduler_gamma
+        self.g_scheduler_step_size = g_scheduler_step_size
+        self.g_scheduler_gamma = g_scheduler_gamma
         self.visualize = visualize
 
         self.automatic_optimization = False
@@ -133,8 +140,8 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)#, betas = (0., 0.9))
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
-        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=10, gamma=0.1)
-        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=10, gamma=0.1)
+        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
+        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
 
     def training_step(self, batch, batch_idx):
@@ -177,7 +184,7 @@ class Autoencoder(L.LightningModule):
             p.data.clamp_(-clip_value, clip_value)
             
         # Update learning rate every epoch
-        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
+        if self.trainer.is_last_batch:
             g_sch.step()
             d_sch.step()
 
