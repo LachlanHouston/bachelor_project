@@ -69,7 +69,7 @@ def main(cfg):
     # log gradients and model topology
     wandb_logger.watch(model)
 
-    # trainer.fit(model, train_loader, val_loader)
+    trainer.fit(model, train_loader)#, val_loader)
     # trainer.test(model, test_loader)
 
 
