@@ -137,12 +137,13 @@ class Autoencoder(L.LightningModule):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
-        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=15, gamma=0.1)
-        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=15, gamma=0.1)
+        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=10, gamma=0.1)
+        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=10, gamma=0.1)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+        g_sch, d_opt = self.lr_schedulers()
 
         d_opt.zero_grad()
 
@@ -176,15 +177,18 @@ class Autoencoder(L.LightningModule):
         self.manual_backward(t_gen_cost)
 
         # Gradient clipping
-        for p in self.discriminator.parameters():
-            # clip_value = 0.01
-            p.data.clamp_(-0.01, 0.01)
+        self.clip_gradients(d_opt, gradient_clip_val=0.5, gradient_clip_algorithm='norm')   
         
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
             g_opt.zero_grad()
 
         d_opt.step()
+
+        # Update learning rate every epoch
+        if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
+            g_sch.step()
+            d_opt.step() 
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
