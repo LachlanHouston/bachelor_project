@@ -134,12 +134,17 @@ class Autoencoder(L.LightningModule):
         return D_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate, betas = (0., 0.9))
-        return g_opt, d_opt
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
+
+        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=15, gamma=0.1)
+        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=15, gamma=0.1)
+        return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+
+        d_opt.zero_grad()
 
         real_clean = batch[0]
         real_noisy = batch[1]
@@ -165,7 +170,7 @@ class Autoencoder(L.LightningModule):
         t_disc_cost = disc_cost + gradient_penalty
         t_gen_cost = (gen_cost + fidelity) / self.n_critic
         
-        d_opt.zero_grad()
+        
 
         self.manual_backward(t_disc_cost, retain_graph=True)
         self.manual_backward(t_gen_cost)

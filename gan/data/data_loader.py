@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from scipy.io import wavfile
 
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path,
+    def __init__(self, clean_path, noisy_path, normalize=None,
                  new_sample_rate=16000):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
@@ -16,6 +16,7 @@ class AudioDataset(Dataset):
         self.noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
 
         self.new_sample_rate = new_sample_rate
+        self.normalize = normalize
 
     def __len__(self):
         return len(self.clean_files)
@@ -27,8 +28,9 @@ class AudioDataset(Dataset):
         noisy_waveform, _ = torchaudio.load(self.noisy_path + noisy_file)
 
         # Normalize the waveforms
-        clean_waveform = (clean_waveform - clean_waveform.mean()) / (clean_waveform.std() + 1e-8)
-        noisy_waveform = (noisy_waveform - noisy_waveform.mean()) / (noisy_waveform.std() + 1e-8)
+        if self.normalize:
+            clean_waveform = (clean_waveform - clean_waveform.mean()) / (clean_waveform.std() + 1e-8)
+            noisy_waveform = (noisy_waveform - noisy_waveform.mean()) / (noisy_waveform.std() + 1e-8)
 
         # Resample the waveforms
         clean_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(clean_waveform)
@@ -69,7 +71,7 @@ def waveform_to_stft(waveform):
 def data_loader(clean_path, noisy_path, split =[0.8, 0.1, 0.1],
                 batch_size=16, num_workers=4):
     
-    dataset = AudioDataset(clean_path, noisy_path)
+    dataset = AudioDataset(clean_path, noisy_path, normalize=False)
     train_size = int(split[0] * len(dataset))
     val_size = int(split[1] * len(dataset))
     test_size = len(dataset) - train_size - val_size
