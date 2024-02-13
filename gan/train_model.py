@@ -63,14 +63,14 @@ def main(cfg):
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        # callbacks=[checkpoint_callback],
     )
 
     # log gradients and model topology
     wandb_logger.watch(model)
 
-    trainer.fit(model, train_loader, val_loader)
-    trainer.test(model, test_loader)
+    trainer.fit(model, train_loader) #, val_loader)
+    # trainer.test(model, test_loader)
 
 
 if __name__ == "__main__":
