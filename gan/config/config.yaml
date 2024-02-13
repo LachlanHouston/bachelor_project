@@ -3,6 +3,10 @@ hyperparameters:
   num_workers: 8
   d_learning_rate: 1e-4
   g_learning_rate: 1e-4
+  d_scheduler_step_size: 10
+  d_scheduler_gamma: 0.5
+  g_scheduler_step_size: 10
+  g_scheduler_gamma: 0.5
   max_epochs: 1000
   data_fraction: 1
   alpha_penalty: 0    # 10 used in UnSE paper

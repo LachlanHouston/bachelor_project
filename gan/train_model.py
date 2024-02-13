@@ -39,7 +39,9 @@ def main(cfg):
                         n_critic=cfg.hyperparameters.n_critic,
                         logging_freq=cfg.wandb.logging_freq,
                         d_learning_rate=cfg.hyperparameters.d_learning_rate,
+                        d_scheduler_gamma=cfg.hyperparameters.d_scheduler_gamma,
                         g_learning_rate=cfg.hyperparameters.g_learning_rate,
+                        g_scheduler_gamma=cfg.hyperparameters.g_scheduler_gamma,
                         visualize=True)
     
     checkpoint_callback = ModelCheckpoint(
@@ -55,7 +57,6 @@ def main(cfg):
         project=cfg.wandb.project,
         name=cfg.wandb.name,
         entity=cfg.wandb.entity,
-        log_model='all',
     )
 
     trainer = Trainer(
