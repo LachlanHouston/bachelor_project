@@ -90,10 +90,10 @@ class Generator(nn.Module):
         d = self.activation(d)
         # Add skip connection (element-wise addition)
         # Make sure the dimensions match before adding
-        # skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
-        # output = d + skip_connection
+        skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
+        output = d + skip_connection
         
-        return d
+        return output
 
 def waveform_to_stft(waveform):
     # Perform STFT to obtain the complex-valued spectrogram
