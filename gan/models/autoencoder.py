@@ -209,8 +209,8 @@ class Autoencoder(L.LightningModule):
         fake_clean = self.generator(real_noisy)
 
         # Signal to Noise Ratio (needs real_clean fake_clean to be paired)
-        # snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        # snr_val = snr(real_clean, fake_clean)
+        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        snr_val = snr(real_clean, fake_clean)
 
         # self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
