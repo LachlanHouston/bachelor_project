@@ -143,19 +143,19 @@ class Autoencoder(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
-        g_sch, d_opt = self.lr_schedulers()
+        g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
 
         real_clean = batch[0]
         real_noisy = batch[1]
 
-        # real_clean = torch.randn(2, 2, 257, 321, device=self.device)
-        # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
+        real_clean = torch.randn(2, 2, 257, 321, device=self.device)
+        real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
         # Remove tuples and convert to tensors
-        real_clean = torch.stack(real_clean, dim=1).squeeze(0)
-        real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
+        # real_clean = torch.stack(real_clean, dim=1).squeeze(0)
+        # real_noisy = torch.stack(real_noisy, dim=1).squeeze(0)
 
         fake_clean = self.generator(real_noisy)
 
@@ -188,7 +188,7 @@ class Autoencoder(L.LightningModule):
         # Update learning rate every epoch
         if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
             g_sch.step()
-            d_opt.step() 
+            d_sch.step() 
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
