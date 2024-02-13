@@ -115,7 +115,7 @@ class Autoencoder(L.LightningModule):
         G_loss /= self.n_critic
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
-    def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake):
+    def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # compute gradient penalty
         alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
         difference = fake_clean - real_clean
@@ -126,7 +126,7 @@ class Autoencoder(L.LightningModule):
         slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
         # compute the adversarial loss
-        D_adv_loss = D_fake.mean() - D_real.mean()
+        D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
@@ -146,13 +146,15 @@ class Autoencoder(L.LightningModule):
         # real_clean = torch.randn(2, 2, 257, 321, device=self.device) # dummy variables for testing
         # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
-        fake_clean = self.generator(real_noisy)
+        fake_clean, mask = self.generator(real_noisy)
 
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
+        # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
+        D_fake_no_grad = self.discriminator(fake_clean.detach())
 
         # detach fake_clean to avoid computing gradients for the generator
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake=D_fake)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         self.manual_backward(D_loss, retain_graph=True)
@@ -181,6 +183,10 @@ class Autoencoder(L.LightningModule):
                 fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
                 waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
                 self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+
+                mask_waveform = stft_to_waveform(mask[0], device=self.device)
+                waveform_np = mask_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"mask_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Learned Mask by Generator")]})
                 
                 real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
                 waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
