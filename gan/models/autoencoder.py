@@ -170,18 +170,15 @@ class Autoencoder(L.LightningModule):
         self.manual_backward(D_loss, retain_graph=True)
         self.manual_backward(G_loss)
 
-        # Gradient clipping
-        # self.clip_gradients(d_opt, gradient_clip_val=0.5, gradient_clip_algorithm='norm')   
-
         d_opt.step()
 
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
 
         # Weight clipping
-        for p in self.discriminator.parameters():
-            clip_value = 0.01
-            p.data.clamp_(-clip_value, clip_value)
+        # for p in self.discriminator.parameters():
+        #     clip_value = 0.01
+        #     p.data.clamp_(-clip_value, clip_value)
             
         # Update learning rate every epoch
         if self.trainer.is_last_batch:
