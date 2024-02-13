@@ -55,7 +55,6 @@ def main(cfg):
         project=cfg.wandb.project,
         name=cfg.wandb.name,
         entity=cfg.wandb.entity,
-        log_model='all',
     )
 
     trainer = Trainer(
