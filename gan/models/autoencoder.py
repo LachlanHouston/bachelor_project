@@ -212,7 +212,7 @@ class Autoencoder(L.LightningModule):
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(real_clean, fake_clean)
 
-        # self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         # Compute test SNR

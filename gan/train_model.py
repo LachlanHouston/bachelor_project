@@ -44,10 +44,10 @@ def main(cfg):
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
-        filename="{epoch}-{snr_val:.2f}",  # Checkpoint file name
+        filename="{epoch}-{val_SNR:.2f}",  # Checkpoint file name
         save_top_k=1,  # Save the top k models
         verbose=True,  # Print a message when a checkpoint is saved
-        monitor="snr_val",  # Metric to monitor for deciding the best model
+        monitor="val_SNR",  # Metric to monitor for deciding the best model
         mode="max",  # Mode for the monitored quantity for model selection
     )
 
@@ -63,14 +63,14 @@ def main(cfg):
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        #callbacks=[checkpoint_callback],
     )
 
     # log gradients and model topology
     wandb_logger.watch(model)
 
-    trainer.fit(model, train_loader, val_loader)
-    trainer.test(model, test_loader)
+    # trainer.fit(model, train_loader, val_loader)
+    # trainer.test(model, test_loader)
 
 
 if __name__ == "__main__":
