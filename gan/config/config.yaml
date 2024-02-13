@@ -5,7 +5,7 @@ hyperparameters:
   g_learning_rate: 1e-4
   max_epochs: 1000
   data_fraction: 1
-  alpha_penalty: 10    # 10 used in UnSE paper
+  alpha_penalty: 0    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
   
