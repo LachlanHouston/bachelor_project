@@ -82,10 +82,10 @@ class Autoencoder(L.LightningModule):
                     logging_freq=5,
                     d_learning_rate=1e-4,
                     g_learning_rate=1e-4,
-                    d_scheduler_step_size=10,
-                    d_scheduler_gamma=0.1,
-                    g_scheduler_step_size=10,
-                    g_scheduler_gamma=0.1,
+                    d_scheduler_step_size=200,
+                    d_scheduler_gamma=0.5,
+                    g_scheduler_step_size=200,
+                    g_scheduler_gamma=0.5,
                     visualize=False
                  ):
         super().__init__()
