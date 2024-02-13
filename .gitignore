@@ -190,3 +190,4 @@ data/clean_processed/
 data/noisy_raw/
 data/noisy_processed/
 /data
+org_data/
