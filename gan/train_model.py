@@ -44,6 +44,8 @@ def main(cfg):
                         d_scheduler_gamma=cfg.hyperparameters.d_scheduler_gamma,
                         g_learning_rate=cfg.hyperparameters.g_learning_rate,
                         g_scheduler_gamma=cfg.hyperparameters.g_scheduler_gamma,
+                        weight_clip = cfg.hyperparameters.weight_clip,
+                        weight_clip_value=cfg.hyperparameters.weight_clip_value,
                         visualize=True)
     
     checkpoint_callback = ModelCheckpoint(
@@ -65,7 +67,7 @@ def main(cfg):
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        precision="bf16-mixed",
+        #precision="bf16-mixed",
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,

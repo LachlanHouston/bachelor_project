@@ -121,6 +121,8 @@ class Autoencoder(L.LightningModule):
                     d_scheduler_gamma=0.5,
                     g_scheduler_step_size=200,
                     g_scheduler_gamma=0.5,
+                    weight_clip = False,
+                    weight_clip_value = 0.01,
                     visualize=False
                  ):
         super().__init__()
@@ -137,6 +139,8 @@ class Autoencoder(L.LightningModule):
         self.d_scheduler_gamma = d_scheduler_gamma
         self.g_scheduler_step_size = g_scheduler_step_size
         self.g_scheduler_gamma = g_scheduler_gamma
+        self.weight_clip = weight_clip
+        self.weight_clip_value = weight_clip_value
         self.visualize = visualize
 
         self.automatic_optimization = False
@@ -212,10 +216,9 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
 
         # Weight clipping
-        for p in self.discriminator.parameters():
-            clip_value = 0.01
-
-            p.data.clamp_(-clip_value, clip_value)
+        if self.weight_clip:
+            for p in self.discriminator.parameters():
+                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
             
         # Update learning rate every epoch
         if self.trainer.is_last_batch:
