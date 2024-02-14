@@ -179,6 +179,7 @@ class Autoencoder(L.LightningModule):
         # Weight clipping
         for p in self.discriminator.parameters():
             clip_value = 0.01
+
             p.data.clamp_(-clip_value, clip_value)
             
         # Update learning rate every epoch
@@ -190,25 +191,6 @@ class Autoencoder(L.LightningModule):
         # dist = torch.norm(real_clean - fake_clean, p=1)
 
         if self.visualize:
-            if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-                visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
-
-                fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-                waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-                self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
-
-                mask_waveform = stft_to_waveform(mask[0], device=self.device)
-                waveform_np = mask_waveform.detach().cpu().numpy().squeeze()
-                self.logger.experiment.log({"mask_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Learned Mask by Generator")]})
-                
-                real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-                waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-                self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
- 
-                real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
-                waveform_np = real_clean_waveform.detach().cpu().numpy().squeeze()
-                self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Clean Audio")]})
-
             # log discriminator losses
             self.log('D_loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('D_real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -230,13 +212,34 @@ class Autoencoder(L.LightningModule):
         real_clean = torch.stack(batch[0], dim=1).squeeze(0)
         real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
 
-        fake_clean, _ = self.generator(real_noisy)
+        fake_clean, mask = self.generator(real_noisy)
 
         # Signal to Noise Ratio (needs real_clean fake_clean to be paired)
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(real_clean, fake_clean)
 
         self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+
+        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+
+            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+
+            mask_waveform = stft_to_waveform(mask[0], device=self.device)
+            waveform_np = mask_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"mask_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Learned Mask by Generator")]})
+            
+            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+
+            real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+            waveform_np = real_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Clean Audio")]})
+
 
 if __name__ == "__main__":
     # Print Device
