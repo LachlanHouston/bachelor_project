@@ -257,14 +257,14 @@ class Autoencoder(L.LightningModule):
         self.log('val_SNR', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Perceptual Evaluation of Speech Quality
-        real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
-        real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
-        fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
+        # real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+        # real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
+        # fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        # fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
 
-        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
-        pesq_val = pesq(real_clean_waveform, fake_clean_waveform)
-        self.log('val_PESQ', pesq_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
+        # pesq_val = pesq(real_clean_waveform, fake_clean_waveform)
+        # self.log('val_PESQ', pesq_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
