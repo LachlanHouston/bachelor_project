@@ -6,40 +6,75 @@ from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from matplotlib import pyplot as plt
 import numpy as np
 import io
 import wandb
 
 
-def visualize_stft_spectrogram(stft_data, use_wandb = False):
+def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = False):
     """
     Visualizes an STFT-transformed file as a spectrogram and returns the plot as an image object
     for logging to wandb.
     
     Parameters:
-    - stft_data: np.ndarray with shape (2, Frequency bins, Frames). The first dimension contains
+    - stft_data: np.ndarrays with shape (2, Frequency bins, Frames). The first dimension contains
                  the real and imaginary parts of the STFT.
     
     Returns:
     - A BytesIO object containing the image of the plot.
     """
-    if stft_data.shape[0] != 2:
-        raise ValueError("stft_data should have a shape (2, Frequency bins, Frames)")
     
-    complex_stft = stft_data[0] + 1j * stft_data[1]
-    complex_stft = complex_stft.cpu()
-    magnitude_spectrum = np.abs(complex_stft.detach().numpy())
-    
-    
-    # Create figure without displaying it
-    plt.figure(figsize=(10, 6))
-    plt.imshow(magnitude_spectrum, aspect='auto', origin='lower', 
-               extent=[0, magnitude_spectrum.shape[1], 0, magnitude_spectrum.shape[0]])
-    plt.colorbar(label='Magnitude')
-    plt.xlabel('Time (Frames)')
-    plt.ylabel('Frequency (Bins)')
-    plt.title('Amplitude Spectrogram')
+    complex_stft_rc = real_clean[0] + 1j * real_clean[1]
+    complex_stft_rc = complex_stft_rc.cpu()
+    magnitude_spectrum_rc = np.abs(complex_stft_rc.detach().numpy())
+
+    complex_stft_fc = fake_clean[0] + 1j * fake_clean[1]
+    complex_stft_fc = complex_stft_fc.cpu()
+    magnitude_spectrum_fc = np.abs(complex_stft_fc.detach().numpy())
+
+    complex_stft_rn = real_noisy[0] + 1j * real_noisy[1]
+    complex_stft_rn = complex_stft_rn.cpu()
+    magnitude_spectrum_rn = np.abs(complex_stft_rn.detach().numpy())
+
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+    axs[0].imshow(magnitude_spectrum_rc, aspect='auto', origin='lower',
+                    extent=[0, magnitude_spectrum_rc.shape[1], 0, magnitude_spectrum_rc.shape[0]])
+    axs[0].set_title('Real Clean')
+    axs[0].set_xlabel('Time (Frames)')
+    axs[0].set_ylabel('Frequency (Bins)')
+    axs[0].set_xticks(np.arange(0, magnitude_spectrum_rc.shape[1], 50))
+    axs[0].set_yticks(np.arange(0, magnitude_spectrum_rc.shape[0], 50))
+
+    axs[1].imshow(magnitude_spectrum_fc, aspect='auto', origin='lower',
+                    extent=[0, magnitude_spectrum_fc.shape[1], 0, magnitude_spectrum_fc.shape[0]])
+    axs[1].set_title('Fake Clean')
+    axs[1].set_xlabel('Time (Frames)')
+    axs[1].set_ylabel('Frequency (Bins)')
+    axs[1].set_xticks(np.arange(0, magnitude_spectrum_fc.shape[1], 50))
+    axs[1].set_yticks(np.arange(0, magnitude_spectrum_fc.shape[0], 50))
+
+    axs[2].imshow(magnitude_spectrum_rn, aspect='auto', origin='lower',
+                    extent=[0, magnitude_spectrum_rn.shape[1], 0, magnitude_spectrum_rn.shape[0]])
+    axs[2].set_title('Real Noisy')
+    axs[2].set_xlabel('Time (Frames)')
+    axs[2].set_ylabel('Frequency (Bins)')
+    axs[2].set_xticks(np.arange(0, magnitude_spectrum_rn.shape[1], 50))
+    axs[2].set_yticks(np.arange(0, magnitude_spectrum_rn.shape[0], 50))
+
+    fig.suptitle('Spectrograms')
+    plt.tight_layout(pad=3.0)
+
+    # # Create figure without displaying it
+    # plt.figure(figsize=(10, 6))
+    # plt.imshow(magnitude_spectrum_rc, aspect='auto', origin='lower', 
+    #            extent=[0, magnitude_spectrum_rc.shape[1], 0, magnitude_spectrum_rc.shape[0]])
+    # plt.colorbar(label='Magnitude')
+    # plt.xlabel('Time (Frames)')
+    # plt.ylabel('Frequency (Bins)')
+    # plt.title('Amplitude Spectrogram')
     
     if use_wandb:
         image =  wandb.Image(plt)
@@ -207,38 +242,50 @@ class Autoencoder(L.LightningModule):
             self.log('D_learning_rate', d_opt.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
-        # Compute batch SNR
         # Remove tuples and convert to tensors
         real_clean = torch.stack(batch[0], dim=1).squeeze(0)
         real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
 
         fake_clean, mask = self.generator(real_noisy)
 
-        # Signal to Noise Ratio (needs real_clean fake_clean to be paired)
+        # Scale Invariant Signal to Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(real_clean, fake_clean)
+        self.log('val_SNR', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
-        self.log('val_SNR', snr_val, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        # Perceptual Evaluation of Speech Quality
+        real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+        real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
+        fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
+
+        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
+        pesq_val = pesq(real_clean_waveform, fake_clean_waveform)
+        self.log('val_PESQ', pesq_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+
+        # Distance between real clean and fake clean
+        dist = torch.norm(real_clean - fake_clean, p=1)
+        self.log('val_Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
 
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(fake_clean[0], use_wandb = True)
+            visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
 
             fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-            waveform_np = fake_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Generated Clean Audio")]})
+            fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
 
             mask_waveform = stft_to_waveform(mask[0], device=self.device)
-            waveform_np = mask_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"mask_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Learned Mask by Generator")]})
+            mask_waveform = mask_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
             
             real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-            waveform_np = real_noisy_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Noisy Audio")]})
+            real_noisy_waveform = real_noisy_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
 
             real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
-            waveform_np = real_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(waveform_np, sample_rate=16000, caption="Original Clean Audio")]})
+            real_clean_waveform = real_clean_waveform.detach().cpu().numpy().squeeze()
+            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
 
 if __name__ == "__main__":
