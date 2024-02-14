@@ -8,6 +8,7 @@ import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+from lightning.pytorch.profilers import AdvancedProfiler
 import warnings
 warnings.filterwarnings("ignore")
 # Import models
@@ -60,12 +61,16 @@ def main(cfg):
         entity=cfg.wandb.entity,
     )
 
+    profiler = AdvancedProfiler(dirpath=".", filename="perf_logs")
+
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        precision="bf16-mixed",
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
+        profiler=profiler
     )
 
     # log gradients and model topology
