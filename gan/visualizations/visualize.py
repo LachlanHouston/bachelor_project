@@ -103,15 +103,25 @@ def spectral_envelope(waveform, sample_rate, title, save_name):
     plt.savefig('reports/figures/' + save_name + '_spectral_envelope.png')
     plt.show()
 
+def find_global_max(waveforms):
+    """Find the global maximum of all the waveforms"""
+    max_amplitude = 0
+    for waveform in waveforms:
+        if waveform.max() > max_amplitude:
+            max_amplitude = waveform.max()
+    return max_amplitude
+
+
 
 if __name__ == '__main__':
-    filename = "p226_009"
+    clean_path = os.path.join('data/test_clean_processed/') # 0.5799 train # 0.5057 test
+    noisy_path = os.path.join('data/test_noisy_processed/') # 0.9724 train # 0.9826 test
+    waveforms, sample_rates = get_data(clean_path)
+    max_amplitude = find_global_max(waveforms)
+    print(max_amplitude)
 
-    clean_path = 'data/clean_raw/' + str(filename) + '.wav'
-    noisy_path = 'data/noisy_raw/' + str(filename) + '.wav'
-
-    clean_waveform, clean_sample_rate = torchaudio.load(clean_path)
-    noisy_waveform, noisy_sample_rate = torchaudio.load(noisy_path)
+    # clean_waveform, clean_sample_rate = torchaudio.load(clean_path)
+    # noisy_waveform, noisy_sample_rate = torchaudio.load(noisy_path)
 
     # Plot the waveform
     # plot_waveform(clean_waveform, clean_sample_rate, 'Clean waveform', filename)
@@ -122,6 +132,8 @@ if __name__ == '__main__':
     # amplitude_density(noisy_waveform, noisy_sample_rate, 'Noisy amplitude density', filename)
 
     # Plot the STFT spectrogram
-    stft_spectrogram(clean_waveform, clean_sample_rate, 'Clean STFT spectrogram_clean', filename + '_clean')
-    stft_spectrogram(noisy_waveform, noisy_sample_rate, 'Noisy STFT spectrogram_noisy', filename + '_noisy')
+    # stft_spectrogram(clean_waveform, clean_sample_rate, 'Clean STFT spectrogram_clean', filename + '_clean')
+    # stft_spectrogram(noisy_waveform, noisy_sample_rate, 'Noisy STFT spectrogram_noisy', filename + '_noisy')
+
+
 
