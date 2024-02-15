@@ -23,7 +23,7 @@ def get_data(path):
 def save_data(waveforms, path, filenames):
     """Save the data into the path"""
     for i, waveform in enumerate(waveforms):
-        torchaudio.save(path + filenames[i], waveform, 16000)
+        torch.save(waveform, path + filenames[i] + '.pt')
 
     print('Saved {} files'.format(len(waveforms)))
 
@@ -89,4 +89,4 @@ if __name__ == '__main__':
     # save_data(clean_waveforms, 'data/clean_processed/', clean_filenames)
     # save_data(noisy_waveforms, 'data/noisy_processed/', noisy_filenames)
     # save_data(test_clean_waveforms, 'data/test_clean_processed/', clean_test_filenames)
-    save_data(test_noisy_waveforms, 'data/test_noisy_processed/', noisy_test_filenames)
+    save_data(test_noisy_waveforms, 'data/test_noisy_stft/', noisy_test_filenames)
