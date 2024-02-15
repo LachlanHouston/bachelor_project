@@ -6,7 +6,7 @@ from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from matplotlib import pyplot as plt
 import numpy as np
 import io
