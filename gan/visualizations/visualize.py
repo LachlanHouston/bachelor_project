@@ -114,11 +114,11 @@ def find_global_max(waveforms):
 
 
 if __name__ == '__main__':
-    clean_path = os.path.join('data/test_clean_processed/') # 0.5799 train # 0.5057 test
-    noisy_path = os.path.join('data/test_noisy_processed/') # 0.9724 train # 0.9826 test
-    waveforms, sample_rates = get_data(clean_path)
-    max_amplitude = find_global_max(waveforms)
-    print(max_amplitude)
+    clean_path = os.path.join('data/clean_processed/') # 0.5799 train # 0.5057 test
+    noisy_path = os.path.join('data/noisy_processed/') # 0.9724 train # 0.9826 test
+    # waveforms, sample_rates = get_data(clean_path)
+    # max_amplitude = find_global_max(waveforms)
+    # print(max_amplitude)
 
     # clean_waveform, clean_sample_rate = torchaudio.load(clean_path)
     # noisy_waveform, noisy_sample_rate = torchaudio.load(noisy_path)

@@ -35,18 +35,26 @@ def main(cfg):
     print('Train:', len(train_loader), 'Validation:', len(val_loader))
 
     model = Autoencoder(discriminator=Discriminator(), 
-                        generator=Generator(), 
+                        generator=Generator(),
+
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
+
                         n_critic=cfg.hyperparameters.n_critic,
-                        logging_freq=cfg.wandb.logging_freq,
+                        
                         d_learning_rate=cfg.hyperparameters.d_learning_rate,
+                        d_scheduler_step_size=cfg.hyperparameters.d_scheduler_step_size,
                         d_scheduler_gamma=cfg.hyperparameters.d_scheduler_gamma,
+
                         g_learning_rate=cfg.hyperparameters.g_learning_rate,
+                        g_scheduler_step_size=cfg.hyperparameters.g_scheduler_step_size,
                         g_scheduler_gamma=cfg.hyperparameters.g_scheduler_gamma,
+
                         weight_clip = cfg.hyperparameters.weight_clip,
                         weight_clip_value=cfg.hyperparameters.weight_clip_value,
-                        visualize=True)
+
+                        visualize=True,
+                        logging_freq=cfg.wandb.logging_freq)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
@@ -63,7 +71,8 @@ def main(cfg):
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        #precision="bf16-mixed",
+        limit_train_batches=cfg.hyperparameters.data_fraction,
+        limit_val_batches=cfg.hyperparameters.data_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
@@ -75,7 +84,6 @@ def main(cfg):
     wandb_logger.watch(model)
 
     trainer.fit(model, train_loader, val_loader)
-    # trainer.test(model, test_loader)
 
 
 if __name__ == "__main__":

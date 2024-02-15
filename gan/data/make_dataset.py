@@ -2,6 +2,7 @@ import torchaudio
 import os
 import torch
 from torch.nn import functional as F
+from torchmetrics import ScaleInvariantSignalNoiseRatio
 
 def get_data(path):
     """Get the data from the path"""
@@ -60,6 +61,27 @@ def process_data(waveforms, sample_rates, file_names, n_seconds=2):
     print('Processed {} files'.format(len(new_waveforms)))
 
     return new_waveforms, new_file_names
+
+def create_simple_baseline(clean_raw, noisy_raw, test_clean_raw, test_noisy_raw):
+    # Create a simple baseline
+    # The simple baseline is find the mean mask between the clean and noisy data, and apply it to the noisy data
+    # The mean mask is the mean of the clean data - noisy data
+    # The mask is applied to the waveforms
+
+    # Create the mean mask
+    mean_mask = torch.zeros(clean_raw[0].size())
+    for i in range(len(clean_raw)):
+        mean_mask += clean_raw[i] - noisy_raw[i]
+    mean_mask /= len(clean_raw)
+
+    # Apply the mask to the test noisy data
+    for i in range(len(test_noisy_raw)):
+        test_noisy_raw[i] += mean_mask
+
+    # Compute mean SNR
+    snr = ScaleInvariantSignalNoiseRatio()
+    snr_val = snr(test_clean_raw, test_noisy_raw)
+    print('Mean SNR:', snr_val)
 
 if __name__ == '__main__':
     print('Processing clean and noisy data...')
