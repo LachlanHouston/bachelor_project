@@ -5,12 +5,13 @@ hyperparameters:
   g_learning_rate: 1e-4
 
   d_scheduler_step_size: 100
-  d_scheduler_gamma: 0.5
+  d_scheduler_gamma: 1
   g_scheduler_step_size: 100
-  g_scheduler_gamma: 0.5
+  g_scheduler_gamma: 1
 
   max_epochs: 1000
-  data_fraction: 1
+  train_fraction: 0.02 
+  val_fraction: 0.1
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper

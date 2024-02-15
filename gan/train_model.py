@@ -71,13 +71,13 @@ def main(cfg):
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        limit_train_batches=cfg.hyperparameters.data_fraction,
-        limit_val_batches=cfg.hyperparameters.data_fraction,
+        limit_train_batches=cfg.hyperparameters.train_fraction,
+        limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
-        profiler=profiler
+        profiler="simple"
     )
 
     # log gradients and model topology
