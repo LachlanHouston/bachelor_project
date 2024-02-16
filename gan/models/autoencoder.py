@@ -227,14 +227,14 @@ class Autoencoder(L.LightningModule):
 
         if self.visualize:
             # log discriminator losses
-            self.log('D_loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             
             # log generator losses
-            self.log('G_loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_adv', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
@@ -247,7 +247,7 @@ class Autoencoder(L.LightningModule):
         # Scale Invariant Signal to Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(real_clean, fake_clean)
-        self.log('val_SNR', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('SI-SNR (test set)', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Perceptual Evaluation of Speech Quality
         # real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
@@ -261,25 +261,28 @@ class Autoencoder(L.LightningModule):
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
-        self.log('val_Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Distance - true clean and fake clean (test set)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
 
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
+            
+            vis_idx = torch.randint(0, real_clean.shape[0], (1,)).item()
 
-            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+            visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx], use_wandb = True)
+
+            fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device)
             fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy().squeeze()
             self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
 
-            mask_waveform = stft_to_waveform(mask[0], device=self.device)
+            mask_waveform = stft_to_waveform(mask[vis_idx], device=self.device)
             mask_waveform = mask_waveform.detach().cpu().numpy().squeeze()
             self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
             
-            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+            real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device)
             real_noisy_waveform = real_noisy_waveform.detach().cpu().numpy().squeeze()
             self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
 
-            real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+            real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device)
             real_clean_waveform = real_clean_waveform.detach().cpu().numpy().squeeze()
             self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
