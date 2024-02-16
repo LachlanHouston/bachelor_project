@@ -6,7 +6,7 @@ from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from matplotlib import pyplot as plt
 import numpy as np
 import io
@@ -193,8 +193,6 @@ class Autoencoder(L.LightningModule):
 
         real_clean = torch.stack(batch[0], dim=1).squeeze(0)
         real_noisy = torch.stack(batch[1], dim=1).squeeze(0)
-        # real_clean = torch.randn(2, 2, 257, 321, device=self.device) # dummy variables for testing
-        # real_noisy = torch.randn(2, 2, 257, 321, device=self.device)
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -263,33 +261,33 @@ class Autoencoder(L.LightningModule):
         dist = torch.norm(real_clean - fake_clean, p=1)
         self.log('val_Distance (true clean and fake clean)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
+        if self.visualize:
+            if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+                visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
 
-        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
+                fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+                fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
 
-            fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-            fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
+                mask_waveform = stft_to_waveform(mask[0], device=self.device)
+                mask_waveform = mask_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
+                
+                real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
+                real_noisy_waveform = real_noisy_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
 
-            mask_waveform = stft_to_waveform(mask[0], device=self.device)
-            mask_waveform = mask_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
-            
-            real_noisy_waveform = stft_to_waveform(real_noisy[0], device=self.device)
-            real_noisy_waveform = real_noisy_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
-
-            real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
-            real_clean_waveform = real_clean_waveform.detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
+                real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+                real_clean_waveform = real_clean_waveform.detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
 
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader = data_loader('data/clean_processed/', 'data/noisy_processed/', 
-                                           'data/test_clean_processed/', 'data/test_noisy_processed/',
-                                           batch_size=1, num_workers=8)
+    train_loader, val_loader = data_loader('data/clean_stft/', 'data/noisy_stft/', 
+                                           'data/test_clean_stft/', 'data/test_noisy_stft/',
+                                           batch_size=4, num_workers=8)
     # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     # Dummy train_loader
@@ -311,8 +309,8 @@ if __name__ == "__main__":
     #     shuffle=True
     # )
 
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator())
-    trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=2,
+    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False)
+    trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=2, limit_val_batches=3, limit_test_batches=1,
                         logger=False)
     trainer.fit(model, train_loader, val_loader)

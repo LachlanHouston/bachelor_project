@@ -10,38 +10,23 @@ class AudioDataset(Dataset):
                  new_sample_rate=16000):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
-        self.clean_files = [file for file in os.listdir(clean_path) if file.endswith('.wav')]
+        self.clean_files = [file for file in os.listdir(clean_path) if file.endswith('.pt')]
 
         self.noisy_path = noisy_path
-        self.noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
+        self.noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.pt')]
 
         self.new_sample_rate = new_sample_rate
         self.standardize = standardize
 
     def __len__(self):
-        return len(self.clean_files)
+        return len(self.noisy_files)
     
     def __getitem__(self, idx):
         clean_file = self.clean_files[idx]
         noisy_file = self.noisy_files[idx]
-        clean_waveform, cur_sample_rate = torchaudio.load(self.clean_path + clean_file)
-        noisy_waveform, _ = torchaudio.load(self.noisy_path + noisy_file)
 
-        # standardize the waveforms
-        if self.standardize:
-            clean_waveform = clean_waveform / (torch.max(torch.abs(clean_waveform)) + 1e-8)
-            noisy_waveform = noisy_waveform / (torch.max(torch.abs(noisy_waveform)) + 1e-8)
-
-        # Resample the waveforms
-        clean_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(clean_waveform)
-        noisy_waveform = torchaudio.transforms.Resample(cur_sample_rate, self.new_sample_rate)(noisy_waveform)
-
-        # Transform with ftst
-        clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-
-        clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
-        noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
+        clean_stft = torch.load(os.path.join(self.clean_path, clean_file))
+        noisy_stft = torch.load(os.path.join(self.noisy_path, noisy_file))
 
         return clean_stft, noisy_stft
     
@@ -49,27 +34,8 @@ def collate_fn(batch):
     clean_waveforms, noisy_waveforms = zip(*batch)
     return clean_waveforms, noisy_waveforms
 
-def stft_to_waveform(stft):
-    if len(stft.shape) == 3:
-        stft = stft.unsqueeze(0)
-    # Separate the real and imaginary components
-    stft_real = stft[:, 0, :, :]
-    stft_imag = stft[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
-    # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400)
-    return waveform
-
-def waveform_to_stft(waveform):
-    # Perform STFT to obtain the complex-valued spectrogram
-    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
-    # Separate the real and imaginary components
-    stft = torch.stack([stft.real, stft.imag], dim=1)
-    return stft
-
-def data_loader(clean_path = 'data/clean_processed', noisy_path = 'data/noisy_processed', 
-                test_clean_path = 'data/test_clean_processed', test_noisy_path = 'data/test_noisy_processed',
+def data_loader(clean_path = 'data/clean_stft', noisy_path = 'data/noisy_stft', 
+                test_clean_path = 'data/test_clean_stft', test_noisy_path = 'data/test_noisy_stft',
                 batch_size=16, num_workers=4):
     
     train_dataset = AudioDataset(clean_path, noisy_path, standardize=True)
@@ -81,16 +47,12 @@ def data_loader(clean_path = 'data/clean_processed', noisy_path = 'data/noisy_pr
 
 
 if __name__ == '__main__':
-    clean_processed_path = 'data/clean_processed/'
-    noisy_processed_path = 'data/noisy_processed/'
+    clean_processed_path = 'data/clean_stft/'
+    noisy_processed_path = 'data/noisy_stft/'
     
-    train_loader, val_loader, test_loader = data_loader(clean_processed_path, noisy_processed_path, batch_size=4, num_workers=4)
-    print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
+    train_loader, val_loader = data_loader(clean_processed_path, noisy_processed_path, batch_size=4, num_workers=4)
+    print('Train:', len(train_loader), 'Validation:', len(val_loader))
     for batch in train_loader:
         clean_waveforms, noisy_waveforms = batch
         print('Clean:', clean_waveforms[0].shape, 'Noisy:', noisy_waveforms[0].shape)
-
-        test1 = batch[0]
-        test2 = batch[1]
-        print(test1[0].shape, test2[0].shape)
         break

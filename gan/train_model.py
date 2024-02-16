@@ -23,10 +23,10 @@ def main(cfg):
     wandb.login(key=wandb_api_key)
 
     # Define paths
-    clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_processed/')
-    noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_processed/')
-    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_processed/')
-    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_processed/')
+    clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_stft/')
+    noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_stft/')
+    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
     # Load the data loaders
     train_loader, val_loader = data_loader( clean_path, noisy_path, 

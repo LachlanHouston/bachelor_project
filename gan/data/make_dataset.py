@@ -47,20 +47,25 @@ def process_data(waveforms, sample_rates, file_names, n_seconds=2):
 
 
             # Save the file names with the number of chunks, put the chunk number in the middle of the file name
-            new_file_names.append(file_names[i][:8] + '_{}'.format(j) + file_names[i][8:])
+            new_file_names.append(file_names[i][:8] + '_{}'.format(j))
         if waveform.size(1) % n_samples != 0:
             new_waveforms.append(F.pad(waveform[:, n_chunks*n_samples:], (0, n_samples - waveform.size(1) % n_samples)))
-            new_file_names.append(file_names[i][:8] + '_{}'.format(n_chunks) + file_names[i][8:])
+            new_file_names.append(file_names[i][:8] + '_{}'.format(n_chunks))
         
-        # Perform STFT on all the chunks
-        for j in range(len(new_waveforms)):
-            new_waveforms[j] = torch.stft(new_waveforms[j], n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-            new_waveforms[j] = torch.stack([new_waveforms[j].real, new_waveforms[j].imag], dim=0)
-            print(new_waveforms[j].size())
-
     print('Processed {} files'.format(len(new_waveforms)))
 
     return new_waveforms, new_file_names
+
+def stft(new_waveforms):
+    # Perform STFT on all the chunks
+    stft_waveforms = []
+    for i, waveform in enumerate(new_waveforms):
+        stft_waveform = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        stacked = torch.stack((stft_waveform.real, stft_waveform.imag), dim=1)
+        stft_waveforms.append(stacked)
+
+    print('Processed {} files'.format(len(stft_waveforms)))
+    return stft_waveforms
 
 def create_simple_baseline(clean_raw, noisy_raw, test_clean_raw, test_noisy_raw):
     # Create a simple baseline
@@ -85,22 +90,27 @@ def create_simple_baseline(clean_raw, noisy_raw, test_clean_raw, test_noisy_raw)
 
 if __name__ == '__main__':
     print('Processing clean and noisy data...')
-    clean_data_path = 'data/clean_raw/'
-    noisy_data_path = 'data/noisy_raw/'
+    clean_data_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/org_data/clean_raw/'
+    noisy_data_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/org_data/noisy_raw/'
 
     # clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
     # noisy_waveforms, noisy_sample_rates, noisy_filenames = get_data(noisy_data_path)
-    # test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('data/test_clean_raw/')
-    test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data('data/test_noisy_raw/')
+    test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('org_data/test_clean_raw/')
+    # test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data('org_data/test_noisy_raw/')
+
+    
 
 
     # clean_waveforms, clean_filenames = process_data(clean_waveforms, clean_sample_rates, clean_filenames)
     # noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
-    # test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
-    test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
+    test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
+    # test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
 
-    # print(len(clean_waveforms), len(clean_filenames))
-    # print(clean_filenames[:10])
+
+    # clean_waveforms = stft(clean_waveforms)
+    # noisy_waveforms = stft(noisy_waveforms)
+    test_clean_waveforms = stft(test_clean_waveforms)
+    # test_noisy_waveforms = stft(test_noisy_waveforms)
 
 
     # assert_data(clean_waveforms)
@@ -108,7 +118,11 @@ if __name__ == '__main__':
     # assert_data(test_clean_waveforms)
     # assert_data(test_noisy_waveforms)
 
-    # save_data(clean_waveforms, 'data/clean_processed/', clean_filenames)
-    # save_data(noisy_waveforms, 'data/noisy_processed/', noisy_filenames)
-    # save_data(test_clean_waveforms, 'data/test_clean_processed/', clean_test_filenames)
-    save_data(test_noisy_waveforms, 'data/test_noisy_stft/', noisy_test_filenames)
+    # save_data(clean_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/', clean_filenames)
+    # save_data(noisy_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/', noisy_filenames)
+    save_data(test_clean_waveforms, 'data/test_clean_stft/', clean_test_filenames)
+    # save_data(test_noisy_waveforms, 'data/test_noisy_stft/', noisy_test_filenames)
+
+    # # load the processed data
+    test = torch.load('data/test_noisy_stft/p232_001_0.pt')
+    print(test.size())
