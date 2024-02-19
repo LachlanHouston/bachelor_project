@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import io
 import wandb
+torch.set_float32_matmul_precision('medium')
 
 
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = False):
@@ -166,11 +167,19 @@ class Autoencoder(L.LightningModule):
         alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
         difference = fake_clean - real_clean
         interpolates = real_clean + (alpha * difference)
+        # Enable gradient calculation for interpolates
+        interpolates.requires_grad_(True)
+
         D_interpolate = self.discriminator(interpolates)
-        grad_outputs = torch.ones(D_interpolate.size(), device=self.device)
-        gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=grad_outputs, create_graph=True, retain_graph=True, only_inputs=True)[0]
-        slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
+        ones = torch.ones(D_interpolate.size(), device=self.device)
+        gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+        # slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
+        slopes = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) # Adding a small epsilon to prevent division by zero
+
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
+
+
         # compute the adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
@@ -291,29 +300,29 @@ class Autoencoder(L.LightningModule):
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader = data_loader('data/clean_stft/', 'data/noisy_stft/', 
-                                           'data/test_clean_stft/', 'data/test_noisy_stft/',
-                                           batch_size=4, num_workers=8)
+    # train_loader, val_loader = data_loader('data/clean_stft/', 'data/noisy_stft/', 
+                                        #    'data/test_clean_stft/', 'data/test_noisy_stft/',
+                                        #    batch_size=4, num_workers=8)
     # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     # Dummy train_loader
-    # train_loader = torch.utils.data.DataLoader(
-    #     torch.randn(2, 2, 257, 321),
-    #     batch_size=2,
-    #     shuffle=True
-    # )
+    train_loader = torch.utils.data.DataLoader(
+        torch.randn(2, 2, 257, 321),
+        batch_size=2,
+        shuffle=True
+    )
 
-    # val_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
+    val_loader = torch.utils.data.DataLoader(
+        torch.randn(16, 2, 257, 321),
+        batch_size=16,
+        shuffle=True
+    )
 
-    # test_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
+    test_loader = torch.utils.data.DataLoader(
+        torch.randn(16, 2, 257, 321),
+        batch_size=16,
+        shuffle=True
+    )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False)
     trainer = L.Trainer(max_epochs=1, accelerator='auto', num_sanity_val_steps=0,
