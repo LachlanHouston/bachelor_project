@@ -7,6 +7,7 @@ import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from speechmos import dnsmos
 from matplotlib import pyplot as plt
 import numpy as np
 import io
@@ -252,24 +253,26 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        # Scale Invariant Signal to Noise Ratio
+        ## Scale Invariant Signal to Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
         snr_val = snr(real_clean, fake_clean)
-        self.log('SI-SNR (test set)', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('SI-SNR', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
-        # Perceptual Evaluation of Speech Quality
-        # real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
-        # real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
-        # fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        # fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
-
+        ## Perceptual Evaluation of Speech Quality
+        real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+        real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
+        fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
         # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
-        # pesq_val = pesq(real_clean_waveform, fake_clean_waveform)
-        # self.log('val_PESQ', pesq_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # pesq_score = pesq(real_clean_waveform, fake_clean_waveform)
+
+        ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
+        dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)
+        self.log('DNSMOS', dnsmos_score['ovrl_mos'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
-        self.log('Distance - true clean and fake clean (test set)', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('Distance - real clean and fake clean', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
