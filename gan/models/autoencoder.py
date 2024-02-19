@@ -14,11 +14,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import io
 import wandb
-import librosa
-import librosa.display
 torch.set_float32_matmul_precision('medium')
-torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
-torch.backends.cuda.matmul.allow_tf32 = True
+
 
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = False):
     """
@@ -301,17 +298,31 @@ class Autoencoder(L.LightningModule):
 
 
 if __name__ == "__main__":
-    train_loader = torch.utils.data.DataLoader(
-        torch.randn(2, 1, 2, 257, 321),
-        batch_size=2,
-        shuffle=True
-    )
+    # Print Device
+    print(torch.cuda.is_available())
+    train_loader, val_loader = data_loader('data/clean_stft/', 'data/noisy_stft/', 
+                                           'data/test_clean_stft/', 'data/test_noisy_stft/',
+                                           batch_size=4, num_workers=8)
+    # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
-    val_loader = torch.utils.data.DataLoader(
-        torch.randn(2, 1, 2, 257, 321),
-        batch_size=16,
-        shuffle=True
-    )
+    # Dummy train_loader
+    # train_loader = torch.utils.data.DataLoader(
+    #     torch.randn(2, 2, 257, 321),
+    #     batch_size=2,
+    #     shuffle=True
+    # )
+
+    # val_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
+
+    # test_loader = torch.utils.data.DataLoader(
+    #     torch.randn(16, 2, 257, 321),
+    #     batch_size=16,
+    #     shuffle=True
+    # )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False)
     trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
