@@ -6,6 +6,7 @@ from gan.data.data_loader import data_loader
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from speechmos import dnsmos
 from matplotlib import pyplot as plt
@@ -269,6 +270,11 @@ class Autoencoder(L.LightningModule):
         ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
         dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)
         self.log('DNSMOS', dnsmos_score['ovrl_mos'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
+
+        ## Extended Short Time Objective Intelligibility
+        estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+        estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+        self.log('eSTOI', estoi_score, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Distance between real clean and fake clean
         dist = torch.norm(real_clean - fake_clean, p=1)
