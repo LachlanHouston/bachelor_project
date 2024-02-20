@@ -13,75 +13,56 @@ from matplotlib import pyplot as plt
 import numpy as np
 import io
 import wandb
+import librosa
+import librosa.display
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = False):
     """
-    Visualizes an STFT-transformed file as a spectrogram and returns the plot as an image object
+    Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
     for logging to wandb.
+    """    
+    # Spectrogram of real clean
+    mel_spect_rc = librosa.feature.melspectrogram(S=real_clean[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
+    # Spectrogram of fake clean
+    mel_spect_fc = librosa.feature.melspectrogram(S=fake_clean[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
+    # Spectrogram of real noisy
+    mel_spect_rn = librosa.feature.melspectrogram(S=real_noisy[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_db_rn = librosa.power_to_db(mel_spect_rn, ref=np.max)
     
-    Parameters:
-    - stft_data: np.ndarrays with shape (2, Frequency bins, Frames). The first dimension contains
-                 the real and imaginary parts of the STFT.
-    
-    Returns:
-    - A BytesIO object containing the image of the plot.
-    """
-    
-    complex_stft_rc = real_clean[0] + 1j * real_clean[1]
-    complex_stft_rc = complex_stft_rc.cpu()
-    magnitude_spectrum_rc = np.abs(complex_stft_rc.detach().numpy())
-
-    complex_stft_fc = fake_clean[0] + 1j * fake_clean[1]
-    complex_stft_fc = complex_stft_fc.cpu()
-    magnitude_spectrum_fc = np.abs(complex_stft_fc.detach().numpy())
-
-    complex_stft_rn = real_noisy[0] + 1j * real_noisy[1]
-    complex_stft_rn = complex_stft_rn.cpu()
-    magnitude_spectrum_rn = np.abs(complex_stft_rn.detach().numpy())
-
+    # Create a figure with 3 subplots
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 
-    axs[0].imshow(magnitude_spectrum_rc, aspect='auto', origin='lower',
-                    extent=[0, magnitude_spectrum_rc.shape[1], 0, magnitude_spectrum_rc.shape[0]])
+    # Define Real Clean plot
+    img_rc = librosa.display.specshow(mel_spect_db_rc, ax=axs[0], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+    fig.colorbar(img_rc, ax=axs[0], format='%+2.0f dB')
     axs[0].set_title('Real Clean')
-    axs[0].set_xlabel('Time (Frames)')
-    axs[0].set_ylabel('Frequency (Bins)')
-    axs[0].set_xticks(np.arange(0, magnitude_spectrum_rc.shape[1], 50))
-    axs[0].set_yticks(np.arange(0, magnitude_spectrum_rc.shape[0], 50))
+    axs[0].set_xlabel('Time (s)')
+    axs[0].set_ylabel('Frequency (Hz)')
 
-    axs[1].imshow(magnitude_spectrum_fc, aspect='auto', origin='lower',
-                    extent=[0, magnitude_spectrum_fc.shape[1], 0, magnitude_spectrum_fc.shape[0]])
+    # Define Fake Clean plot
+    img_fc = librosa.display.specshow(mel_spect_db_fc, ax=axs[1], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+    fig.colorbar(img_fc, ax=axs[1], format='%+2.0f dB')
     axs[1].set_title('Fake Clean')
-    axs[1].set_xlabel('Time (Frames)')
-    axs[1].set_ylabel('Frequency (Bins)')
-    axs[1].set_xticks(np.arange(0, magnitude_spectrum_fc.shape[1], 50))
-    axs[1].set_yticks(np.arange(0, magnitude_spectrum_fc.shape[0], 50))
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel('Frequency (Hz)')
 
-    axs[2].imshow(magnitude_spectrum_rn, aspect='auto', origin='lower',
-                    extent=[0, magnitude_spectrum_rn.shape[1], 0, magnitude_spectrum_rn.shape[0]])
+    # Define Real Noisy plot
+    img_rn = librosa.display.specshow(mel_spect_db_rn, ax=axs[2], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+    fig.colorbar(img_rn, ax=axs[2], format='%+2.0f dB')
     axs[2].set_title('Real Noisy')
-    axs[2].set_xlabel('Time (Frames)')
-    axs[2].set_ylabel('Frequency (Bins)')
-    axs[2].set_xticks(np.arange(0, magnitude_spectrum_rn.shape[1], 50))
-    axs[2].set_yticks(np.arange(0, magnitude_spectrum_rn.shape[0], 50))
+    axs[2].set_xlabel('Time (s)')
+    axs[2].set_ylabel('Frequency (Hz)')
 
+    # Set the title of the figure
     fig.suptitle('Spectrograms')
     plt.tight_layout(pad=3.0)
-
-    # # Create figure without displaying it
-    # plt.figure(figsize=(10, 6))
-    # plt.imshow(magnitude_spectrum_rc, aspect='auto', origin='lower', 
-    #            extent=[0, magnitude_spectrum_rc.shape[1], 0, magnitude_spectrum_rc.shape[0]])
-    # plt.colorbar(label='Magnitude')
-    # plt.xlabel('Time (Frames)')
-    # plt.ylabel('Frequency (Bins)')
-    # plt.title('Amplitude Spectrogram')
     
     if use_wandb:
-        image =  wandb.Image(plt)
         wandb.log({"Spectrogram": wandb.Image(plt)})
         # Create a bytes buffer for the image to avoid saving to disk
         buf = io.BytesIO()
@@ -89,7 +70,6 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = F
         plt.savefig(buf, format='png')
         # Important: Close the plot to free memory
         plt.close()
-        
         # Reset buffer's cursor to the beginning
         buf.seek(0)
         # image = Image.open(buf)
