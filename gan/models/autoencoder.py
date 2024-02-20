@@ -249,14 +249,14 @@ class Autoencoder(L.LightningModule):
         real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
         fake_clean_waveform = stft_to_waveform(fake_clean, device=self.device)
         fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
-        
+
         ## Perceptual Evaluation of Speech Quality
         # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
         # pesq_score = pesq(real_clean_waveform, fake_clean_waveform)
 
         ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
-        dnsmos_score = np.mean([dnsmos.run(fake_clean_waveform.numpy()[i], 16000)['ovrl_mos'] for i in range(fake_clean_waveform.shape[0])])
-        self.log('DNSMOS', dnsmos_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # dnsmos_score = np.mean([dnsmos.run(fake_clean_waveform.numpy()[i], 16000)['ovrl_mos'] for i in range(fake_clean_waveform.shape[0])])
+        # self.log('DNSMOS', dnsmos_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
