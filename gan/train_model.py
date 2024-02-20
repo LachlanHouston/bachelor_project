@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
-from gan import data_loader
+from gan import VCTKDataModule
 
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
@@ -33,10 +33,7 @@ def main(cfg):
     test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
     # Load the data loaders
-    train_loader, val_loader = data_loader( clean_path, noisy_path, 
-                                            test_clean_path, test_noisy_path,
-                                            cfg.hyperparameters.batch_size, cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
-    print('Train:', len(train_loader), 'Validation:', len(val_loader))
+    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
 
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(),
@@ -63,6 +60,8 @@ def main(cfg):
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
         filename="{epoch}",  # The name of the checkpoint files
+        every_n_epochs=5,  # Save a checkpoint every epoch
+
     )
 
     wandb_logger = WandbLogger(
@@ -70,8 +69,6 @@ def main(cfg):
         name=cfg.wandb.name,
         entity=cfg.wandb.entity,
     )
-
-    profiler = AdvancedProfiler(dirpath=".", filename="perf_logs")
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
@@ -81,13 +78,12 @@ def main(cfg):
         check_val_every_n_epoch=1,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
-        profiler="simple"
     )
 
     # log gradients and model topology
     wandb_logger.watch(model)
 
-    trainer.fit(model, train_loader, val_loader)
+    trainer.fit(model, VCTK)
 
 
 if __name__ == "__main__":

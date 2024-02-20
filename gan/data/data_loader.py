@@ -1,9 +1,7 @@
-import torchaudio
 import os
 import torch
-from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
-from scipy.io import wavfile
+import pytorch_lightning as L
 
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, standardize=None,
@@ -29,30 +27,31 @@ class AudioDataset(Dataset):
         noisy_stft = torch.load(os.path.join(self.noisy_path, noisy_file))
 
         return clean_stft, noisy_stft
-    
-def collate_fn(batch):
-    clean_waveforms, noisy_waveforms = zip(*batch)
-    return clean_waveforms, noisy_waveforms
 
-def data_loader(clean_path = 'data/clean_stft', noisy_path = 'data/noisy_stft', 
-                test_clean_path = 'data/test_clean_stft', test_noisy_path = 'data/test_noisy_stft',
-                batch_size=16, num_workers=4):
-    
-    train_dataset = AudioDataset(clean_path, noisy_path, standardize=True)
-    val_dataset = AudioDataset(test_clean_path, test_noisy_path, standardize=True)
+# Lightning DataModule
+class VCTKDataModule(L.LightningDataModule):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=4):
+        super(VCTKDataModule, self).__init__()
+        self.clean_path = clean_path
+        self.noisy_path = noisy_path
+        self.test_clean_path = test_clean_path
+        self.test_noisy_path = test_noisy_path
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn, persistent_workers=True, drop_last=True)
-    return train_loader, val_loader
+
+    def setup(self, stage=None):
+        if stage == 'fit' or stage is None:
+            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path)
+            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path)
+            
+
+    def train_dataloader(self):
+        return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
 
 if __name__ == '__main__':
-    clean_processed_path = 'data/clean_stft/'
-    noisy_processed_path = 'data/noisy_stft/'
-    
-    train_loader, val_loader = data_loader(clean_processed_path, noisy_processed_path, batch_size=4, num_workers=4)
-    print('Train:', len(train_loader), 'Validation:', len(val_loader))
-    for batch in train_loader:
-        clean_waveforms, noisy_waveforms = batch
-        print('Clean:', clean_waveforms[0].shape, 'Noisy:', noisy_waveforms[0].shape)
-        break
+    pass
