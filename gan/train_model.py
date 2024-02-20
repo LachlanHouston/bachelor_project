@@ -60,6 +60,8 @@ def main(cfg):
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
         filename="{epoch}",  # The name of the checkpoint files
+        every_n_epochs=5,  # Save a checkpoint every epoch
+
     )
 
     wandb_logger = WandbLogger(
