@@ -50,7 +50,7 @@ class VCTKDataModule(L.LightningDataModule):
         return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):
-        return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
+        return DataLoader(self.vctk_val, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
 
 if __name__ == '__main__':

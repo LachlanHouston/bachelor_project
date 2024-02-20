@@ -25,14 +25,19 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = F
     Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
     for logging to wandb.
     """    
+
+    S_real_c = real_clean[0].cpu()
+    S_fake_c = fake_clean[0].cpu()
+    S_real_n = real_noisy[0].cpu()
+
     # Spectrogram of real clean
-    mel_spect_rc = librosa.feature.melspectrogram(S=real_clean[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_rc = librosa.feature.melspectrogram(S=S_real_c, sr=16000, n_fft=512, hop_length=100, power=2)
     mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
     # Spectrogram of fake clean
-    mel_spect_fc = librosa.feature.melspectrogram(S=fake_clean[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_fc = librosa.feature.melspectrogram(S=S_fake_c, sr=16000, n_fft=512, hop_length=100, power=2)
     mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
     # Spectrogram of real noisy
-    mel_spect_rn = librosa.feature.melspectrogram(S=real_noisy[0], sr=16000, n_fft=512, hop_length=100, power=2)
+    mel_spect_rn = librosa.feature.melspectrogram(S=S_real_n, sr=16000, n_fft=512, hop_length=100, power=2)
     mel_spect_db_rn = librosa.power_to_db(mel_spect_rn, ref=np.max)
     
     # Create a figure with 3 subplots
