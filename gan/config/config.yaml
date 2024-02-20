@@ -10,8 +10,8 @@ hyperparameters:
   g_scheduler_gamma: 1
 
   max_epochs: 1000
-  train_fraction: 0.001
-  val_fraction: 0.01
+  train_fraction: 1.
+  val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper

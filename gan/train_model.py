@@ -33,7 +33,7 @@ def main(cfg):
     test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
     # Load the data loaders
-    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
+    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size)
 
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(),
