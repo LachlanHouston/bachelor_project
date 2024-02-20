@@ -8,6 +8,7 @@ import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+# from gan.utils.utils import SegSNR
 from speechmos import dnsmos
 from matplotlib import pyplot as plt
 import numpy as np
@@ -234,31 +235,37 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        ## Scale Invariant Signal to Noise Ratio
+        ## Scale Invariant Signal-to-Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_val = snr(real_clean, fake_clean)
-        self.log('SI-SNR', snr_val, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        snr_score = snr(real_clean, fake_clean)
+        self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Perceptual Evaluation of Speech Quality
-        real_clean_waveform = stft_to_waveform(real_clean[0], device=self.device)
+        real_clean_waveform = stft_to_waveform(real_clean, device=self.device)
         real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
-        fake_clean_waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        fake_clean_waveform = stft_to_waveform(fake_clean, device=self.device)
         fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
         # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
         # pesq_score = pesq(real_clean_waveform, fake_clean_waveform)
 
         ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
-        dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)
-        self.log('DNSMOS', dnsmos_score['ovrl_mos'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        dnsmos_score = np.mean([dnsmos.run(fake_clean_waveform.numpy()[i], 16000)['ovrl_mos'] for i in range(fake_clean_waveform.shape[0])])
+        self.log('DNSMOS', dnsmos_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
         estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
-        self.log('eSTOI', estoi_score, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        # Distance between real clean and fake clean
-        dist = torch.norm(real_clean - fake_clean, p=1)
-        self.log('Distance - real clean and fake clean', dist, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # ## Segmental Signal-to-Noise Ratio (SegSNR)
+        # segsnr = SegSNR(seg_length=160) # 160 corresponds to 10ms of audio with sr=16000
+        # segsnr.update(preds=fake_clean_waveform, target=real_clean_waveform)
+        # segsnr_score = segsnr.compute() # Average SegSNR
+        # self.log('SegSNR', segsnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        # # Distance between real clean and fake clean
+        # dist = torch.norm(real_clean - fake_clean, p=1)
+        # self.log('Distance - real clean and fake clean', dist, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
