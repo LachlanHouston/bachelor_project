@@ -242,7 +242,7 @@ class Autoencoder(L.LightningModule):
 
         ## Scale Invariant Signal-to-Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_score = snr(fake_clean, real_clean)
+        snr_score = snr(preds=fake_clean, target=real_clean)
         self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         real_clean_waveform = stft_to_waveform(real_clean, device=self.device)

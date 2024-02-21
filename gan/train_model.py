@@ -64,11 +64,16 @@ def main(cfg):
 
     )
 
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity,
-    )
+    if cfg.wandb.use_wandb:
+        wandb_logger = WandbLogger(
+            project=cfg.wandb.project,
+            name=cfg.wandb.name,
+            entity=cfg.wandb.entity,  
+        )
+        # log gradients and model topology
+        wandb_logger.watch(model)
+    else:
+        wandb_logger = None
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
@@ -77,11 +82,10 @@ def main(cfg):
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
     )
 
-    # log gradients and model topology
-    wandb_logger.watch(model)
+    
 
     trainer.fit(model, VCTK)
 

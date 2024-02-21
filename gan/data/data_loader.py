@@ -1,11 +1,10 @@
 import os
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, SequentialSampler, BatchSampler
 import pytorch_lightning as L
 
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path, standardize=None,
-                 new_sample_rate=16000):
+    def __init__(self, clean_path, noisy_path):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
         self.clean_files = [file for file in os.listdir(clean_path) if file.endswith('.pt')]
@@ -13,18 +12,23 @@ class AudioDataset(Dataset):
         self.noisy_path = noisy_path
         self.noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.pt')]
 
-        self.new_sample_rate = new_sample_rate
-        self.standardize = standardize
+        # Load the data
+        self.clean_data = torch.zeros(len(self.clean_files), 2, 257, 321)
+        self.noisy_data = torch.zeros(len(self.noisy_files), 2, 257, 321)
+
+        for i, file in enumerate(self.clean_files):
+            print(i)
+            clean_stft = torch.load(self.clean_path + file)
+            noisy_stft = torch.load(self.noisy_path + file)
+            self.clean_data[i] = clean_stft
+            self.noisy_data[i] = noisy_stft
 
     def __len__(self):
         return len(self.noisy_files)
     
     def __getitem__(self, idx):
-        clean_file = self.clean_files[idx]
-        noisy_file = self.noisy_files[idx]
-
-        clean_stft = torch.load(os.path.join(self.clean_path, clean_file))
-        noisy_stft = torch.load(os.path.join(self.noisy_path, noisy_file))
+        clean_stft = self.clean_data[idx]
+        noisy_stft = self.noisy_data[idx]
 
         return clean_stft, noisy_stft
 
@@ -47,10 +51,10 @@ class VCTKDataModule(L.LightningDataModule):
             
 
     def train_dataloader(self):
-        return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True)
+        return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, pin_memory=True, drop_last=True)
     
     def val_dataloader(self):
-        return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True)
+        return DataLoader(self.vctk_val, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False, pin_memory=True, drop_last=True)
 
 
 if __name__ == '__main__':
