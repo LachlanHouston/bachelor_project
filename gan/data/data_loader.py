@@ -2,6 +2,7 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader, SequentialSampler, BatchSampler
 import pytorch_lightning as L
+from tqdm import tqdm
 
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path):
@@ -15,13 +16,11 @@ class AudioDataset(Dataset):
         # Load the data
         self.clean_data = torch.zeros(len(self.clean_files), 2, 257, 321)
         self.noisy_data = torch.zeros(len(self.noisy_files), 2, 257, 321)
-
-        for i, file in enumerate(self.clean_files):
-            print(i)
-            clean_stft = torch.load(self.clean_path + file)
-            noisy_stft = torch.load(self.noisy_path + file)
-            self.clean_data[i] = clean_stft
-            self.noisy_data[i] = noisy_stft
+        
+        print("Loading data...")
+        for i, file in enumerate(tqdm(self.noisy_files)):
+            self.clean_data[i] = torch.load(os.path.join(self.clean_path, file))
+            self.noisy_data[i] = torch.load(os.path.join(self.noisy_path, file))
 
     def __len__(self):
         return len(self.noisy_files)

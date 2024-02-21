@@ -7,6 +7,7 @@ import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+import librosa
 # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 # from gan.utils.utils import SegSNR
 from speechmos import dnsmos
@@ -301,29 +302,19 @@ class Autoencoder(L.LightningModule):
 if __name__ == "__main__":
     # Print Device
     print(torch.cuda.is_available())
-    train_loader, val_loader = data_loader('data/clean_stft/', 'data/noisy_stft/', 
-                                           'data/test_clean_stft/', 'data/test_noisy_stft/',
-                                           batch_size=4, num_workers=8)
-    # # print('Train:', len(train_loader), 'Validation:', len(val_loader), 'Test:', len(test_loader))
 
     # Dummy train_loader
-    # train_loader = torch.utils.data.DataLoader(
-    #     torch.randn(2, 2, 257, 321),
-    #     batch_size=2,
-    #     shuffle=True
-    # )
+    train_loader = torch.utils.data.DataLoader(
+        torch.randn(2, 2, 257, 321),
+        batch_size=2,
+        shuffle=True
+    )
 
-    # val_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
-
-    # test_loader = torch.utils.data.DataLoader(
-    #     torch.randn(16, 2, 257, 321),
-    #     batch_size=16,
-    #     shuffle=True
-    # )
+    val_loader = torch.utils.data.DataLoader(
+        torch.randn(16, 2, 257, 321),
+        batch_size=16,
+        shuffle=True
+    )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False)
     trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
