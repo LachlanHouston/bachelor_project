@@ -1,6 +1,6 @@
 hyperparameters:
   batch_size: 2 # NEVER SET IT HIGHER THAN 16, IT WILL CRASH
-  num_workers: 0
+  num_workers: 6
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
 
@@ -10,7 +10,7 @@ hyperparameters:
   g_scheduler_gamma: 1
 
   max_epochs: 1000
-  train_fraction: 0.1
+  train_fraction: 0.01
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
