@@ -20,11 +20,13 @@ hyperparameters:
   weight_clip_value: 0.01
   
 wandb:
-  use_wandb: False
+  use_wandb: True
   logging_freq: 1
   entity: turtle_team
   name: ${now:%d/%m %H:%M:%S}
   project: bachelor2
 
 system:
-  checkpointing: False
+  checkpointing: True
+  continue_training: True
+  ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none

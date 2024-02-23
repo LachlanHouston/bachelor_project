@@ -29,9 +29,10 @@ class Discriminator(nn.Module):
 
         for i in range(len(self.input_sizes)):
             self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2)))
-            
+
+        self.activation = nn.LeakyReLU(0.1)    
+
         self.fc_layers1  = norm_f(nn.Linear(256, 64))
-        self.activation = nn.LeakyReLU(0.1)
         self.fc_layers2 = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
