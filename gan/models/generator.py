@@ -14,7 +14,7 @@ def _padded_cat(x, y, dim=1):
 
 class ConvBlock(nn.Module):
     "norm: weight, batch, layer, instance"
-    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), 
+    def __init__(self, in_channels, out_channels, kernel_size=(5, 2), stride=(2, 1), 
                  padding=(0, 1), causal=True):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)        
@@ -31,7 +31,7 @@ class ConvBlock(nn.Module):
         return x
 
 class TransConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1),
+    def __init__(self, in_channels, out_channels, kernel_size=(5, 2), stride=(2, 1),
                  padding=(0, 0), output_padding=(0, 0), is_last=False, causal=True):
         super().__init__()
         self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, 
