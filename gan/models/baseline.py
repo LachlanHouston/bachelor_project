@@ -2,7 +2,6 @@ import os
 import torch
 import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from torch_pesq import PesqLoss
 
 
 def baseline_model():

@@ -30,7 +30,7 @@ class AudioDataset(Dataset):
 
 # Lightning DataModule
 class VCTKDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=4):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16):
         super(VCTKDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
@@ -47,10 +47,10 @@ class VCTKDataModule(L.LightningDataModule):
             
 
     def train_dataloader(self):
-        return DataLoader(self.vctk_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
+        return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True)
     
     def val_dataloader(self):
-        return DataLoader(self.vctk_val, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
+        return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True)
 
 
 if __name__ == '__main__':

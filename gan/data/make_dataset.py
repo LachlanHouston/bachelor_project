@@ -3,6 +3,9 @@ import os
 import torch
 from torch.nn import functional as F
 from torchmetrics import ScaleInvariantSignalNoiseRatio
+from wave import open as open_wave
+import pandas as pd
+import numpy as np
 
 def get_data(path):
     """Get the data from the path"""
@@ -88,6 +91,30 @@ def create_simple_baseline(clean_raw, noisy_raw, test_clean_raw, test_noisy_raw)
     snr_val = snr(test_clean_raw, test_noisy_raw)
     print('Mean SNR:', snr_val)
 
+def create_csv(path):
+    total = len(os.listdir(path))
+    filenames = os.listdir(path)
+    # Create a dataframe with shape (n_files, 2*257*321)
+    df = np.zeros((total, 2*257*321))
+    for i, file in enumerate(filenames):
+        if file.endswith('.pt'):
+            stft = torch.load(path + file)
+            stft = stft.squeeze(0).numpy() # SHAPE: (2, 257, 321)
+            # Shape into (1, 2*257*321)
+            stft = stft.reshape(1, -1)
+            stft = stft[0]
+            stft = stft.tolist()
+            df[i] = stft
+            print('Processed {}/{}'.format(i+1, total))
+            if i == 10:
+                break
+
+    # Save as npy file
+    np.save('data.npy', df)
+
+    
+
+
 if __name__ == '__main__':
     print('Processing clean and noisy data...')
     clean_data_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/org_data/clean_raw/'
@@ -95,7 +122,7 @@ if __name__ == '__main__':
 
     # clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
     # noisy_waveforms, noisy_sample_rates, noisy_filenames = get_data(noisy_data_path)
-    test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('org_data/test_clean_raw/')
+    # test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('org_data/test_clean_raw/')
     # test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data('org_data/test_noisy_raw/')
 
     
@@ -103,13 +130,13 @@ if __name__ == '__main__':
 
     # clean_waveforms, clean_filenames = process_data(clean_waveforms, clean_sample_rates, clean_filenames)
     # noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
-    test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
+    # test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
     # test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
 
 
     # clean_waveforms = stft(clean_waveforms)
     # noisy_waveforms = stft(noisy_waveforms)
-    test_clean_waveforms = stft(test_clean_waveforms)
+    # test_clean_waveforms = stft(test_clean_waveforms)
     # test_noisy_waveforms = stft(test_noisy_waveforms)
 
 
@@ -120,9 +147,14 @@ if __name__ == '__main__':
 
     # save_data(clean_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/', clean_filenames)
     # save_data(noisy_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/', noisy_filenames)
-    save_data(test_clean_waveforms, 'data/test_clean_stft/', clean_test_filenames)
+    # save_data(test_clean_waveforms, 'data/test_clean_stft/', clean_test_filenames)
     # save_data(test_noisy_waveforms, 'data/test_noisy_stft/', noisy_test_filenames)
 
     # # load the processed data
-    test = torch.load('data/test_noisy_stft/p232_001_0.pt')
-    print(test.size())
+    # test = torch.load('data/test_noisy_stft/p232_001_0.pt')
+    # print(test.size())
+
+    clean_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/'
+    noisy_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/'
+
+    create_csv(clean_stft_path)

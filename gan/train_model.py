@@ -21,6 +21,10 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 
+torch.set_float32_matmul_precision('medium')
+torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
+torch.backends.cuda.matmul.allow_tf32 = True
+
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
     wandb_api_key = os.environ.get("WANDB_API_KEY")
@@ -33,7 +37,7 @@ def main(cfg):
     test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
     # Load the data loaders
-    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers if torch.cuda.is_available() else 1)
+    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(),
@@ -64,11 +68,16 @@ def main(cfg):
 
     )
 
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity,
-    )
+    if cfg.wandb.use_wandb:
+        wandb_logger = WandbLogger(
+            project=cfg.wandb.project,
+            name=cfg.wandb.name,
+            entity=cfg.wandb.entity,  
+        )
+        # log gradients and model topology
+        wandb_logger.watch(model)
+    else:
+        wandb_logger = None
 
     trainer = Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
@@ -77,11 +86,10 @@ def main(cfg):
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
     )
 
-    # log gradients and model topology
-    wandb_logger.watch(model)
+    
 
     trainer.fit(model, VCTK)
 
