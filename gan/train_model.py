@@ -89,9 +89,13 @@ def main(cfg):
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
     )
 
-    
+    if cfg.system.continue_training:
+        print("Continuing training from checkpoint")
+        trainer.fit(model, VCTK, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
 
-    trainer.fit(model, VCTK)
+    else:
+        print("Starting new training")
+        trainer.fit(model, VCTK)
 
 
 if __name__ == "__main__":

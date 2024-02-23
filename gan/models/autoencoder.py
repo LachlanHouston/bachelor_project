@@ -8,6 +8,7 @@ import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 import librosa
+import librosa.display
 # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 # from gan.utils.utils import SegSNR
 from speechmos import dnsmos
