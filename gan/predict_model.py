@@ -2,7 +2,7 @@ import torch
 from gan import Generator
 from gan import Discriminator
 from gan import Autoencoder
-import torchaudio
+from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 
 def predict(
     model: torch.nn.Module,
@@ -23,44 +23,29 @@ def predict(
 if __name__ == '__main__':
     model = Autoencoder()
 
-    checkpoint = torch.load('models/epoch=14-val_SNR=-32.94.ckpt')
+    checkpoint = torch.load('models/epoch=999.ckpt', map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['state_dict'])
 
     # Get the generator
     generator = model.generator
 
     # load a waveform
-    waveform, sample_rate = torchaudio.load('data/noisy_processed/p230_080_0.wav')
+    noisy_stft = torch.load('data/test_noisy_stft/p232_015_2.pt')[0].unsqueeze(0)
+    clean_stft = torch.load('data/test_clean_stft/p232_015_2.pt')[0].unsqueeze(0)
 
-    # downsample to 16 kHz
-    waveform = torchaudio.transforms.Resample(sample_rate, 16000)(waveform)
+    fake_stft, _ = generator(noisy_stft)
+    # remove tuple by first turning it into a list and then into a tensor
+    # fake_stft = torch.stack([fake_stft[0], fake_stft[1]], dim=0)
 
-    # transform the waveform to the STFT
-    input = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
-    input = torch.stack([input.real, input.imag], dim=1)
-    print("input shape:", input.shape)
+    fake_stft = torch.complex(fake_stft[:, 0, :, :], fake_stft[:, 1, :, :])
+    clean_stft = torch.complex(clean_stft[:, 0, :, :], clean_stft[:, 1, :, :])
 
-    # get the output from the generator
-    output = generator(input)
-    print("output shape:", output.shape)
+    # Inverse STFT
+    fake_waveform = torch.istft(fake_stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+    clean_waveform = torch.istft(clean_stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
 
-    # Separate the real and imaginary components
-    stft_real = output[:, 0, :, :]
-    stft_imag = output[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
+    # Calculate the SI-SNR
+    sisnr = ScaleInvariantSignalNoiseRatio()
+    score = sisnr(fake_waveform, clean_waveform)
 
-    # convert the output to the waveform
-    output = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400)).detach().cpu().numpy()
-
-    # convert the output to a tensor
-    output = torch.tensor(output)
-    
-    print("output shape:", output.shape)
-
-    # Calculate the norm distance between the input and the output
-    norm = torch.norm(waveform - output, p=1)
-    print("Norm distance:", norm)
-
-    # save the output to a file
-    torchaudio.save('reports/waveform_output.wav', output, 16000)
+    print(f'SI-SNR: {score}')

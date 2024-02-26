@@ -167,7 +167,7 @@ class Autoencoder(L.LightningModule):
         gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
 
         slopes = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10)
-        gradient_penalty = torch.mean((slopes - 1.) ** 2)
+        gradient_penalty = (torch.max(0, torch.mean((slopes - 1.))))**2
 
         # Compute the adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
