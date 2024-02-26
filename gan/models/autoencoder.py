@@ -145,7 +145,8 @@ class Autoencoder(L.LightningModule):
         # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
         # compute adversarial loss
-        G_adv_loss = - D_fake.mean()
+        # G_adv_loss = - D_fake.mean()
+        G_adv_loss = 0
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         G_loss /= self.n_critic
@@ -185,7 +186,7 @@ class Autoencoder(L.LightningModule):
         g_opt, d_opt = self.optimizers()
         g_sch, d_sch = self.lr_schedulers()
 
-        d_opt.zero_grad()
+        # d_opt.zero_grad()
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.zero_grad()
 
@@ -194,19 +195,19 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        D_real = self.discriminator(real_clean)
-        D_fake = self.discriminator(fake_clean)
+        # D_real = self.discriminator(real_clean)
+        # D_fake = self.discriminator(fake_clean)
         # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
-        D_fake_no_grad = self.discriminator(fake_clean.detach())
+        # D_fake_no_grad = self.discriminator(fake_clean.detach())
 
         # detach fake_clean to avoid computing gradients for the generator
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+        # D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=0)
 
-        self.manual_backward(D_loss, retain_graph=True)
+        # self.manual_backward(D_loss, retain_graph=True)
         self.manual_backward(G_loss)
 
-        d_opt.step()
+        # d_opt.step()
 
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.step()
@@ -219,14 +220,14 @@ class Autoencoder(L.LightningModule):
         # Update learning rate every epoch
         if self.trainer.is_last_batch:
             g_sch.step()
-            d_sch.step()
+            # d_sch.step()
 
         if self.visualize:
             # log discriminator losses
-            self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            # self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             
             # log generator losses
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
