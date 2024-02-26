@@ -156,23 +156,20 @@ class Autoencoder(L.LightningModule):
         delta = torch.randn_like(real_clean) * 0.5  # Adjust the 0.5 to control the noise level
         perturbed_real = real_clean + delta
 
-        # compute gradient penalty
+        # Compute gradient penalty using perturbed real samples closer to the real data
         alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
-        difference = fake_clean - perturbed_real
+        difference = perturbed_real - real_clean
         interpolates = real_clean + (alpha * difference)
-        # Enable gradient calculation for interpolates
         interpolates.requires_grad_(True)
 
         D_interpolate = self.discriminator(interpolates)
         ones = torch.ones(D_interpolate.size(), device=self.device)
         gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
 
-        # slopes = torch.sqrt(torch.sum(gradients ** 2, dim=(1, 2, 3)))
-        slopes = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) # Adding a small epsilon to prevent division by zero
-
+        slopes = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10)
         gradient_penalty = torch.mean((slopes - 1.) ** 2)
 
-        # compute the adversarial loss
+        # Compute the adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
