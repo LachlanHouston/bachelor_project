@@ -197,3 +197,4 @@ new_data/clean_processed/
 new_data/noisy_raw/
 new_data/noisy_processed/
 
+gan/config/config.yaml
