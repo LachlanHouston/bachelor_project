@@ -240,15 +240,16 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        ## Scale Invariant Signal-to-Noise Ratio
-        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_score = snr(preds=fake_clean, target=real_clean)
-        self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
         real_clean_waveform = stft_to_waveform(real_clean, device=self.device)
         real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
         fake_clean_waveform = stft_to_waveform(fake_clean, device=self.device)
         fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
+
+        ## Scale Invariant Signal-to-Noise Ratio
+        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        snr_score = snr(preds=fake_clean_waveform, target=real_clean_waveform)
+        self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
 
         ## Perceptual Evaluation of Speech Quality
         # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
