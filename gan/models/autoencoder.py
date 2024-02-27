@@ -158,16 +158,16 @@ class Autoencoder(L.LightningModule):
 
         # Compute gradient penalty using perturbed real samples closer to the real data
         alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
-        difference = perturbed_real - real_clean
-        interpolates = real_clean + (alpha * difference)
+        difference = fake_clean - real_clean
+        interpolates = real_clean * alpha + fake_clean * (1 - alpha)
         interpolates.requires_grad_(True)
 
         D_interpolate = self.discriminator(interpolates)
         ones = torch.ones(D_interpolate.size(), device=self.device)
-        gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
+        gradients = torch.autograd.grad(outputs=D_interpolate, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True)[0]
 
         slopes = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10)
-        gradient_penalty = torch.mean((slopes - 1))
+        gradient_penalty = torch.mean((slopes - 1)**2)
 
         # Take max of 0 and the gradient penalty
         gradient_penalty = torch.max(gradient_penalty, torch.zeros(1, device=self.device))**2

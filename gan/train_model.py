@@ -3,12 +3,9 @@ torch.manual_seed(42)
 import hydra
 import os
 import wandb
-from omegaconf import OmegaConf
-import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from lightning.pytorch.profilers import AdvancedProfiler
 import warnings
 warnings.filterwarnings("ignore")
 # Import models
