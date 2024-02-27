@@ -58,5 +58,6 @@ if __name__ == '__main__':
 
     print(output_real.shape)
     print(output_fake.shape)
+
         
         
