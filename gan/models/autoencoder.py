@@ -108,9 +108,6 @@ class Autoencoder(L.LightningModule):
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
-        
-        # real_clean = batch[0].unsqueeze(0)
-        # real_noisy = batch[1].unsqueeze(0)
 
         fake_clean, mask = self.generator(real_noisy)
 

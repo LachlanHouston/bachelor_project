@@ -120,9 +120,11 @@ if __name__ == '__main__':
     clean_data_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/org_data/clean_raw/'
     noisy_data_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/org_data/noisy_raw/'
 
+    clean_test_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_testset_wav/'
+
     # clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
     # noisy_waveforms, noisy_sample_rates, noisy_filenames = get_data(noisy_data_path)
-    # test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data('org_data/test_clean_raw/')
+    test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data(clean_test_data_path)
     # test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data('org_data/test_noisy_raw/')
 
     
@@ -130,13 +132,13 @@ if __name__ == '__main__':
 
     # clean_waveforms, clean_filenames = process_data(clean_waveforms, clean_sample_rates, clean_filenames)
     # noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
-    # test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
+    test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
     # test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
 
 
     # clean_waveforms = stft(clean_waveforms)
     # noisy_waveforms = stft(noisy_waveforms)
-    # test_clean_waveforms = stft(test_clean_waveforms)
+    test_clean_waveforms = stft(test_clean_waveforms)
     # test_noisy_waveforms = stft(test_noisy_waveforms)
 
 
@@ -147,14 +149,14 @@ if __name__ == '__main__':
 
     # save_data(clean_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/', clean_filenames)
     # save_data(noisy_waveforms, 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/', noisy_filenames)
-    # save_data(test_clean_waveforms, 'data/test_clean_stft/', clean_test_filenames)
+    save_data(test_clean_waveforms, 'data/clean_testset_processed/', clean_test_filenames)
     # save_data(test_noisy_waveforms, 'data/test_noisy_stft/', noisy_test_filenames)
 
     # # load the processed data
     # test = torch.load('data/test_noisy_stft/p232_001_0.pt')
     # print(test.size())
 
-    clean_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/'
-    noisy_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/'
+    # clean_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/clean_stft/'
+    # noisy_stft_path = 'C:/Users/Lachl/Documents/GitHub/bachelor_project/data/noisy_stft/'
 
-    create_csv(clean_stft_path)
+    # create_csv(clean_stft_path)

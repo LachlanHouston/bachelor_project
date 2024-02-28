@@ -85,7 +85,7 @@ def main(cfg):
             real_clean_waveform = stft_to_waveform(clean_stft, device=torch.device('cpu')).detach()
             fake_clean_waveform = stft_to_waveform(fake_clean, device=torch.device('cpu')).detach()
 
-            torchaudio.save(f'fake_clean_waveform_{i}.wav', fake_clean_waveform, 16000)
+            # torchaudio.save(f'fake_clean_waveform_{i}.wav', fake_clean_waveform, 16000)
 
             real_clean_waveform = real_clean_waveform.squeeze()
             fake_clean_waveform = fake_clean_waveform.squeeze()
