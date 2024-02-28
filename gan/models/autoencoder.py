@@ -73,6 +73,8 @@ class Autoencoder(L.LightningModule):
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # Gradient penalty
         alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
+        alpha = alpha.expand_as(real_clean).to(self.device) # B x C x H x W
+
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
@@ -80,7 +82,8 @@ class Autoencoder(L.LightningModule):
         D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
-                                        create_graph=True, retain_graph=True, only_inputs=True)[0] # B x C x H x W
+                                        create_graph=True, retain_graph=True)[0] # B x C x H x W
+       
         gradients = gradients.view(gradients.size(0), -1) # B x (C*H*W)
 
         grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
@@ -152,8 +155,13 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)
+        # real_clean = batch[0].squeeze(1)
+        # real_noisy = batch[1].squeeze(1)
+
+        # Test set
+        real_clean = torch.randn([10, 2, 257, 321])
+        real_noisy = torch.randn([10, 2, 257, 321])
+        
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -205,14 +213,14 @@ if __name__ == "__main__":
 
     # Dummy train_loader
     train_loader = torch.utils.data.DataLoader(
-        torch.randn(2, 2, 257, 321),
-        batch_size=2,
+        [torch.randn(2, 257, 321), torch.randn(2, 257, 321)],
+        batch_size=10,
         shuffle=True
     )
 
     val_loader = torch.utils.data.DataLoader(
-        torch.randn(16, 2, 257, 321),
-        batch_size=16,
+        [torch.randn(2, 257, 321), torch.randn(2, 257, 321)],
+        batch_size=10,
         shuffle=True
     )
 
