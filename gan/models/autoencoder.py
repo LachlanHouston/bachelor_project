@@ -165,8 +165,9 @@ class Autoencoder(L.LightningModule):
         D_interpolates = self.discriminator(interpolates)
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
+        gradients = gradients.view(gradients.size(0), -1)
 
-        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=(1,2,3)) + 1e-10)
+        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10)
         gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
 
         # Compute the adversarial loss
@@ -189,8 +190,11 @@ class Autoencoder(L.LightningModule):
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.zero_grad()
 
-        real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)
+        # real_clean = batch[0].squeeze(1)
+        # real_noisy = batch[1].squeeze(1)
+        
+        real_clean = batch[0].unsqueeze(0)
+        real_noisy = batch[1].unsqueeze(0)
 
         fake_clean, mask = self.generator(real_noisy)
 
