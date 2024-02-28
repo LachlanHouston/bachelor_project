@@ -3,98 +3,15 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.data.data_loader import VCTKDataModule
+from gan.utils.utils import visualize_stft_spectrogram, stft_to_waveform
 import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-import librosa
-import librosa.display
-# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-# from gan.utils.utils import SegSNR
-from speechmos import dnsmos
-from matplotlib import pyplot as plt
-import numpy as np
-import io
 import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
-
-def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy, use_wandb = False):
-    """
-    Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
-    for logging to wandb.
-    """    
-
-    S_real_c = real_clean[0].cpu()
-    S_fake_c = fake_clean[0].cpu()
-    S_real_n = real_noisy[0].cpu()
-
-    # Spectrogram of real clean
-    mel_spect_rc = librosa.feature.melspectrogram(S=S_real_c, sr=16000, n_fft=512, hop_length=100, power=2)
-    mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
-    # Spectrogram of fake clean
-    mel_spect_fc = librosa.feature.melspectrogram(S=S_fake_c, sr=16000, n_fft=512, hop_length=100, power=2)
-    mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
-    # Spectrogram of real noisy
-    mel_spect_rn = librosa.feature.melspectrogram(S=S_real_n, sr=16000, n_fft=512, hop_length=100, power=2)
-    mel_spect_db_rn = librosa.power_to_db(mel_spect_rn, ref=np.max)
-    
-    # Create a figure with 3 subplots
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-
-    # Define Real Clean plot
-    img_rc = librosa.display.specshow(mel_spect_db_rc, ax=axs[0], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
-    fig.colorbar(img_rc, ax=axs[0], format='%+2.0f dB')
-    axs[0].set_title('Real Clean')
-    axs[0].set_xlabel('Time (s)')
-    axs[0].set_ylabel('Frequency (Hz)')
-
-    # Define Fake Clean plot
-    img_fc = librosa.display.specshow(mel_spect_db_fc, ax=axs[1], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
-    fig.colorbar(img_fc, ax=axs[1], format='%+2.0f dB')
-    axs[1].set_title('Fake Clean')
-    axs[1].set_xlabel('Time (s)')
-    axs[1].set_ylabel('Frequency (Hz)')
-
-    # Define Real Noisy plot
-    img_rn = librosa.display.specshow(mel_spect_db_rn, ax=axs[2], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
-    fig.colorbar(img_rn, ax=axs[2], format='%+2.0f dB')
-    axs[2].set_title('Real Noisy')
-    axs[2].set_xlabel('Time (s)')
-    axs[2].set_ylabel('Frequency (Hz)')
-
-    # Set the title of the figure
-    fig.suptitle('Spectrograms')
-    plt.tight_layout(pad=3.0)
-    
-    if use_wandb:
-        wandb.log({"Spectrogram": wandb.Image(plt)})
-        # Create a bytes buffer for the image to avoid saving to disk
-        buf = io.BytesIO()
-        # Save the plot to the buffer
-        plt.savefig(buf, format='png')
-        # Important: Close the plot to free memory
-        plt.close()
-        # Reset buffer's cursor to the beginning
-        buf.seek(0)
-        # image = Image.open(buf)
-        # return image
-        return buf
-    else:
-        plt.show()
-
-def stft_to_waveform(stft, device=torch.device('cuda')):
-    if len(stft.shape) == 3:
-        stft = stft.unsqueeze(0)
-    # Separate the real and imaginary components
-    stft_real = stft[:, 0, :, :]
-    stft_imag = stft[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
-    # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
-    return waveform
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
@@ -154,22 +71,19 @@ class Autoencoder(L.LightningModule):
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
-        # # Perturb real images locally
-        # delta = torch.randn_like(real_clean) * 0.5  # Adjust the 0.5 to control the noise level
-        # perturbed_real = real_clean + delta
-
-        # Compute gradient penalty using perturbed real samples closer to the real data
-        alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device)
-        differences = fake_clean - real_clean
-        interpolates = real_clean + (alpha * differences)
+        # Gradient penalty
+        alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
+        differences = fake_clean - real_clean # B x C x H x W
+        interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
 
-        D_interpolates = self.discriminator(interpolates)
+        D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
-        gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, create_graph=True, retain_graph=True, only_inputs=True)[0]
-        gradients = gradients.view(gradients.size(0), -1)
+        gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
+                                        create_graph=True, retain_graph=True, only_inputs=True)[0] # B x C x H x W
+        gradients = gradients.view(gradients.size(0), -1) # B x (C*H*W)
 
-        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10)
+        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
         gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
 
         # Compute the adversarial loss
@@ -192,11 +106,11 @@ class Autoencoder(L.LightningModule):
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.zero_grad()
 
-        # real_clean = batch[0].squeeze(1)
-        # real_noisy = batch[1].squeeze(1)
+        real_clean = batch[0].squeeze(1)
+        real_noisy = batch[1].squeeze(1)
         
-        real_clean = batch[0].unsqueeze(0)
-        real_noisy = batch[1].unsqueeze(0)
+        # real_clean = batch[0].unsqueeze(0)
+        # real_noisy = batch[1].unsqueeze(0)
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -256,29 +170,10 @@ class Autoencoder(L.LightningModule):
         snr_score = snr(preds=fake_clean_waveform, target=real_clean_waveform)
         self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-
-        ## Perceptual Evaluation of Speech Quality
-        # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(self.device)
-        # pesq_score = pesq(real_clean_waveform, fake_clean_waveform)
-
-        ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
-        # dnsmos_score = np.mean([dnsmos.run(fake_clean_waveform.numpy()[i], 16000)['ovrl_mos'] for i in range(fake_clean_waveform.shape[0])])
-        # self.log('DNSMOS', dnsmos_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
         estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        # ## Segmental Signal-to-Noise Ratio (SegSNR)
-        # segsnr = SegSNR(seg_length=160) # 160 corresponds to 10ms of audio with sr=16000
-        # segsnr.update(preds=fake_clean_waveform, target=real_clean_waveform)
-        # segsnr_score = segsnr.compute() # Average SegSNR
-        # self.log('SegSNR', segsnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        # # Distance between real clean and fake clean
-        # dist = torch.norm(real_clean - fake_clean, p=1)
-        # self.log('Distance - real clean and fake clean', dist, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:

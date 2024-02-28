@@ -58,7 +58,7 @@ class Generator(nn.Module):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])
-        self.rnn_block = DPRNN(128, rnn_type='LSTM', hidden_size=128, output_size=128, num_layers=4, bidirectional=False)
+        self.rnn_block = DPRNN(128, rnn_type='LSTM', hidden_size=128, output_size=128, num_layers=2, bidirectional=False)
         self.in_channels = in_channels
         self.out_channels = 2
 
