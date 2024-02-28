@@ -58,7 +58,7 @@ class Generator(nn.Module):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])
-        self.rnn_block = DPRNN(256, rnn_type='LSTM', hidden_size=128, output_size=256, num_layers=2, bidirectional=True)
+        self.rnn_block = DPRNN(128, rnn_type='LSTM', hidden_size=128, output_size=128, num_layers=4, bidirectional=False)
         self.in_channels = in_channels
         self.out_channels = 2
 
@@ -66,10 +66,10 @@ class Generator(nn.Module):
         self.encoder.append(ConvBlock(in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(1, 1)))
         self.encoder.append(ConvBlock(32, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
         self.encoder.append(ConvBlock(64, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
-        self.encoder.append(ConvBlock(128, 256, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
+        # self.encoder.append(ConvBlock(128, 256, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
 
         # Decoder
-        self.decoder.append(TransConvBlock(512, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
+        # self.decoder.append(TransConvBlock(512, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(256, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(64, 2, kernel_size=(5, 2), stride=(2, 1), padding=(1, 0), output_padding=(0, 0), is_last=True))

@@ -113,7 +113,8 @@ class Autoencoder(L.LightningModule):
                     g_scheduler_gamma=0.5,
                     weight_clip = False,
                     weight_clip_value = 0.01,
-                    visualize=False
+                    visualize=False,
+                    batch_size=10,
                  ):
         super().__init__()
         self.generator = generator
@@ -132,6 +133,7 @@ class Autoencoder(L.LightningModule):
         self.weight_clip = weight_clip
         self.weight_clip_value = weight_clip_value
         self.visualize = visualize
+        self.batch_size = batch_size
 
         self.automatic_optimization = False
         self.save_hyperparameters()
@@ -157,7 +159,7 @@ class Autoencoder(L.LightningModule):
         # perturbed_real = real_clean + delta
 
         # Compute gradient penalty using perturbed real samples closer to the real data
-        alpha = torch.rand(real_clean.size(0), 1, 1, 1, device=self.device)
+        alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device)
         differences = fake_clean - real_clean
         interpolates = real_clean + (alpha * differences)
         interpolates.requires_grad_(True)
@@ -176,8 +178,8 @@ class Autoencoder(L.LightningModule):
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)#, betas = (0., 0.9))
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate, betas = (0., 0.9))
         g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
         d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]

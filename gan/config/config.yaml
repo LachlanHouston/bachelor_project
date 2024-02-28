@@ -28,5 +28,5 @@ wandb:
 
 system:
   checkpointing: True
-  continue_training: True
+  continue_training: False
   ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none

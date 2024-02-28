@@ -56,7 +56,9 @@ def main(cfg):
                         weight_clip_value=cfg.hyperparameters.weight_clip_value,
 
                         visualize=True,
-                        logging_freq=cfg.wandb.logging_freq)
+                        logging_freq=cfg.wandb.logging_freq,
+                        batch_size=cfg.hyperparameters.batch_size,
+                        )
     
     checkpoint_callback = ModelCheckpoint(
         dirpath="models/",  # Path where checkpoints will be saved
