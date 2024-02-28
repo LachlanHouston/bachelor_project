@@ -59,16 +59,16 @@ def baseline_model():
     snr_val = snr(clean_waveforms, noisy_waveforms)
     print('Mean SNR:', snr_val)
 
-    # Compute mean eSTOI
-    estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
-    estoi_val = estoi(clean_waveforms, noisy_waveforms)
-    print('Mean eSTOI:', estoi_val)
+    # # Compute mean eSTOI
+    # estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
+    # estoi_val = estoi(clean_waveforms, noisy_waveforms)
+    # print('Mean eSTOI:', estoi_val)
 
-    # Compute mean SegSNR
-    segsnr = SegSNR(seg_length=160)
-    segsnr.update(clean_waveforms, noisy_waveforms)
-    segsnr_val = segsnr.compute()
-    print('Mean SegSNR:', segsnr_val)
+    # # Compute mean SegSNR
+    # segsnr = SegSNR(seg_length=160)
+    # segsnr.update(clean_waveforms, noisy_waveforms)
+    # segsnr_val = segsnr.compute()
+    # print('Mean SegSNR:', segsnr_val)
 
     # Compute mean DNSMOS
     dnsmos_val = []
@@ -76,10 +76,10 @@ def baseline_model():
         dnsmos_val.append(dnsmos.run(noisy_waveforms[i].numpy(), 16000)['ovrl_mos'])
     print('Mean DNSMOS:', sum(dnsmos_val) / len(dnsmos_val))
 
-    # Compute mean PESQ
-    pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-    pesq_val = pesq(clean_waveforms, noisy_waveforms)
-    print('Mean PESQ:', pesq_val)
+    # # Compute mean PESQ
+    # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+    # pesq_val = pesq(clean_waveforms, noisy_waveforms)
+    # print('Mean PESQ:', pesq_val)
 
 
     
