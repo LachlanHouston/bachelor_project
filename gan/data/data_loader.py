@@ -39,6 +39,8 @@ class VCTKDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
+        self.save_hyperparameters()
+
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
