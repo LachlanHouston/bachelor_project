@@ -40,7 +40,7 @@ class TransConvBlock(nn.Module):
         self.is_last = is_last
         self.causal = causal
         self.activation = nn.PReLU()
-        nn.init.xavier_uniform_(self.conv.weight)
+        nn.init.kaiming_uniform_(self.conv.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
         nn.init.zeros_(self.conv.bias)
 
     def forward(self, x):
@@ -98,13 +98,6 @@ class Generator(nn.Module):
         
         return output, mask
 
-def waveform_to_stft(waveform):
-    # Perform STFT to obtain the complex-valued spectrogram
-    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
-    # Separate the real and imaginary components
-    stft = torch.stack([stft.real, stft.imag], dim=1)
-    return stft
-
 if __name__ == '__main__':
     # Load the waveform
     # in_waveform, sample_rate = torchaudio.load('data/clean_processed/p230_074_0.wav')
@@ -117,7 +110,8 @@ if __name__ == '__main__':
 
     # print("input shape:", input.shape)
 
-    input = torch.rand(4, 2, 257, 321)
+    input = torch.normal(0, 1, (4, 2, 257, 321))
+    print("Input std:", input.flatten().std().item())
 
     # Initialize the generator
     generator = Generator()
@@ -125,6 +119,14 @@ if __name__ == '__main__':
     # Get the output from the generator
     output, mask = generator(input)
     print("Output shape:", output.shape)
+    print("Mask shape:", mask.shape)
+    print("Output std:", output.flatten().std().item())
+
+    # Print model parameter mean and std, with the name of the parameter
+    # for name, param in generator.named_parameters():
+    #     print(name)
+    #     print('mean:', param.data.mean())
+    #     print('std:', param.data.std())
 
     # out_waveform = stft_to_waveform(output)
 
