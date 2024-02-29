@@ -8,6 +8,7 @@ import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+from lightning.pytorch.tuner import Tuner
 from lightning.pytorch.profilers import AdvancedProfiler
 import warnings
 warnings.filterwarnings("ignore")
@@ -90,7 +91,7 @@ def main(cfg):
             logger=wandb_logger,
             callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         )
-        
+
     else:
         trainer = Trainer(
             accelerator="cpu",
@@ -101,6 +102,9 @@ def main(cfg):
             logger=wandb_logger,
             callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         )
+    
+    tuner = Tuner(model, VCTK)
+    tuner.scale_batch_size(model, mode='power')
 
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
