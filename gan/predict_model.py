@@ -8,6 +8,7 @@ from pytorch_lightning import Trainer
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from torchaudio.pipelines import SQUIM_SUBJECTIVE
 from speechmos import dnsmos
 from gan.utils.utils import SegSNR
 import os
@@ -15,7 +16,8 @@ import hydra
 import numpy as np
 from tqdm import tqdm
 import csv
-
+import random
+torch.set_grad_enabled(False)
 
 
 def stft_to_waveform(stft, device=torch.device('cuda')):
@@ -65,18 +67,12 @@ def main(cfg):
     clean_files = [file for file in os.listdir(test_clean_path) if file.endswith('.pt')]
     noisy_files = [file for file in os.listdir(test_noisy_path) if file.endswith('.pt')]
 
-    snr_scores = []
-    pesq_scores = []
-    dnsmos_scores = []
-    estoi_scores = []
-    segsnr_scores = []
-    dists = []
 
     with open('scores.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["SNR", "PESQ", "DNSMOS", "eSTOI", "SegSNR", "L1 distance"])
+        writer.writerow(["SNR", "DNSMOS", "MOS SQUIM"])
 
-        for i in tqdm(range(len(clean_files))):
+        for i in tqdm(range(10)):
             clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
             noisy_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
 
@@ -85,14 +81,14 @@ def main(cfg):
             real_clean_waveform = stft_to_waveform(clean_stft, device=torch.device('cpu')).detach()
             fake_clean_waveform = stft_to_waveform(fake_clean, device=torch.device('cpu')).detach()
 
-            torchaudio.save(f'fake_clean_waveform_{i}.wav', fake_clean_waveform, 16000)
+            # torchaudio.save(f'fake_clean_waveform_{i}.wav', fake_clean_waveform, 16000)
 
             real_clean_waveform = real_clean_waveform.squeeze()
             fake_clean_waveform = fake_clean_waveform.squeeze()
 
             ## Scale Invariant Signal-to-Noise Ratio
-            snr = ScaleInvariantSignalNoiseRatio().to(device)
-            snr_score = snr(preds=fake_clean_waveform, target=real_clean_waveform)
+            sisnr = ScaleInvariantSignalNoiseRatio().to(device)
+            sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
 
             # ## Perceptual Evaluation of Speech Quality
             # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(device)
@@ -101,19 +97,26 @@ def main(cfg):
             ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
             dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
 
-            ## Extended Short Time Objective Intelligibility
-            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-            estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
-            
-            ## Segmental Signal-to-Noise Ratio (SegSNR)
-            segsnr = SegSNR(seg_length=160) # 160 corresponds to 10ms of audio with sr=16000
-            segsnr.update(preds=fake_clean_waveform.unsqueeze(0), target=real_clean_waveform.unsqueeze(0))
-            segsnr_score = segsnr.compute() # Average SegSNR
 
-            ## Distance between real clean and fake clean
-            dist = torch.norm(real_clean_waveform - fake_clean_waveform, p=1)
+            reference_index = random.choice([j for j in range(len(clean_files)) if j != i])
+            reference_waveform = torch.load(os.path.join(test_clean_path, clean_files[reference_index])).requires_grad_(False)
+            reference_waveform = stft_to_waveform(reference_waveform.squeeze(0), device=torch.device('cpu')).detach()
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim = subjective_model(fake_clean_waveform.unsqueeze(0), reference_waveform)
+
+            # ## Extended Short Time Objective Intelligibility
+            # estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+            # estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
             
-            writer.writerow([snr_score.item(), "NaN", dnsmos_score, estoi_score.item(), segsnr_score.item(), dist.item()])
+            # ## Segmental Signal-to-Noise Ratio (SegSNR)
+            # segsnr = SegSNR(seg_length=160) # 160 corresponds to 10ms of audio with sr=16000
+            # segsnr.update(preds=fake_clean_waveform.unsqueeze(0), target=real_clean_waveform.unsqueeze(0))
+            # segsnr_score = segsnr.compute() # Average SegSNR
+
+            # ## Distance between real clean and fake clean
+            # dist = torch.norm(real_clean_waveform - fake_clean_waveform, p=1)
+            
+            writer.writerow([sisnr_score.item(), dnsmos_score, mos_squim.item()])
             
 
 

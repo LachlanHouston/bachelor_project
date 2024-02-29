@@ -109,12 +109,8 @@ class Autoencoder(L.LightningModule):
         if batch_idx % self.n_critic == 0 and batch_idx > 0:
             g_opt.zero_grad()
 
-        # real_clean = batch[0].squeeze(1)
-        # real_noisy = batch[1].squeeze(1)
-
-        # Test set
-        real_clean = torch.randn([10, 2, 257, 321])
-        real_noisy = torch.randn([10, 2, 257, 321])
+        real_clean = batch[0].squeeze(1)
+        real_noisy = batch[1].squeeze(1)
 
         fake_clean, mask = self.generator(real_noisy)
 
