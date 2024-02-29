@@ -78,17 +78,29 @@ def main(cfg):
     else:
         wandb_logger = None
 
-    trainer = Trainer(
-        accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        devices=cfg.system.num_gpus,
-        strategy="ddp" if cfg.system.num_gpus > 1 else None,
-        limit_train_batches=cfg.hyperparameters.train_fraction,
-        limit_val_batches= cfg.hyperparameters.val_fraction,
-        max_epochs=cfg.hyperparameters.max_epochs,
-        check_val_every_n_epoch=1,
-        logger=wandb_logger,
-        callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
-    )
+    if cfg.system.num_gpus > 1:
+        trainer = Trainer(
+            accelerator="gpu" if torch.cuda.is_available() else "cpu",
+            devices=cfg.system.num_gpus,
+            strategy="ddp",
+            limit_train_batches=cfg.hyperparameters.train_fraction,
+            limit_val_batches= cfg.hyperparameters.val_fraction,
+            max_epochs=cfg.hyperparameters.max_epochs,
+            check_val_every_n_epoch=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+        )
+        
+    else:
+        trainer = Trainer(
+            accelerator="cpu",
+            limit_train_batches=cfg.hyperparameters.train_fraction,
+            limit_val_batches= cfg.hyperparameters.val_fraction,
+            max_epochs=cfg.hyperparameters.max_epochs,
+            check_val_every_n_epoch=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+        )
 
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
