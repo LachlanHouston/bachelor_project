@@ -1,6 +1,6 @@
 hyperparameters:
   batch_size: 2 # NEVER SET IT HIGHER THAN 16, IT WILL CRASH
-  num_workers: 6
+  num_workers: 10
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
 
@@ -11,7 +11,7 @@ hyperparameters:
 
   max_epochs: 1000
   train_fraction: 0.01
-  val_fraction: 1.
+  val_fraction: 0.1
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10    # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
@@ -27,6 +27,7 @@ wandb:
   project: bachelor2
 
 system:
+  num_gpus: 1
   checkpointing: True
   continue_training: False
   ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none
