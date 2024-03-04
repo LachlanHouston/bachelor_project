@@ -10,6 +10,7 @@ import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
+from wvmos import get_wvmos
 import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
@@ -20,6 +21,7 @@ import librosa.display
 import io
 import numpy as np
 import random
+from wv_mos import Wav2Vec2MOS
 
 
 class Autoencoder(L.LightningModule):
@@ -258,6 +260,13 @@ class Autoencoder(L.LightningModule):
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+            wvmos_model = Wav2Vec2MOS('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/epoch=999.ckpt', cuda=False)
+
+
+            wvmos_model = torch.load('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/wav2vec2.ckpt', map_location=self.device)
+            
+            wvmos_score = wvmos_model.calculate_dir(fake_clean_waveforms, mean=True)
 
                 
         if self.visualize:
