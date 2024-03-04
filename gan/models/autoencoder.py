@@ -6,6 +6,7 @@ from gan.data.data_loader import VCTKDataModule
 from gan.utils.utils import visualize_stft_spectrogram, stft_to_waveform
 import pytorch_lightning as L
 import torch
+import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 import wandb
@@ -114,6 +115,18 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
+
+        ####### TESTING #######
+        waveform = stft_to_waveform(real_clean[0], device=self.device)
+        waveform = stft_to_waveform(fake_clean[0], device=self.device)
+        torchaudio.save(f'rc test{batch_idx}.wav', real_clean_waveform, 16000)
+
+        real_clean_waveform = real_clean_waveform.detach().cpu().numpy()
+        fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy()
+        torchaudio.save(f'fc test{batch_idx}.wav', fake_clean_waveform, 16000)
+
+
+
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
         # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
@@ -155,13 +168,8 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        # real_clean = batch[0].squeeze(1)
-        # real_noisy = batch[1].squeeze(1)
-
-        # Test set
-        real_clean = torch.randn([10, 2, 257, 321])
-        real_noisy = torch.randn([10, 2, 257, 321])
-        
+        real_clean = batch[0].squeeze(1)
+        real_noisy = batch[1].squeeze(1)        
 
         fake_clean, mask = self.generator(real_noisy)
 
