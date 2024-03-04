@@ -25,6 +25,7 @@ from gan import VCTKDataModule
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+    L.seed_everything(100)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
