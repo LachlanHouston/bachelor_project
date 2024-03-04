@@ -8,10 +8,11 @@ class AudioDataset(Dataset):
                  new_sample_rate=16000):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
-        self.clean_files = [file for file in os.listdir(clean_path) if file.endswith('.pt')]
+        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
+
 
         self.noisy_path = noisy_path
-        self.noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.pt')]
+        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
 
         self.new_sample_rate = new_sample_rate
         self.standardize = standardize

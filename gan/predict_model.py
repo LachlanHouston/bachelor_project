@@ -10,7 +10,6 @@ from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
 from speechmos import dnsmos
-from gan.utils.utils import SegSNR
 import os
 import hydra
 import numpy as np
@@ -107,11 +106,7 @@ def main(cfg):
             # ## Extended Short Time Objective Intelligibility
             # estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
             # estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
-            
-            # ## Segmental Signal-to-Noise Ratio (SegSNR)
-            # segsnr = SegSNR(seg_length=160) # 160 corresponds to 10ms of audio with sr=16000
-            # segsnr.update(preds=fake_clean_waveform.unsqueeze(0), target=real_clean_waveform.unsqueeze(0))
-            # segsnr_score = segsnr.compute() # Average SegSNR
+ 
 
             # ## Distance between real clean and fake clean
             # dist = torch.norm(real_clean_waveform - fake_clean_waveform, p=1)

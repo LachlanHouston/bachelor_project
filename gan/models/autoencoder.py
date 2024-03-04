@@ -3,16 +3,24 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.data.data_loader import VCTKDataModule
-from gan.utils.utils import visualize_stft_spectrogram, stft_to_waveform
+from gan.utils.utils import stft_to_waveform, perfect_shuffle
 import pytorch_lightning as L
 import torch
 import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+from torchaudio.pipelines import SQUIM_SUBJECTIVE
 import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
+import matplotlib.pyplot as plt
+import librosa
+import librosa.display
+import io
+import numpy as np
+import random
+
 
 class Autoencoder(L.LightningModule):
     def __init__(self, 
@@ -102,6 +110,74 @@ class Autoencoder(L.LightningModule):
         d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
 
+
+    def visualize_stft_spectrogram(self, real_clean, fake_clean, real_noisy, use_wandb = False):
+        """
+        Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
+        for logging to wandb.
+        """    
+
+        S_real_c = real_clean[0].cpu()
+        S_fake_c = fake_clean[0].cpu()
+        S_real_n = real_noisy[0].cpu()
+
+        # Spectrogram of real clean
+        mel_spect_rc = librosa.feature.melspectrogram(S=S_real_c, sr=16000, n_fft=512, hop_length=100, power=2)
+        mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
+        # Spectrogram of fake clean
+        mel_spect_fc = librosa.feature.melspectrogram(S=S_fake_c, sr=16000, n_fft=512, hop_length=100, power=2)
+        mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
+        # Spectrogram of real noisy
+        mel_spect_rn = librosa.feature.melspectrogram(S=S_real_n, sr=16000, n_fft=512, hop_length=100, power=2)
+        mel_spect_db_rn = librosa.power_to_db(mel_spect_rn, ref=np.max)
+        
+        # Create a figure with 3 subplots
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+        # Define Real Clean plot
+        img_rc = librosa.display.specshow(mel_spect_db_rc, ax=axs[0], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+        fig.colorbar(img_rc, ax=axs[0], format='%+2.0f dB')
+        axs[0].set_title('Real Clean')
+        axs[0].set_xlabel('Time (s)')
+        axs[0].set_ylabel('Frequency (Hz)')
+
+        # Define Fake Clean plot
+        img_fc = librosa.display.specshow(mel_spect_db_fc, ax=axs[1], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+        fig.colorbar(img_fc, ax=axs[1], format='%+2.0f dB')
+        axs[1].set_title('Fake Clean')
+        axs[1].set_xlabel('Time (s)')
+        axs[1].set_ylabel('Frequency (Hz)')
+
+        # Define Real Noisy plot
+        img_rn = librosa.display.specshow(mel_spect_db_rn, ax=axs[2], y_axis='mel', fmax=8000, x_axis='time', hop_length=100, sr=16000)
+        fig.colorbar(img_rn, ax=axs[2], format='%+2.0f dB')
+        axs[2].set_title('Real Noisy')
+        axs[2].set_xlabel('Time (s)')
+        axs[2].set_ylabel('Frequency (Hz)')
+
+        # Set the title of the figure
+        fig.suptitle('Spectrograms')
+        plt.tight_layout(pad=3.0)
+        
+        if use_wandb:
+            # wandb.log({"Spectrogram": wandb.Image(plt)})
+            self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
+            # self.log.log_image(key = "Spectrogram", image = plt)
+            # Create a bytes buffer for the image to avoid saving to disk
+            buf = io.BytesIO()
+            # Save the plot to the buffer
+            plt.savefig(buf, format='png')
+            # Important: Close the plot to free memory
+            plt.close()
+            # Reset buffer's cursor to the beginning
+            buf.seek(0)
+            # image = Image.open(buf)
+            # return image
+            return buf
+        else:
+            plt.show()
+
+
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
         g_sch, d_sch = self.lr_schedulers()
@@ -167,30 +243,37 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        real_clean_waveform = stft_to_waveform(real_clean, device=self.device)
-        real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
-        fake_clean_waveform = stft_to_waveform(fake_clean, device=self.device)
-        fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device)
+        real_clean_waveforms = real_clean_waveforms.detach().cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device)
+        fake_clean_waveforms = fake_clean_waveforms.detach().cpu().squeeze()
 
         ## Scale Invariant Signal-to-Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_score = snr(preds=fake_clean_waveform, target=real_clean_waveform)
+        snr_score = snr(preds=fake_clean_waveforms, target=real_clean_waveforms)
         self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-        estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+        estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
+        ## Mean Opinion Score (SQUIM) every 10 epochs
+        if self.current_epoch % 10 == 0:
+            reference_waveforms = perfect_shuffle(real_clean_waveforms)
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+                
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-                visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
+                self.visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
 
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-                
-                vis_idx = torch.randint(0, real_clean.shape[0], (1,)).item()
+                vis_idx = torch.randint(0, self.batch_size, (1,)).item()
 
-                visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx], use_wandb = True)
+                self.visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx], use_wandb = True)
 
                 fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device)
                 fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy().squeeze()
