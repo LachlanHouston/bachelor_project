@@ -25,6 +25,7 @@ from gan import VCTKDataModule
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+    L.seed_everything(100)
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
@@ -83,7 +84,7 @@ def main(cfg):
         trainer = Trainer(
             accelerator="cuda" if torch.cuda.is_available() else "cpu",
             devices=cfg.system.num_gpus,
-            strategy="ddp_find_unused_parameters_true" if cfg.system.num_gpus >= 1 else "auto",
+            strategy="ddp_find_unused_parameters_true" if cfg.system.num_gpus > 1 else "auto",
             limit_train_batches=cfg.hyperparameters.train_fraction,
             limit_val_batches= cfg.hyperparameters.val_fraction,
             max_epochs=cfg.hyperparameters.max_epochs,

@@ -40,7 +40,7 @@ class TransConvBlock(nn.Module):
         self.is_last = is_last
         self.causal = causal
         self.activation = nn.PReLU()
-        nn.init.kaiming_uniform_(self.conv.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+        nn.init.xavier_uniform_(self.conv.weight)
         nn.init.zeros_(self.conv.bias)
 
     def forward(self, x):
