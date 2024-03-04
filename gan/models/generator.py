@@ -77,7 +77,7 @@ class Generator(nn.Module):
         self.activation = nn.Tanh()
 
     def forward(self, x):
-        e = x
+        e = x[:, :self.in_channels, :, :]
         e_list = []
         for i, layer in enumerate(self.encoder):
             e = layer(e)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     print("Input std:", input.flatten().std().item())
 
     # Initialize the generator
-    generator = Generator()
+    generator = Generator(in_channels=2)
 
     # Get the output from the generator
     output, mask = generator(input)
