@@ -21,7 +21,6 @@ import librosa.display
 import io
 import numpy as np
 import random
-from wv_mos import Wav2Vec2MOS
 
 
 class Autoencoder(L.LightningModule):
@@ -260,15 +259,8 @@ class Autoencoder(L.LightningModule):
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-            wvmos_model = Wav2Vec2MOS('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/epoch=999.ckpt', cuda=False)
-
-
-            wvmos_model = torch.load('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/wav2vec2.ckpt', map_location=self.device)
             
-            wvmos_score = wvmos_model.calculate_dir(fake_clean_waveforms, mean=True)
 
-                
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
                 self.visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
