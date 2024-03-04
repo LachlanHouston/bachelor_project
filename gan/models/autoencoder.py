@@ -96,8 +96,8 @@ class Autoencoder(L.LightningModule):
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate, betas = (0., 0.9))
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate, betas = (0., 0.9))
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)#, betas = (0., 0.9))
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
         g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
         d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
@@ -114,18 +114,6 @@ class Autoencoder(L.LightningModule):
         real_noisy = batch[1].squeeze(1)
 
         fake_clean, mask = self.generator(real_noisy)
-
-
-        ####### TESTING #######
-        waveform = stft_to_waveform(real_clean[0], device=self.device)
-        waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        torchaudio.save(f'rc test{batch_idx}.wav', real_clean_waveform, 16000)
-
-        real_clean_waveform = real_clean_waveform.detach().cpu().numpy()
-        fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy()
-        torchaudio.save(f'fc test{batch_idx}.wav', fake_clean_waveform, 16000)
-
-
 
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
