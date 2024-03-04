@@ -31,7 +31,7 @@ class Autoencoder(L.LightningModule):
                     g_scheduler_gamma=0.5,
                     weight_clip = False,
                     weight_clip_value = 0.01,
-                    visualize=False,
+                    visualize=True,
                     batch_size=10,
                  ):
         super().__init__()
