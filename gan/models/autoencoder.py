@@ -3,12 +3,13 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.data.data_loader import VCTKDataModule
-from gan.utils.utils import stft_to_waveform
+from gan.utils.utils import stft_to_waveform, perfect_shuffle
 import pytorch_lightning as L
 import torch
 import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+from torchaudio.pipelines import SQUIM_SUBJECTIVE
 import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
@@ -18,6 +19,7 @@ import librosa
 import librosa.display
 import io
 import numpy as np
+import random
 
 
 class Autoencoder(L.LightningModule):
@@ -235,28 +237,35 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        real_clean_waveform = stft_to_waveform(real_clean, device=self.device)
-        real_clean_waveform = real_clean_waveform.detach().cpu().squeeze()
-        fake_clean_waveform = stft_to_waveform(fake_clean, device=self.device)
-        fake_clean_waveform = fake_clean_waveform.detach().cpu().squeeze()
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device)
+        real_clean_waveforms = real_clean_waveforms.detach().cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device)
+        fake_clean_waveforms = fake_clean_waveforms.detach().cpu().squeeze()
 
         ## Scale Invariant Signal-to-Noise Ratio
         snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_score = snr(preds=fake_clean_waveform, target=real_clean_waveform)
+        snr_score = snr(preds=fake_clean_waveforms, target=real_clean_waveforms)
         self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-        estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+        estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
+        ## Mean Opinion Score (SQUIM) every 10 epochs
+        if self.current_epoch % 10 == 0:
+            reference_waveforms = perfect_shuffle(real_clean_waveforms)
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+                
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
                 self.visualize_stft_spectrogram(real_clean[0], fake_clean[0], real_noisy[0], use_wandb = True)
 
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-                
-                vis_idx = torch.randint(0, real_clean.shape[0], (1,)).item()
+                vis_idx = torch.randint(0, self.batch_size, (1,)).item()
 
                 self.visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx], use_wandb = True)
 
