@@ -80,7 +80,7 @@ def main(cfg):
     else:
         wandb_logger = None
 
-    if cfg.system.num_gpus >= 1:
+    if cfg.system.num_gpus >= 1 and torch.cuda.is_available():
         trainer = Trainer(
             accelerator="gpu" if torch.cuda.is_available() else "cpu",
             devices=cfg.system.num_gpus,
