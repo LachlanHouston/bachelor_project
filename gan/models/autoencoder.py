@@ -92,9 +92,6 @@ class Autoencoder(L.LightningModule):
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
-       
-        gradients = gradients.view(gradients.size(0), -1) # B x (C*H*W)
-
         grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
         gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
 
@@ -252,7 +249,7 @@ class Autoencoder(L.LightningModule):
         estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        ## Mean Opinion Score (SQUIM) every 10 epochs
+        ## Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
             reference_waveforms = perfect_shuffle(real_clean_waveforms)
             subjective_model = SQUIM_SUBJECTIVE.get_model()
