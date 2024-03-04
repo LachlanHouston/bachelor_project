@@ -10,7 +10,6 @@ import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
-from wvmos import get_wvmos
 import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
@@ -254,12 +253,12 @@ class Autoencoder(L.LightningModule):
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Mean Opinion Score (SQUIM) every 10 epochs
-        if self.current_epoch % 10 == 0:
+        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
             reference_waveforms = perfect_shuffle(real_clean_waveforms)
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            
+
 
         if self.visualize:
             if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
