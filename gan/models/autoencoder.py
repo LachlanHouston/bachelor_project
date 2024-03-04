@@ -17,7 +17,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 class Autoencoder(L.LightningModule):
     def __init__(self, 
                     discriminator = Discriminator(),
-                    generator = Generator(),
+                    generator = Generator(in_channels=1, out_channels=1),
                     alpha_penalty=10,
                     alpha_fidelity=10,
                     n_critic=5,
@@ -32,7 +32,7 @@ class Autoencoder(L.LightningModule):
                     weight_clip = False,
                     weight_clip_value = 0.01,
                     visualize=True,
-                    batch_size=10,
+                    batch_size=4,
                  ):
         super().__init__()
         self.generator = generator
@@ -112,6 +112,9 @@ class Autoencoder(L.LightningModule):
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
+            
+        # real_clean = torch.normal(0, 1, (4, 2, 257, 321))
+        # real_noisy = torch.normal(0, 1, (4, 2, 257, 321))
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -157,7 +160,10 @@ class Autoencoder(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)        
+        real_noisy = batch[1].squeeze(1)
+            
+        # real_clean = torch.normal(0, 1, (4, 2, 257, 321))
+        # real_noisy = torch.normal(0, 1, (4, 2, 257, 321))        
 
         fake_clean, mask = self.generator(real_noisy)
 

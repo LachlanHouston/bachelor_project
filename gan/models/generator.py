@@ -54,16 +54,16 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(nn.Module):
-    def __init__(self, param=None, in_channels=2):
+    def __init__(self, param=None, in_channels=2, out_channels=2):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])
         self.rnn_block = DPRNN(128, rnn_type='LSTM', hidden_size=128, output_size=128, num_layers=2, bidirectional=True)
         self.in_channels = in_channels
-        self.out_channels = 2
+        self.out_channels = out_channels
 
         # Encoder
-        self.encoder.append(ConvBlock(in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(1, 1)))
+        self.encoder.append(ConvBlock(self.in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
         self.encoder.append(ConvBlock(32, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
         self.encoder.append(ConvBlock(64, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
         # self.encoder.append(ConvBlock(128, 256, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
@@ -72,7 +72,7 @@ class Generator(nn.Module):
         # self.decoder.append(TransConvBlock(512, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(256, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
-        self.decoder.append(TransConvBlock(64, 2, kernel_size=(5, 2), stride=(2, 1), padding=(1, 0), output_padding=(0, 0), is_last=True))
+        self.decoder.append(TransConvBlock(64, self.out_channels, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(0, 0), is_last=True))
 
         self.activation = nn.Tanh()
 
@@ -92,9 +92,12 @@ class Generator(nn.Module):
         d = self.activation(d)
         # Add skip connection (element-wise addition)
         # Make sure the dimensions match before adding
-        skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
+        # skip_connection = x
         mask = d
-        output = mask + skip_connection
+        if mask.shape[1] != x.shape[1]:
+            # Add mask to first channel of x (concat 0 to the channel dimension)
+            mask = torch.cat((mask, torch.zeros((mask.shape[0], 1, mask.shape[2], mask.shape[3]), device=mask.device)), dim=1)
+        output = x + mask
         
         return output, mask
 
@@ -114,7 +117,7 @@ if __name__ == '__main__':
     print("Input std:", input.flatten().std().item())
 
     # Initialize the generator
-    generator = Generator(in_channels=2)
+    generator = Generator(in_channels=1, out_channels=1)
 
     # Get the output from the generator
     output, mask = generator(input)

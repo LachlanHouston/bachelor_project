@@ -82,7 +82,7 @@ def main(cfg):
 
     if cfg.system.num_gpus >= 1:
         trainer = Trainer(
-            accelerator="cuda" if torch.cuda.is_available() else "cpu",
+            accelerator="gpu" if torch.cuda.is_available() else "cpu",
             devices=cfg.system.num_gpus,
             strategy="ddp_find_unused_parameters_true" if cfg.system.num_gpus > 1 else "auto",
             limit_train_batches=cfg.hyperparameters.train_fraction,
