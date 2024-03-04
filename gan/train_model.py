@@ -91,6 +91,7 @@ def main(cfg):
             check_val_every_n_epoch=1,
             logger=wandb_logger,
             callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+            profiler="simple" if cfg.system.profiler else None,
         )
 
     else:
@@ -102,10 +103,13 @@ def main(cfg):
             check_val_every_n_epoch=1,
             logger=wandb_logger,
             callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+            profiler="simple" if cfg.system.profiler else None,
         )
 
     # tuner = Tuner(trainer)
     # tuner.scale_batch_size(model, VCTK)
+    with open("profiling_summa ry.txt", "w") as file:
+        file.write(trainer.profiler.summary())
 
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
