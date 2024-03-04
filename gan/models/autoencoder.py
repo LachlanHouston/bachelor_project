@@ -31,7 +31,7 @@ class Autoencoder(L.LightningModule):
                     g_scheduler_gamma=0.5,
                     weight_clip = False,
                     weight_clip_value = 0.01,
-                    visualize=False,
+                    visualize=True,
                     batch_size=10,
                  ):
         super().__init__()
@@ -114,18 +114,6 @@ class Autoencoder(L.LightningModule):
         real_noisy = batch[1].squeeze(1)
 
         fake_clean, mask = self.generator(real_noisy)
-
-
-        ####### TESTING #######
-        waveform = stft_to_waveform(real_clean[0], device=self.device)
-        waveform = stft_to_waveform(fake_clean[0], device=self.device)
-        torchaudio.save(f'rc test{batch_idx}.wav', real_clean_waveform, 16000)
-
-        real_clean_waveform = real_clean_waveform.detach().cpu().numpy()
-        fake_clean_waveform = fake_clean_waveform.detach().cpu().numpy()
-        torchaudio.save(f'fc test{batch_idx}.wav', fake_clean_waveform, 16000)
-
-
 
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
