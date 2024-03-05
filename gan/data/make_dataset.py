@@ -32,33 +32,6 @@ def save_data(waveforms, path, filenames):
 
     print('Saved {} files'.format(len(waveforms)))
 
-def process_data(waveforms, sample_rates, file_names, n_seconds=2):
-    new_waveforms = []
-    new_file_names = []
-
-    # Cut the waveforms to n seconds chunks, pad the last one if necessary
-    for i, waveform in enumerate(waveforms):
-        # Downsample the waveform to 16kHz
-        new_freq=16000
-        waveform = torchaudio.transforms.Resample(orig_freq=sample_rates[i], new_freq=new_freq)(waveform)
-
-        # Cut the waveform to n seconds chunks and pad the last one if necessary. Save the chunks with save_data
-        n_samples = n_seconds * new_freq
-        n_chunks = waveform.size(1) // n_samples
-        for j in range(n_chunks):
-            new_waveforms.append(waveform[:, j*n_samples:(j+1)*n_samples])
-
-
-            # Save the file names with the number of chunks, put the chunk number in the middle of the file name
-            new_file_names.append(file_names[i][:8] + '_{}'.format(j))
-        if waveform.size(1) % n_samples != 0:
-            new_waveforms.append(F.pad(waveform[:, n_chunks*n_samples:], (0, n_samples - waveform.size(1) % n_samples)))
-            new_file_names.append(file_names[i][:8] + '_{}'.format(n_chunks))
-        
-    print('Processed {} files'.format(len(new_waveforms)))
-
-    return new_waveforms, new_file_names
-
 
 def process_data_no_pad(waveforms, sample_rates, file_names):
     clips = []
@@ -163,7 +136,6 @@ def create_csv(path):
     np.save('data.npy', df)
 
     
-
 
 if __name__ == '__main__':
 
