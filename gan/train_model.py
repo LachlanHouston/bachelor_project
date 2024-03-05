@@ -3,13 +3,10 @@ torch.manual_seed(42)
 import hydra
 import os
 import wandb
-from omegaconf import OmegaConf
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.tuner.tuning import Tuner
-from lightning.pytorch.profilers import AdvancedProfiler
 import warnings
 warnings.filterwarnings("ignore")
 # Import models
@@ -18,26 +15,24 @@ from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule
 
-# torch.set_float32_matmul_precision('medium')
-# torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
-# torch.backends.cuda.matmul.allow_tf32 = True
-
-
+# main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
     L.seed_everything(100)
+    # configure wandb
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
-    # Define paths
+    # define paths
     clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_stft/')
     noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_stft/')
     test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
     test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
-    # Load the data loaders
+    # load the data loaders
     VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
+    # define the autoencoder class containing the training setup
     model = Autoencoder(discriminator=Discriminator(), 
                         generator=Generator(),
 
@@ -62,13 +57,14 @@ def main(cfg):
                         batch_size=cfg.hyperparameters.batch_size,
                         )
     
+    # define saving of checkpoints
     checkpoint_callback = ModelCheckpoint(
-        dirpath="models/",  # Path where checkpoints will be saved
-        filename="{epoch}",  # The name of the checkpoint files
-        every_n_epochs=5,  # Save a checkpoint every epoch
-
+        dirpath="models/",  # path where checkpoints will be saved
+        filename="{epoch}",  # the name of the checkpoint files
+        every_n_epochs=5,  # how often to save a model checkpoint
     )
 
+    # define Weights and Biases logger
     if cfg.wandb.use_wandb:
         wandb_logger = WandbLogger(
             project=cfg.wandb.project,
@@ -80,45 +76,32 @@ def main(cfg):
     else:
         wandb_logger = None
 
-    if cfg.system.num_gpus >= 1 and torch.cuda.is_available():
-        trainer = Trainer(
-            accelerator="cuda" if torch.cuda.is_available() else "cpu",
-            devices=cfg.system.num_gpus,
-            strategy="ddp_find_unused_parameters_true" if cfg.system.num_gpus > 1 else "auto",
-            limit_train_batches=cfg.hyperparameters.train_fraction,
-            limit_val_batches= cfg.hyperparameters.val_fraction,
-            max_epochs=cfg.hyperparameters.max_epochs,
-            check_val_every_n_epoch=1,
-            logger=wandb_logger,
-            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
-            profiler="simple" if cfg.system.profiler else None,
-        )
+    # define the trainer 
+    trainer = Trainer(
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu',
+        devices=cfg.system.num_gpus if cfg.system.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+        strategy='ddp_find_unused_parameters_true' if cfg.system.num_gpus > 1 and torch.cuda.is_available() else 'auto',
+        limit_train_batches=cfg.hyperparameters.train_fraction,
+        limit_val_batches= cfg.hyperparameters.val_fraction,
+        max_epochs=cfg.hyperparameters.max_epochs,
+        check_val_every_n_epoch=1,
+        logger=wandb_logger,
+        callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+        profiler=cfg.system.profiler if cfg.system.profiler else None,
+    )
 
-    else:
-        trainer = Trainer(
-            accelerator="cpu",
-            limit_train_batches=cfg.hyperparameters.train_fraction,
-            limit_val_batches= cfg.hyperparameters.val_fraction,
-            max_epochs=cfg.hyperparameters.max_epochs,
-            check_val_every_n_epoch=1,
-            logger=wandb_logger,
-            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
-            profiler="simple" if cfg.system.profiler else None,
-        )
-
-    # tuner = Tuner(trainer)
-    # tuner.scale_batch_size(model, VCTK)
-    with open("profiling_summa ry.txt", "w") as file:
-        file.write(trainer.profiler.summary())
-
+    # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
         trainer.fit(model, VCTK, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
-
     else:
         print("Starting new training")
         trainer.fit(model, VCTK)
 
+    # save profiling results
+    if cfg.system.profiler:
+        with open("profiling.txt", "w") as file:
+            file.write(trainer.profiler.summary())
 
 if __name__ == "__main__":
     main()
