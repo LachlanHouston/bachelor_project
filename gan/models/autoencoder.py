@@ -2,67 +2,31 @@ from typing import Any
 from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
-from gan.data.data_loader import VCTKDataModule
 from gan.utils.utils import stft_to_waveform, perfect_shuffle
 import pytorch_lightning as L
 import torch
-import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
-import wandb
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
+import wandb
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 import io
 import numpy as np
-import random
 
-
+# define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
-    def __init__(self, 
-                    discriminator = Discriminator(),
-                    generator = Generator(),
-                    alpha_penalty=10,
-                    alpha_fidelity=10,
-                    n_critic=5,
-                    n_generator=1,
-                    logging_freq=5,
-                    d_learning_rate=1e-4,
-                    g_learning_rate=1e-4,
-                    d_scheduler_step_size=200,
-                    d_scheduler_gamma=0.5,
-                    g_scheduler_step_size=200,
-                    g_scheduler_gamma=0.5,
-                    weight_clip = False,
-                    weight_clip_value = 0.01,
-                    visualize=True,
-                    batch_size=10,
-                 ):
+    def __init__(self, **kwargs):
         super().__init__()
-        self.generator = generator
-        self.discriminator = discriminator
-        self.alpha_penalty = alpha_penalty
-        self.alpha_fidelity = alpha_fidelity
-        self.n_critic = n_critic
-        self.n_generator = n_generator
-        self.logging_freq = logging_freq
-        self.d_learning_rate = d_learning_rate
-        self.g_learning_rate = g_learning_rate
-        self.d_scheduler_step_size = d_scheduler_step_size
-        self.d_scheduler_gamma = d_scheduler_gamma
-        self.g_scheduler_step_size = g_scheduler_step_size
-        self.g_scheduler_gamma = g_scheduler_gamma
-        self.weight_clip = weight_clip
-        self.weight_clip_value = weight_clip_value
-        self.visualize = visualize
-        self.batch_size = batch_size
-
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        # save hyperparameters to Weights and Biases
+        self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
-        self.save_hyperparameters()
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
