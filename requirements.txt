@@ -149,7 +149,6 @@ wandb==0.16.1
 wheel==0.41.2
 wcwidth==0.2.13
 Werkzeug==3.0.1
-wvmos==1.0
 yarg==0.1.9
 yarl==1.9.4
 zc.lockfile==3.0.post1
