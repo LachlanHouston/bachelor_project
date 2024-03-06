@@ -34,7 +34,7 @@ def main(cfg):
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(discriminator=Discriminator(), 
-                        generator=Generator(),
+                        generator=Generator(in_channels=2, out_channels=2),
 
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
