@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(42)
 import torchmetrics
 import numpy as np
 import matplotlib.pyplot as plt
