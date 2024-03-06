@@ -22,7 +22,7 @@ import numpy as np
 class Autoencoder(L.LightningModule):
     def __init__(self, 
                     discriminator = Discriminator(),
-                    generator = Generator(in_channels=1, out_channels=1),
+                    generator = Generator(in_channels=2, out_channels=2),
                     alpha_penalty=10,
                     alpha_fidelity=10,
                     n_critic=5,
