@@ -20,25 +20,7 @@ import numpy as np
 
 # define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
-    def __init__(self, 
-                    discriminator = Discriminator(),
-                    generator = Generator(in_channels=2, out_channels=2),
-                    alpha_penalty=10,
-                    alpha_fidelity=10,
-                    n_critic=5,
-                    n_generator=1,
-                    logging_freq=5,
-                    d_learning_rate=1e-4,
-                    g_learning_rate=1e-4,
-                    d_scheduler_step_size=200,
-                    d_scheduler_gamma=0.5,
-                    g_scheduler_step_size=200,
-                    g_scheduler_gamma=0.5,
-                    weight_clip = False,
-                    weight_clip_value = 0.01,
-                    visualize=True,
-                    batch_size=4,
-                 ):
+    def __init__(self, **kwargs):
         super().__init__()
         for key, value in kwargs.items():
             setattr(self, key, value)
