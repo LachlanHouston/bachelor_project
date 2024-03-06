@@ -59,6 +59,7 @@ def main(cfg):
     
     # define saving of checkpoints
     checkpoint_callback = ModelCheckpoint(
+        save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
         every_n_epochs=5,  # how often to save a model checkpoint
