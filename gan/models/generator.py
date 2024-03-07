@@ -79,17 +79,27 @@ class Generator(nn.Module):
     def forward(self, x):
         e = x
         e_list = []
+        """Encoder"""
         for i, layer in enumerate(self.encoder):
+            # apply convolutional layer
             e = layer(e)
+            # store the output for skip connection
             e_list.append(e)
+        
+        """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
+        # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
+
+        """Decoder"""
         for i, layer in enumerate(self.decoder):
             idx = idx - 1
+            # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
 
         d = self.activation(d)
+
         # Add skip connection (element-wise addition)
         # Make sure the dimensions match before adding
         skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
