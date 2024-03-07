@@ -82,5 +82,5 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     # Set the title of the figure
     fig.suptitle('Spectrograms')
     plt.tight_layout(pad=3.0)
-
+    
     return plt
