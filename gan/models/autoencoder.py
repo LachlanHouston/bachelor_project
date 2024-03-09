@@ -13,6 +13,7 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
+# from pesq import pesq
 
 
 # define the Autoencoder class containing the training setup
@@ -126,15 +127,19 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device)
-        real_clean_waveforms = real_clean_waveforms.detach().cpu().squeeze()
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device)
-        fake_clean_waveforms = fake_clean_waveforms.detach().cpu().squeeze()
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
+        real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).detach().cpu().squeeze()
+
 
         ## Scale Invariant Signal-to-Noise Ratio
-        snr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        snr_score = snr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR', snr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+        self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        sisnr_noisy = ScaleInvariantSignalNoiseRatio().to(self.device)
+        sisnr_noisy_score = sisnr_noisy(preds=real_noisy_waveforms, target=real_clean_waveforms)
+        self.log('SI-SNR Noisy', sisnr_noisy_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
@@ -147,6 +152,12 @@ class Autoencoder(L.LightningModule):
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        # ## Perceptual Evaluation of Speech Quality
+        # pesq_scores = [pesq(fs=16000, ref=real_clean_waveforms[i].numpy(), deg=fake_clean_waveforms[i].numpy(), mode='wb') for i in range(self.batch_size)]
+        # pesq_score = torch.tensor(pesq_scores).mean()
+        # self.log('PESQ', pesq_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
@@ -165,6 +176,9 @@ class Autoencoder(L.LightningModule):
             self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
             self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
+            plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
+            self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
+            plt.close()
 
 
 if __name__ == "__main__":
