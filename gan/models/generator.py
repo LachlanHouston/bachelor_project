@@ -102,9 +102,9 @@ class Generator(nn.Module):
 
         # Add skip connection (element-wise addition)
         # Make sure the dimensions match before adding
-        skip_connection = x if x.size() == d.size() else F.interpolate(x, size=d.shape[2:], mode='nearest')
+        skip_connection = x
         mask = d
-        output = mask + skip_connection
+        output = mask * skip_connection
         
         return output, mask
 

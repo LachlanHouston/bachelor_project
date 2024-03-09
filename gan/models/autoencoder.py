@@ -108,17 +108,16 @@ class Autoencoder(L.LightningModule):
             g_sch.step()
             d_sch.step()
 
-        if self.visualize:
-            # log discriminator losses
-            self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            
-            # log generator losses
-            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # log discriminator losses
+        self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        
+        # log generator losses
+        self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+        self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
