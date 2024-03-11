@@ -56,6 +56,7 @@ class Autoencoder(L.LightningModule):
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
+        gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
         grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
         gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
 
@@ -144,7 +145,7 @@ class Autoencoder(L.LightningModule):
         g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
-        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+        if batch_idx % self.n_critic == 0 and batch_idx > 500:
             g_opt.zero_grad()
 
         real_clean = batch[0].squeeze(1)
@@ -169,7 +170,7 @@ class Autoencoder(L.LightningModule):
 
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0 and batch_idx > 0:
+        if batch_idx % self.n_critic == 0 and batch_idx > 500:
             g_opt.step()
 
         # Weight clipping

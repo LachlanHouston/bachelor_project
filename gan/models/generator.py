@@ -90,14 +90,13 @@ class Generator(nn.Module):
             d = layer(_padded_cat(d, e_list[idx]))
 
         d = self.activation(d)
-        # Add skip connection (element-wise addition)
-        # Make sure the dimensions match before adding
-        # skip_connection = x
         mask = d
         if mask.shape[1] != x.shape[1]:
             # Add mask to first channel of x (concat 0 to the channel dimension)
             mask = torch.cat((mask, torch.zeros((mask.shape[0], 1, mask.shape[2], mask.shape[3]), device=mask.device)), dim=1)
-        output = x + mask
+
+        # Perform hadamard product
+        output = torch.mul(x, mask)
         
         return output, mask
 
@@ -117,7 +116,7 @@ if __name__ == '__main__':
     print("Input std:", input.flatten().std().item())
 
     # Initialize the generator
-    generator = Generator(in_channels=1, out_channels=1)
+    generator = Generator(in_channels=2, out_channels=2)
 
     # Get the output from the generator
     output, mask = generator(input)
