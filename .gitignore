@@ -202,3 +202,4 @@ gan/config/config.yaml
 testquick.py
 models/wav2vec2.ckpt
 /FrederikTests
+gan/config/config.yaml
