@@ -18,6 +18,9 @@ from gan import VCTKDataModule
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+    # Print GPU information
+    print(torch.cuda.is_available())
+
     L.seed_everything(100)
     # configure wandb
     wandb_api_key = os.environ.get("WANDB_API_KEY")
