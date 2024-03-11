@@ -94,16 +94,17 @@ class Autoencoder(L.LightningModule):
         # detach fake_clean to avoid computing gradients for the generator
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
 
+        self.manual_backward(D_loss, retain_graph=True)
+
         if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
             G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
-            self.manual_backward(G_loss, retain_graph=True)
+            self.manual_backward(G_loss)
             print("Training Generator")
         else:
             G_loss = torch.tensor(0.)
             G_fidelity_alpha = torch.tensor(0.)
             G_adv_loss = torch.tensor(0.)
-
-        self.manual_backward(D_loss)
+        
         d_opt.step()
 
         if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
