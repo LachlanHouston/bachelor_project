@@ -74,7 +74,7 @@ class Autoencoder(L.LightningModule):
         g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
-        if batch_idx % self.n_critic == 0 and batch_idx > 500:
+        if batch_idx % self.n_critic == 0 and self.current_epoch > 1:
             g_opt.zero_grad()
 
         real_clean = batch[0].squeeze(1)
@@ -99,7 +99,7 @@ class Autoencoder(L.LightningModule):
 
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0 and batch_idx > 500:
+        if batch_idx % self.n_critic == 0 and self.current_epoch > 1:
             g_opt.step()
 
         # Weight clipping
