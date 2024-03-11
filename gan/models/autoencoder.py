@@ -142,10 +142,7 @@ class Autoencoder(L.LightningModule):
         sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
         sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
         self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        sisnr_noisy = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_noisy_score = sisnr_noisy(preds=real_noisy_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR Noisy', sisnr_noisy_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # SI-SNR for noisy = 8.753
 
         ## Extended Short Time Objective Intelligibility
         estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
