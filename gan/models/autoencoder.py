@@ -33,7 +33,7 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
+        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
         # compute adversarial loss
         G_adv_loss = - D_fake.mean()
         # Compute the total generator loss
@@ -75,8 +75,7 @@ class Autoencoder(L.LightningModule):
         g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
-        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
-            g_opt.zero_grad()
+        g_opt.zero_grad()
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
@@ -93,17 +92,13 @@ class Autoencoder(L.LightningModule):
 
         # detach fake_clean to avoid computing gradients for the generator
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         self.manual_backward(D_loss, retain_graph=True)
 
         if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
             self.manual_backward(G_loss)
             print("Training Generator")
-        else:
-            G_loss = torch.tensor(0.)
-            G_fidelity_alpha = torch.tensor(0.)
-            G_adv_loss = torch.tensor(0.)
         
         d_opt.step()
 

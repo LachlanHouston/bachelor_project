@@ -1,5 +1,5 @@
 hyperparameters:
-  batch_size: 40
+  batch_size: 4
   num_workers: 20
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
@@ -27,7 +27,7 @@ wandb:
   project: bachelor2
 
 system:
-  num_gpus: 2
+  num_gpus: 1
   checkpointing: True
   continue_training: False
   ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none
