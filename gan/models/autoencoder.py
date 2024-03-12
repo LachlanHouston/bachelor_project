@@ -87,7 +87,6 @@ class Autoencoder(L.LightningModule):
         # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
         D_fake_no_grad = self.discriminator(fake_clean.detach())
 
-        # detach fake_clean to avoid computing gradients for the generator
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
