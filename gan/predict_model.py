@@ -8,7 +8,9 @@ from pytorch_lightning import Trainer
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from pesq import pesq
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
+from gan import stft_to_waveform
 from speechmos import dnsmos
 import os
 import hydra
@@ -16,60 +18,41 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import random
+import numpy as np
 torch.set_grad_enabled(False)
-
-
-def stft_to_waveform(stft, device=torch.device('cuda')):
-    if len(stft.shape) == 3:
-        stft = stft.unsqueeze(0)
-    # Separate the real and imaginary components
-    stft_real = stft[:, 0, :, :]
-    stft_imag = stft[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
-    # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
-    return waveform
-
-def predict(
-    model: torch.nn.Module,
-    dataloader: torch.utils.data.DataLoader
-) -> None:
-    """Run prediction for a given model and dataloader.
-    
-    Args:
-        model: model to use for prediction
-        dataloader: dataloader with batches
-    
-    Returns
-        Tensor of shape [N, d] where N is the number of samples and d is the output dimension of the model
-
-    """
-    return torch.cat([model(batch) for batch in dataloader], 0)
 
 
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
+
+    checkpoint_path = 'models/epoch=84.ckpt'
+    test_clean_path = 'data/test_clean_stft/'
+    test_noisy_path = 'data/test_noisy_stft/'
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = Autoencoder()
-    checkpoint_path = os.path.join(hydra.utils.get_original_cwd(), 'models/epoch=999.ckpt')
+    checkpoint_path = os.path.join(hydra.utils.get_original_cwd(), checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
 
-    # Load the trained model
-    model.load_state_dict(checkpoint['state_dict'])
-    # Get the generator
-    generator = model.generator
+    # # Load the trained model
+    # model.load_state_dict(checkpoint['state_dict'])
+    # # Get the generator
+    # generator = model.generator
+    
+    generator = Generator()
 
-    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
-    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), test_clean_path)
+    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), test_noisy_path)
 
     clean_files = [file for file in os.listdir(test_clean_path) if file.endswith('.pt')]
     noisy_files = [file for file in os.listdir(test_noisy_path) if file.endswith('.pt')]
 
+    sisnr_scores = estoi_scores = mos_squim_scores = dnsmos_scores = pesq_normal_scores = pesq_torch_scores = np.array([])
+    all_rows = []
 
     with open('scores.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["SNR", "DNSMOS", "MOS SQUIM"])
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch"])
 
         for i in tqdm(range(10)):
             clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
@@ -88,33 +71,64 @@ def main(cfg):
             ## Scale Invariant Signal-to-Noise Ratio
             sisnr = ScaleInvariantSignalNoiseRatio().to(device)
             sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+            sisnr_scores = np.append(sisnr_scores, sisnr_score.item())
 
-            # ## Perceptual Evaluation of Speech Quality
-            # pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(device)
-            # pesq_score = pesq(real_clean_waveform, fake_clean_waveform)
+            ## Perceptual Evaluation of Speech Quality
+            pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(device)
+            pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+            pesq_torch_scores = np.append(pesq_torch_scores, pesq_torch_score.item())
+
+            ## Perceptual Evaluation of Speech Quality
+            pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+            pesq_normal_scores = np.append(pesq_normal_scores, pesq_normal_score)
 
             ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
             dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
+            dnsmos_scores = np.append(dnsmos_scores, dnsmos_score)
 
-
+            ## MOS Squim
             reference_index = random.choice([j for j in range(len(clean_files)) if j != i])
             reference_waveform = torch.load(os.path.join(test_clean_path, clean_files[reference_index])).requires_grad_(False)
             reference_waveform = stft_to_waveform(reference_waveform.squeeze(0), device=torch.device('cpu')).detach()
             subjective_model = SQUIM_SUBJECTIVE.get_model()
-            mos_squim = subjective_model(fake_clean_waveform.unsqueeze(0), reference_waveform)
+            mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), reference_waveform)
+            mos_squim_scores = np.append(mos_squim_scores, mos_squim_score.item())
 
-            # ## Extended Short Time Objective Intelligibility
-            # estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-            # estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+            ## Extended Short Time Objective Intelligibility
+            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+            estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+            estoi_scores = np.append(estoi_scores, estoi_score.item())
  
+            all_rows.append([sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), pesq_normal_score, pesq_torch_score.item()])
+        
+        ## Mean scores
+        writer.writerow(["Mean scores"])
+        writer.writerow([np.mean(sisnr_scores), 
+                         np.mean(dnsmos_scores), 
+                         np.mean(mos_squim_scores), 
+                         np.mean(estoi_scores), 
+                         np.mean(pesq_normal_scores), 
+                         np.mean(pesq_torch_scores)])
 
-            # ## Distance between real clean and fake clean
-            # dist = torch.norm(real_clean_waveform - fake_clean_waveform, p=1)
+
+        ## Standard errors of the means
+        writer.writerow(["SE of the means" ])
+        writer.writerow([np.std(sisnr_scores)       /np.sqrt(len(sisnr_scores)), 
+                         np.std(dnsmos_scores)      /np.sqrt(len(dnsmos_scores)), 
+                         np.std(mos_squim_scores)   /np.sqrt(len(mos_squim_scores)), 
+                         np.std(estoi_scores)       /np.sqrt(len(estoi_scores)), 
+                         np.std(pesq_normal_scores) /np.sqrt(len(pesq_normal_scores)), 
+                         np.std(pesq_torch_scores)  /np.sqrt(len(pesq_torch_scores))])
+        
+        writer.writerow(["All Scores"])
+
+
+        for row in all_rows:
+            writer.writerow(row)
+
+        
+
             
-            writer.writerow([sisnr_score.item(), dnsmos_score, mos_squim.item()])
-            
-
-
 
 
 
