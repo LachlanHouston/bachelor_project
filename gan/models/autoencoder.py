@@ -92,9 +92,8 @@ class Autoencoder(L.LightningModule):
 
         self.manual_backward(D_loss, retain_graph=True)
 
-        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
+        if batch_idx % self.n_critic == 0:
             self.manual_backward(G_loss)
-            print("Training Generator")
         
         d_opt.step()
 
