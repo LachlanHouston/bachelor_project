@@ -74,14 +74,10 @@ class Autoencoder(L.LightningModule):
         g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
-        if batch_idx % self.n_critic == 0 and batch_idx > 500:
-            g_opt.zero_grad()
+        g_opt.zero_grad()
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
-            
-        # real_clean = torch.normal(0, 1, (4, 2, 257, 321))
-        # real_noisy = torch.normal(0, 1, (4, 2, 257, 321))
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -99,7 +95,7 @@ class Autoencoder(L.LightningModule):
 
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0 and batch_idx > 500:
+        if batch_idx % self.n_critic == 0:
             g_opt.step()
 
         # Weight clipping
