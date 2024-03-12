@@ -33,18 +33,18 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
+        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
         # compute adversarial loss
         G_adv_loss = - D_fake.mean()
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        G_loss /= self.n_critic
+        # G_loss /= self.n_critic
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # gradient penalty
         alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
-        alpha = alpha.expand_as(real_clean).to(self.device) # B x C x H x W
+        # alpha = alpha.expand_as(real_clean).to(self.device) # B x C x H x W
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
@@ -52,6 +52,7 @@ class Autoencoder(L.LightningModule):
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
+        
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
         grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
         gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
@@ -91,8 +92,11 @@ class Autoencoder(L.LightningModule):
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         self.manual_backward(D_loss, retain_graph=True)
-        self.manual_backward(G_loss)
 
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
+            self.manual_backward(G_loss)
+            print("Training Generator")
+        
         d_opt.step()
 
         if batch_idx % self.n_critic == 0:
