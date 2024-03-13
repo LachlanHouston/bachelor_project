@@ -7,8 +7,8 @@ from gan import VCTKDataModule
 from pytorch_lightning import Trainer
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-from pesq import pesq
+#from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+#from pesq import pesq
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
 from gan import stft_to_waveform
 from speechmos import dnsmos
@@ -21,32 +21,32 @@ import random
 import numpy as np
 torch.set_grad_enabled(False)
 
-
-@hydra.main(config_name="config.yaml", config_path="config")
-def main(cfg):
-
-    checkpoint_path = 'models/epoch=84.ckpt'
-    test_clean_path = 'data/test_clean_stft/'
-    test_noisy_path = 'data/test_noisy_stft/'
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = Autoencoder()
-    checkpoint_path = os.path.join(hydra.utils.get_original_cwd(), checkpoint_path)
-    checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-
-    # # Load the trained model
-    # model.load_state_dict(checkpoint['state_dict'])
-    # # Get the generator
-    # generator = model.generator
+def load_model(cpkt_path):
+    cpkt_path = os.path.join(hydra.utils.get_original_cwd(), cpkt_path)
+    model = Autoencoder.load_from_checkpoint(cpkt_path, 
+                                            discriminator=Discriminator(), 
+                                            generator=Generator(in_channels=2, out_channels=2), 
+                                            visualize=False,
+                                            alpha_penalty=10,
+                                            alpha_fidelity=10,
+                                            n_critic=10,
+                                            d_learning_rate=1e-4,
+                                            d_scheduler_step_size=1000,
+                                            d_scheduler_gamma=1,
+                                            g_learning_rate=1e-4,
+                                            g_scheduler_step_size=1000,
+                                            g_scheduler_gamma=1,
+                                            weight_clip = False,
+                                            weight_clip_value=0.5,
+                                            logging_freq=5,
+                                            batch_size=4)
     
-    generator = Generator()
+    generator = model.generator
+    discriminator = model.discriminator
 
-    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), test_clean_path)
-    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), test_noisy_path)
+    return generator, discriminator
 
-    clean_files = [file for file in os.listdir(test_clean_path) if file.endswith('.pt')]
-    noisy_files = [file for file in os.listdir(test_noisy_path) if file.endswith('.pt')]
-
+def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files):
     sisnr_scores = estoi_scores = mos_squim_scores = dnsmos_scores = pesq_normal_scores = pesq_torch_scores = np.array([])
     all_rows = []
 
@@ -69,12 +69,12 @@ def main(cfg):
             fake_clean_waveform = fake_clean_waveform.squeeze()
 
             ## Scale Invariant Signal-to-Noise Ratio
-            sisnr = ScaleInvariantSignalNoiseRatio().to(device)
+            sisnr = ScaleInvariantSignalNoiseRatio()
             sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
             sisnr_scores = np.append(sisnr_scores, sisnr_score.item())
 
             ## Perceptual Evaluation of Speech Quality
-            pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb').to(device)
+            pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
             pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
             pesq_torch_scores = np.append(pesq_torch_scores, pesq_torch_score.item())
 
@@ -110,7 +110,6 @@ def main(cfg):
                          np.mean(pesq_normal_scores), 
                          np.mean(pesq_torch_scores)])
 
-
         ## Standard errors of the means
         writer.writerow(["SE of the means" ])
         writer.writerow([np.std(sisnr_scores)       /np.sqrt(len(sisnr_scores)), 
@@ -126,13 +125,42 @@ def main(cfg):
         for row in all_rows:
             writer.writerow(row)
 
+def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files):
+    all_rows = []
+    with open('discriminator_scores.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Real", "Fake"])
+
+        for i in tqdm(range(10)):
+            clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
+            noisy_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
+
+            real_output = discriminator(clean_stft).mean()
+            fake_output = discriminator(noisy_stft).mean()
+
+            all_rows.append([real_output.item(), fake_output.item()])
+
+        for row in all_rows:
+            writer.writerow(row)
+
         
+@hydra.main(config_path="config", config_name="config")
+def main(cfg, get_generator_scores = False, get_discriminator_scores = False):
+    if get_generator_scores:
+        generator, _ = load_model("models/epoch=4.ckpt")
+        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+        clean_files = os.listdir(test_clean_path)
+        noisy_files = os.listdir(test_noisy_path)
+        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files)
 
-            
-
-
-
-
+    if get_discriminator_scores:
+        _, discriminator = load_model("models/epoch=4.ckpt")
+        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+        clean_files = os.listdir(test_clean_path)
+        noisy_files = os.listdir(test_noisy_path)
+        discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files)
 
 if __name__ == '__main__':
     main()
