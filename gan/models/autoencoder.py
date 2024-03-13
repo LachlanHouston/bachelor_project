@@ -88,22 +88,17 @@ class Autoencoder(L.LightningModule):
         D_fake_no_grad = self.discriminator(fake_clean.detach())
 
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
-        if batch_idx % self.n_critic == 0 and self.current_epoch >= 1 and batch_idx != 0:
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
-        else:
-            G_loss = torch.tensor(0.0)
-            G_fidelity_alpha = torch.tensor(0.0)
-            G_adv_loss = torch.tensor(0.0)
-
+        # Backward pass
         self.manual_backward(D_loss, retain_graph=True)
 
-        if batch_idx % self.n_critic == 0:
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
             self.manual_backward(G_loss)
-        
+
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0:
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
             g_opt.step()
 
         # Weight clipping
@@ -129,11 +124,8 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        # real_clean = batch[0].squeeze(1)
-        # real_noisy = batch[1].squeeze(1)
-            
-        real_clean = torch.normal(0, 1, (4, 2, 257, 321))
-        real_noisy = torch.normal(0, 1, (4, 2, 257, 321))        
+        real_clean = batch[0].squeeze(1)
+        real_noisy = batch[1].squeeze(1)     
 
         fake_clean, mask = self.generator(real_noisy)
 
