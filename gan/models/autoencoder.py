@@ -33,7 +33,7 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        # G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
+        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
         # compute adversarial loss
         G_adv_loss = - D_fake.mean()
         # Compute the total generator loss
