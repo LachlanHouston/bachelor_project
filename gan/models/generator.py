@@ -74,6 +74,7 @@ class Generator(nn.Module):
         self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
         self.decoder.append(TransConvBlock(64, self.out_channels, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(0, 0), is_last=True))
 
+        # self.activation = nn.Softmax()
         self.activation = nn.Tanh()
 
     def forward(self, x):
