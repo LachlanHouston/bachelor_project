@@ -33,12 +33,12 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
+        # G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
         # compute adversarial loss
         G_adv_loss = - D_fake.mean()
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        G_loss /= self.n_critic
+        # G_loss /= self.n_critic
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
@@ -53,8 +53,8 @@ class Autoencoder(L.LightningModule):
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
-        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
-        gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
+        grad_norms = gradients.norm(2, dim=1) # B
+        gradient_penalty = ((grad_norms - 1) ** 2).mean()
 
         # adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
@@ -74,14 +74,14 @@ class Autoencoder(L.LightningModule):
         g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
-        if batch_idx % self.n_critic == 0 and self.current_epoch > 1:
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 1 and batch_idx != 0:
             g_opt.zero_grad()
 
-        real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)
+        # real_clean = batch[0].squeeze(1)
+        # real_noisy = batch[1].squeeze(1)
             
-        # real_clean = torch.normal(0, 1, (4, 2, 257, 321))
-        # real_noisy = torch.normal(0, 1, (4, 2, 257, 321))
+        real_clean = torch.normal(0, 1, (4, 2, 257, 321))
+        real_noisy = torch.normal(0, 1, (4, 2, 257, 321))
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -92,14 +92,19 @@ class Autoencoder(L.LightningModule):
 
         # detach fake_clean to avoid computing gradients for the generator
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 1 and batch_idx != 0:
+            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+        else:
+            G_loss = torch.tensor(0.0)
+            G_fidelity_alpha = torch.tensor(0.0)
+            G_adv_loss = torch.tensor(0.0)
 
         self.manual_backward(D_loss, retain_graph=True)
-        self.manual_backward(G_loss)
-
         d_opt.step()
 
-        if batch_idx % self.n_critic == 0 and self.current_epoch > 1:
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 1 and batch_idx != 0:
+            self.manual_backward(G_loss)
             g_opt.step()
 
         # Weight clipping
@@ -125,11 +130,11 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)
+        # real_clean = batch[0].squeeze(1)
+        # real_noisy = batch[1].squeeze(1)
             
-        # real_clean = torch.normal(0, 1, (4, 2, 257, 321))
-        # real_noisy = torch.normal(0, 1, (4, 2, 257, 321))        
+        real_clean = torch.normal(0, 1, (4, 2, 257, 321))
+        real_noisy = torch.normal(0, 1, (4, 2, 257, 321))        
 
         fake_clean, mask = self.generator(real_noisy)
 
@@ -204,7 +209,26 @@ if __name__ == "__main__":
         shuffle=True
     )
 
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False)
+    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False,
+                        alpha_penalty=10,
+                        alpha_fidelity=10,
+
+                        n_critic=10,
+                        
+                        d_learning_rate=1e-4,
+                        d_scheduler_step_size=1000,
+                        d_scheduler_gamma=1,
+
+                        g_learning_rate=1e-4,
+                        g_scheduler_step_size=1000,
+                        g_scheduler_gamma=1,
+
+                        weight_clip = False,
+                        weight_clip_value=0.5,
+
+                        logging_freq=5,
+                        batch_size=4)
+    
     trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=5, limit_val_batches=1,
                         logger=False)
