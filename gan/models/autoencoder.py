@@ -26,6 +26,8 @@ class Autoencoder(L.LightningModule):
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
 
+        self.example_input_array = torch.randn(4, 2, 257, 321)
+
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
@@ -179,6 +181,10 @@ class Autoencoder(L.LightningModule):
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
 
+    def on_validation_epoch_end(self) -> None:
+        sample_img = torch.randn(1, 2, 257, 321).to(self.device)
+        tensorboard = self.logger.experiment
+        tensorboard.add_image('Generated Image', sample_img, self.current_epoch)
 
 if __name__ == "__main__":
     # Print Device

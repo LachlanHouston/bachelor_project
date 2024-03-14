@@ -6,7 +6,7 @@ import wandb
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 import warnings
 warnings.filterwarnings("ignore")
 # Import models
@@ -73,10 +73,12 @@ def main(cfg):
         wandb_logger = WandbLogger(
             project=cfg.wandb.project,
             name=cfg.wandb.name,
-            entity=cfg.wandb.entity,  
+            entity=cfg.wandb.entity,
+            sync_tensorboard=True,  
         )
+        tb_logger = TensorBoardLogger("logs/", log_graph=True)
         # log gradients and model topology
-        wandb_logger.watch(model)
+        wandb_logger.watch(model, log='all')
     else:
         wandb_logger = None
 
@@ -89,7 +91,7 @@ def main(cfg):
         limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=wandb_logger,
+        logger=[wandb_logger, tb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
     )

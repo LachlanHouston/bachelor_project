@@ -7,8 +7,8 @@ from gan import VCTKDataModule
 from pytorch_lightning import Trainer
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-#from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-#from pesq import pesq
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from pesq import pesq
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
 from gan import stft_to_waveform
 from speechmos import dnsmos
