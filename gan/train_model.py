@@ -14,6 +14,7 @@ from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule
+# import tensorboard
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
@@ -76,7 +77,7 @@ def main(cfg):
             entity=cfg.wandb.entity,
             sync_tensorboard=True,  
         )
-        tb_logger = TensorBoardLogger("logs/", log_graph=True)
+        tb_logger = TensorBoardLogger(log_graph=True, save_dir="wandb/logs/")
         # log gradients and model topology
         wandb_logger.watch(model, log='all')
     else:
@@ -94,6 +95,7 @@ def main(cfg):
         logger=[wandb_logger, tb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
+        fast_dev_run=False
     )
 
     # train the model. Continue training from the last checkpoint if specified in config
