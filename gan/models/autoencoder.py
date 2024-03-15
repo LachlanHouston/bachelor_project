@@ -13,6 +13,9 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
+import matplotlib.pyplot as plt
+import numpy as np
+import csv
 # from pesq import pesq
 
 
@@ -25,6 +28,9 @@ class Autoencoder(L.LightningModule):
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
+        self.csv_file = open('disc_weights.csv', 'a')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -48,7 +54,7 @@ class Autoencoder(L.LightningModule):
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
-        D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
+        D_interpolates, _ = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
@@ -69,6 +75,31 @@ class Autoencoder(L.LightningModule):
         g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
         d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
+
+    def visualize_weights(self, model, batch_idx):
+        # Ensure the model is in evaluation mode
+        model.eval()
+
+        # Iterate through all named parameters in the model
+        for name, param in model.named_parameters():
+            # Ensure we're only visualizing weights, not biases
+            if "weight" in name and param.ndim == 2:  # Adjust the condition based on your needs
+                # Convert the tensor to numpy for visualization
+
+                if "layers1" in name:
+                    weight = param.data.cpu().numpy()
+                    # Plot the weight matrix as a heatmap
+                    plt.figure(figsize=(10, 10))
+                    plt.imshow(weight, cmap='viridis')
+                    plt.colorbar()
+                    plt.title(f'Weights of {name}')
+                    plt.xlabel('Output Neurons')
+                    plt.ylabel('Input Neurons')
+                    plt.savefig(f'weights_{name}_{self.current_epoch}_{batch_idx}.png')
+                    plt.close()
+                    print(np.sum(weight - self.last_layer1))
+                    self.last_layer1 = weight
+        model.train()
     
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
@@ -82,10 +113,13 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-        D_real = self.discriminator(real_clean)
-        D_fake = self.discriminator(fake_clean)
-        # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
-        D_fake_no_grad = self.discriminator(fake_clean.detach())
+
+        D_real, D_rstats = self.discriminator(real_clean)
+        D_fake, D_fstats = self.discriminator(fake_clean)
+        # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
+        D_fake_no_grad = D_fake.detach()
+
+        self.csv_writer.writerow(D_rstats)
 
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
@@ -100,6 +134,8 @@ class Autoencoder(L.LightningModule):
 
         if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
             g_opt.step()
+
+        # self.visualize_weights(self.discriminator, batch_idx)
 
         # Weight clipping
         if self.weight_clip:
@@ -217,7 +253,7 @@ if __name__ == "__main__":
                         logging_freq=5,
                         batch_size=4)
     
-    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=50, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=5, limit_val_batches=1,
                         logger=False)
     trainer.fit(model, train_loader, val_loader)

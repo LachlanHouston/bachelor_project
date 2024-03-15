@@ -4,8 +4,45 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
+from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from pesq import pesq
+from torchaudio.pipelines import SQUIM_SUBJECTIVE
+from speechmos import dnsmos
 
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform):
 
+    if real_clean_waveform.numpy().shape == (1, 32000):
+        real_clean_waveform = real_clean_waveform.squeeze(0)
+    if fake_clean_waveform.numpy().shape == (1, 32000):
+        fake_clean_waveform = fake_clean_waveform.squeeze(0)
+    if len(non_matching_reference_waveform.numpy().shape) == 1:
+        non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
+
+    ## Scale Invariant Signal-to-Noise Ratio
+    sisnr = ScaleInvariantSignalNoiseRatio()
+    sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+
+    ## Perceptual Evaluation of Speech Quality
+    pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+    pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+
+    ## Perceptual Evaluation of Speech Quality
+    pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+
+    ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
+    dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
+
+    ## MOS Squim
+    subjective_model = SQUIM_SUBJECTIVE.get_model()
+    mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform)
+
+    ## Extended Short Time Objective Intelligibility
+    estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+    estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+
+    return sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), pesq_normal_score, pesq_torch_score.item()
 
 def perfect_shuffle(tensor):
     # Ensure the tensor is at least 2D

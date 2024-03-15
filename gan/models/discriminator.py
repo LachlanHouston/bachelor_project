@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import csv
 
 class Conv2DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):
@@ -22,8 +23,7 @@ class Discriminator(nn.Module):
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
         self.output_sizes = output_sizes
-        norm_f = nn.utils.spectral_norm
-        
+        norm_f = nn.utils.spectral_norm        
 
         assert len(self.input_sizes) == len(self.output_sizes), "Input and output sizes must be the same length"
 
@@ -36,14 +36,18 @@ class Discriminator(nn.Module):
         self.fc_layers2 = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
-        for layer in self.conv_layers:
+        self.stats = []
+
+        for idx, layer in enumerate(self.conv_layers):
             x = layer(x)
-        x = x.flatten(1, -1)
-        x = self.fc_layers1(x)
-        x = self.activation(x)
-        x = self.fc_layers2(x)
+            # append weight norm
+            self.stats.append(layer.conv.weight.norm().item())
         
-        return x
+        # Log weights for fully connected layers
+        self.stats.append(self.fc_layers1.weight.norm().item())
+        self.stats.append(self.fc_layers2.weight.norm().item())
+
+        return x, self.stats
 
 
 if __name__ == '__main__':
