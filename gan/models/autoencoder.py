@@ -32,6 +32,8 @@ class Autoencoder(L.LightningModule):
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
+        self.example_input_array = torch.randn(4, 2, 257, 321)
+
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
@@ -158,6 +160,11 @@ class Autoencoder(L.LightningModule):
         self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
         self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
+        return {"g_loss": G_loss, "d_loss": D_loss}
+    
+    def on_train_epoch_start(self) -> None:
+        self.logger.experiment.log({"epoch": self.current_epoch})
+
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
@@ -214,6 +221,10 @@ class Autoencoder(L.LightningModule):
             plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
+
+    # def on_train_epoch_end(self) -> None:
+    #     sample_img = torch.randn(1, 2, 257, 321).to(self.device)
+    #     # Logger contains wandb and tensorboard, log graph to tensorboard
 
 
 if __name__ == "__main__":
