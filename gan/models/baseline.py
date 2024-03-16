@@ -6,6 +6,7 @@ import random
 import tqdm
 import numpy as np
 import csv
+import datetime
 
 
 def baseline_model():
@@ -14,6 +15,8 @@ def baseline_model():
     test_noisy_path = 'data/wav/test_noisy_wav/'
     test_clean_filenames = [file for file in os.listdir(test_clean_path) if file.endswith('.wav')]
     test_noisy_filenames = [file for file in os.listdir(test_noisy_path) if file.endswith('.wav')]
+    del test_clean_filenames[1208]
+    del test_noisy_filenames[1208]
     test_clean_waveforms = []
     test_noisy_waveforms = []
     for i in tqdm.tqdm(range(len(test_clean_filenames)), "load test"):
@@ -53,7 +56,7 @@ def baseline_model():
     ### Compute scores
     all_rows = []
 
-    with open('baseline_scores.csv', 'w', newline='') as file:
+    with open(f'baseline_scores_{datetime.datetime.now()}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch"])
 
