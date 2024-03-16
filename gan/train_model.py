@@ -77,7 +77,6 @@ def main(cfg):
             entity=cfg.wandb.entity,
             sync_tensorboard=True,  
         )
-        tb_logger = TensorBoardLogger(log_graph=True, save_dir="wandb/logs/")
         # log gradients and model topology
         wandb_logger.watch(model, log='all')
     else:
@@ -92,7 +91,7 @@ def main(cfg):
         limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=[wandb_logger, tb_logger] if cfg.wandb.use_wandb else None,
+        logger=[wandb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         fast_dev_run=False
