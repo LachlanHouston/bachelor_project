@@ -1,5 +1,5 @@
 hyperparameters:
-  batch_size: 4
+  batch_size: 32
   num_workers: 10
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
@@ -10,8 +10,8 @@ hyperparameters:
   g_scheduler_gamma: 1
 
   max_epochs: 10000
-  dummy_data: True
-  dummy_mean_dif: 1000
+  dataset: "VCTK"   # "FSD50K" or "VCTK" or "dummy"
+  dummy_mean_dif: 0
   train_fraction: 1.
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper

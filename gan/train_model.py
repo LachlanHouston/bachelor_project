@@ -8,12 +8,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-
 # Import models
 from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
-from gan import VCTKDataModule, DummyDataModule
+from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
 # import tensorboard
 
 # main function using Hydra to organize configuration
@@ -28,16 +27,21 @@ def main(cfg):
     wandb.login(key=wandb_api_key)
 
     # define paths
-    clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_stft/')
-    noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_stft/')
-    test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
-    test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+    VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_stft/')
+    VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_stft/')
+    VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+    VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+    FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
+    FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
 
     # load the data loaders
-    if cfg.hyperparameters.dummy_data:
-        VCTK = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
-    else:
-        VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+    if cfg.hyperparameters.dataset == "dummy":
+        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
+    elif cfg.hyperparameters.dataset == "VCTK":
+        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+    elif cfg.hyperparameters.dataset == "FSD50K":
+        # use FSD50K as noisy data and VCTK as clean data
+        data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(discriminator=Discriminator(), 
@@ -103,10 +107,10 @@ def main(cfg):
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
-        trainer.fit(model, VCTK, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
+        trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
     else:
         print("Starting new training")
-        trainer.fit(model, VCTK)
+        trainer.fit(model, data_module)
 
     # save profiling results
     if cfg.system.profiler:
