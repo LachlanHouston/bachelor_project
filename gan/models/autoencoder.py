@@ -111,7 +111,8 @@ class Autoencoder(L.LightningModule):
         # Weight clipping
         if self.weight_clip:
             for p in self.discriminator.parameters():
-                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
+                if "bias" in p.name and "conv" in p.name:                    
+                    p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
 
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
