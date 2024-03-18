@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import csv
 
 class Conv2DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):

@@ -1,13 +1,12 @@
 import torch
-torch.manual_seed(42)
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-from pesq import pesq
+# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+# from pesq import pesq
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
 from speechmos import dnsmos
 

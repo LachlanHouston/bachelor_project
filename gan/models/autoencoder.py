@@ -5,7 +5,6 @@ from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
 import pytorch_lightning as L
 import torch
-import torchaudio
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE
@@ -13,8 +12,6 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
-import matplotlib.pyplot as plt
-import numpy as np
 import csv
 # from pesq import pesq
 
@@ -50,37 +47,38 @@ class Autoencoder(L.LightningModule):
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
-        # gradient penalty
+        # Create interpolated samples
         alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
-        # alpha = alpha.expand_as(real_clean).to(self.device) # B x C x H x W
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
+
+        # Calculate the output of the discriminator for the interpolated samples and compute the gradients
         D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
         ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
         gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
         
+        # Calculate the gradient penalty
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
         grad_norms = gradients.norm(2, dim=1) # B
-        gradient_penalty = ((grad_norms - 1) ** 2).mean()
+        gradient_penalty = ((grad_norms - 1) ** 2).mean() # 1
 
-        # adversarial loss
+        # Adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
-        # total discriminator loss
+
+        # Total discriminator loss
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.AdamW(self.generator.parameters(), lr=self.g_learning_rate, weight_decay=0.1)
-        d_opt = torch.optim.AdamW(self.discriminator.parameters(), lr=self.d_learning_rate, weight_decay=0.1)
-        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
-        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
-        return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
+        g_opt = torch.optim.AdamW(self.generator.parameters(), lr=self.g_learning_rate)
+        d_opt = torch.optim.AdamW(self.discriminator.parameters(), lr=self.d_learning_rate)
+
+        return [g_opt, d_opt]
     
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
-        g_sch, d_sch = self.lr_schedulers()
 
         d_opt.zero_grad()
         g_opt.zero_grad()
@@ -114,11 +112,6 @@ class Autoencoder(L.LightningModule):
         if self.weight_clip:
             for p in self.discriminator.parameters():
                 p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
-            
-        # Update learning rate every epoch
-        if self.trainer.is_last_batch:
-            g_sch.step()
-            d_sch.step()
 
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -132,9 +125,6 @@ class Autoencoder(L.LightningModule):
         self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         return {"g_loss": G_loss, "d_loss": D_loss}
-    
-    def on_train_epoch_start(self) -> None:
-        self.logger.experiment.log({"epoch": self.current_epoch})
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
@@ -146,7 +136,6 @@ class Autoencoder(L.LightningModule):
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
         real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).detach().cpu().squeeze()
-
 
         ## Scale Invariant Signal-to-Noise Ratio
         sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
@@ -165,12 +154,6 @@ class Autoencoder(L.LightningModule):
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        # ## Perceptual Evaluation of Speech Quality
-        # pesq_scores = [pesq(fs=16000, ref=real_clean_waveforms[i].numpy(), deg=fake_clean_waveforms[i].numpy(), mode='wb') for i in range(self.batch_size)]
-        # pesq_score = torch.tensor(pesq_scores).mean()
-        # self.log('PESQ', pesq_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:

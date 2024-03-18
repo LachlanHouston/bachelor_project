@@ -1,14 +1,14 @@
 import torch
-torch.manual_seed(42)
 import hydra
 import os
 import wandb
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
+
 # Import models
 from gan import Generator, Discriminator
 from gan import Autoencoder
