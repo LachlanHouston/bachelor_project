@@ -113,7 +113,8 @@ class Autoencoder(L.LightningModule):
         # Weight clipping
         if self.weight_clip:
             for p in self.discriminator.parameters():
-                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
+                if "bias" in p.name and "conv" in p.name:                    
+                    p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
             
         # Update learning rate every epoch
         if self.trainer.is_last_batch:
