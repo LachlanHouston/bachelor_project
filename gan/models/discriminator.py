@@ -6,7 +6,7 @@ class Conv2DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):
         super().__init__()
         norm_f = nn.utils.spectral_norm
-        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding))
+        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False))
         self.activation = nn.LeakyReLU(0.1)
         
         # nn.init.xavier_uniform_(self.conv.weight)
