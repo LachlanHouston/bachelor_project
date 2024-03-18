@@ -9,8 +9,8 @@ class Conv2DBlock(nn.Module):
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False))
         self.activation = nn.LeakyReLU(0.1)
         
-        # nn.init.xavier_uniform_(self.conv.weight)
-        nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
+        nn.init.xavier_uniform_(self.conv.weight)
+        # nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
         # nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
