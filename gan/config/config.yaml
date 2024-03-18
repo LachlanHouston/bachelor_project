@@ -9,9 +9,11 @@ hyperparameters:
   g_scheduler_step_size: 1000
   g_scheduler_gamma: 1
 
-  max_epochs: 10
-  train_fraction: 0.001
-  val_fraction: 0.01
+  max_epochs: 10000
+  dummy_data: True
+  dummy_mean_dif: 1000
+  train_fraction: 1.
+  val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper

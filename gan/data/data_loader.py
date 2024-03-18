@@ -56,5 +56,46 @@ class VCTKDataModule(L.LightningDataModule):
         return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
 
 
+
+class DummyDataset(Dataset):
+    def __init__(self, mean_dif=0, mode='train'):
+        super(DummyDataset, self).__init__()
+        if mode == 'train':
+            self.clean_files = [torch.normal(mean=0, std=1, size=(2, 257, 321)) for _ in range(100)]
+            self.noisy_files = [torch.normal(mean=0+mean_dif, std=1, size=(2, 257, 321)) for _ in range(100)]
+        elif mode == 'val':
+            self.clean_files = [torch.normal(mean=0, std=1, size=(2, 257, 321)) for _ in range(10)]
+            self.noisy_files = [torch.normal(mean=0+mean_dif, std=1, size=(2, 257, 321)) for _ in range(10)]
+
+    def __len__(self):
+        return len(self.noisy_files)
+    
+    def __getitem__(self, idx):
+        clean_stft = self.clean_files[idx]
+        noisy_stft = self.noisy_files[idx]
+
+        return clean_stft, noisy_stft
+
+# Lightning DataModule
+class DummyDataModule(L.LightningDataModule):
+    def __init__(self, batch_size=16, num_workers=16, mean_dif=0):
+        super(DummyDataModule, self).__init__()
+        self.batch_size = batch_size
+        self.num_workers = num_workers if torch.cuda.is_available() else 1
+        self.mean_dif = mean_dif
+        self.save_hyperparameters()
+
+    def setup(self, stage=None):
+        if stage == 'fit' or stage is None:
+            self.vctk_train = DummyDataset(mean_dif=self.mean_dif, mode='train')
+            self.vctk_val = DummyDataset(mean_dif=self.mean_dif, mode='val')
+
+    def train_dataloader(self):
+        return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
+
+
 if __name__ == '__main__':
    pass

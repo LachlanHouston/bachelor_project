@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
-from gan import VCTKDataModule
+from gan import VCTKDataModule, DummyDataModule
 # import tensorboard
 
 # main function using Hydra to organize configuration
@@ -34,7 +34,10 @@ def main(cfg):
     test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
 
     # load the data loaders
-    VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+    if cfg.hyperparameters.dummy_data:
+        VCTK = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
+    else:
+        VCTK = VCTKDataModule(clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(discriminator=Discriminator(), 
