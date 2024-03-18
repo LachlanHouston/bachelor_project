@@ -9,7 +9,8 @@ class Conv2DBlock(nn.Module):
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding))
         self.activation = nn.LeakyReLU(0.1)
         
-        nn.init.xavier_uniform_(self.conv.weight)
+        # nn.init.xavier_uniform_(self.conv.weight)
+        nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
         nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
@@ -36,18 +37,13 @@ class Discriminator(nn.Module):
         self.fc_layers2 = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
-        self.stats = []
+        # noise = torch.randn_like(x) * 0.1
+        # x = x + noise
 
         for idx, layer in enumerate(self.conv_layers):
             x = layer(x)
-            # append weight norm
-            self.stats.append(layer.conv.weight.norm().item())
-        
-        # Log weights for fully connected layers
-        self.stats.append(self.fc_layers1.weight.norm().item())
-        self.stats.append(self.fc_layers2.weight.norm().item())
 
-        return x, self.stats
+        return x
 
 
 if __name__ == '__main__':
