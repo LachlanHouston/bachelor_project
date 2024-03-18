@@ -11,7 +11,7 @@ class Conv2DBlock(nn.Module):
         
         # nn.init.xavier_uniform_(self.conv.weight)
         nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
-        nn.init.zeros_(self.conv.bias)
+        # nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)
@@ -37,12 +37,13 @@ class Discriminator(nn.Module):
         self.fc_layers2 = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
-        # noise = torch.randn_like(x) * 0.1
-        # x = x + noise
-
-        for idx, layer in enumerate(self.conv_layers):
+        for layer in self.conv_layers:
             x = layer(x)
-
+        x = x.flatten(1, -1)
+        x = self.fc_layers1(x)
+        x = self.activation(x)
+        x = self.fc_layers2(x)
+        
         return x
 
 
