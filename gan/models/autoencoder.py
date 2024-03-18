@@ -7,7 +7,7 @@ import pytorch_lightning as L
 import torch
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-from torchaudio.pipelines import SQUIM_SUBJECTIVE
+from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
 torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -155,6 +155,14 @@ class Autoencoder(L.LightningModule):
             subjective_model = SQUIM_SUBJECTIVE.get_model()
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        
+        ## Predicted objective metrics: STOI, PESQ, and SI-SDR
+        objective_model = SQUIM_OBJECTIVE.get_model()
+        stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+        self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:

@@ -5,9 +5,9 @@ import librosa
 import librosa.display
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-# from pesq import pesq
-from torchaudio.pipelines import SQUIM_SUBJECTIVE
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+from pesq import pesq
+from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
 from speechmos import dnsmos
 
 def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform):
@@ -19,29 +19,34 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     if len(non_matching_reference_waveform.numpy().shape) == 1:
         non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
 
-    ## Scale Invariant Signal-to-Noise Ratio
-    sisnr = ScaleInvariantSignalNoiseRatio()
-    sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+    # ## SI-SNR
+    # sisnr = ScaleInvariantSignalNoiseRatio()
+    # sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
 
-    ## Perceptual Evaluation of Speech Quality
-    pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-    pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+    # ## DNSMOS
+    # dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
 
-    ## Perceptual Evaluation of Speech Quality
-    pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
-
-    ## Deep Noise Suppression Mean Opinion Score (DNSMOS)
-    dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
-
-    ## MOS Squim
-    subjective_model = SQUIM_SUBJECTIVE.get_model()
-    mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform)
-
-    ## Extended Short Time Objective Intelligibility
+    # ## MOS Squim
+    # subjective_model = SQUIM_SUBJECTIVE.get_model()
+    # mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform)
+        
+    ## eSTOI
     estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
     estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
 
-    return sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), pesq_normal_score, pesq_torch_score.item()
+    # ## PESQ Normal
+    # pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+
+    # ## PESQ Torch
+    # pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+    # pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+
+    ## Predicted objective metrics: STOI, PESQ, and SI-SDR
+    objective_model = SQUIM_OBJECTIVE.get_model()
+    stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveform.unsqueeze(0))
+
+    return 0, 0, 0, estoi_score.item(), 0, 0, stoi_pred.item(), pesq_pred, si_sdr_pred.item()
+    return sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), pesq_normal_score, pesq_torch_score.item(), stoi_pred.item(), pesq_pred.item(), si_sdr_pred.item()
 
 def perfect_shuffle(tensor):
     # Ensure the tensor is at least 2D

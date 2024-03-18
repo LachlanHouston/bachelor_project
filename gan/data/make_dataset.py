@@ -6,7 +6,7 @@ from torchmetrics import ScaleInvariantSignalNoiseRatio
 from wave import open as open_wave
 import pandas as pd
 import numpy as np
-import tqdm as tqdm
+import tqdm
 
 def get_data(path):
     """Get the data from the path"""
@@ -27,16 +27,17 @@ def get_data(path):
 
 def save_data(waveforms, path, filenames):
     """Save the data into the path"""
-    for i, waveform in enumerate(waveforms):
+    for i, waveform in tqdm.tqdm(enumerate(waveforms)):
         torch.save(waveform, path + filenames[i] + '.pt')
 
     print('Saved {} files'.format(len(waveforms)))
 
 
-def process_data_no_pad(waveforms, sample_rates, file_names):
+def process_data(waveforms, sample_rates, file_names):
     clips = []
     new_file_names = []
     org_sample_rate = sample_rates[0]
+    wrong_length = 0
 
     for waveform, file_name in zip(waveforms, file_names):
         
@@ -57,7 +58,10 @@ def process_data_no_pad(waveforms, sample_rates, file_names):
         for i in range(num_clips if num_clips >= 1 else 1):
             if num_clips == -1:
                 remaining = clip_duration - total_duration
-                clip = torch.cat( (waveform, waveform[:,:int(remaining * sample_rate)+1]), dim=1)
+                clip = waveform
+                while remaining > 0:
+                    clip = torch.cat((clip, waveform[:,:int(remaining * sample_rate)+1]), dim=1)
+                    remaining = clip_duration - clip.shape[1] / sample_rate
                 if clip.shape[1] == 32001:
                     clip = clip[:,:32000]
 
@@ -75,11 +79,13 @@ def process_data_no_pad(waveforms, sample_rates, file_names):
             
             if clip.shape[1] != 32000:
                 print('Shape:', clip.shape)
+                print('File:', file_name)
+                wrong_length += 1
             clips.append(clip)
             
             # Save the file names with the number of chunks, put the chunk number in the middle of the file name
             new_file_names.append(file_name[:8] + '_{}'.format(i))
-
+    print('Clips with wrong length:', wrong_length, 'out of', len(clips))
     return clips, new_file_names
 
 def stft(new_waveforms):
@@ -89,30 +95,8 @@ def stft(new_waveforms):
         stft_waveform = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
         stacked = torch.stack((stft_waveform.real, stft_waveform.imag), dim=1)
         stft_waveforms.append(stacked)
-
     print('Processed {} files'.format(len(stft_waveforms)))
     return stft_waveforms
-
-def create_simple_baseline(clean_raw, noisy_raw, test_clean_raw, test_noisy_raw):
-    # Create a simple baseline
-    # The simple baseline is find the mean mask between the clean and noisy data, and apply it to the noisy data
-    # The mean mask is the mean of the clean data - noisy data
-    # The mask is applied to the waveforms
-
-    # Create the mean mask
-    mean_mask = torch.zeros(clean_raw[0].size())
-    for i in range(len(clean_raw)):
-        mean_mask += clean_raw[i] - noisy_raw[i]
-    mean_mask /= len(clean_raw)
-
-    # Apply the mask to the test noisy data
-    for i in range(len(test_noisy_raw)):
-        test_noisy_raw[i] += mean_mask
-
-    # Compute mean SNR
-    snr = ScaleInvariantSignalNoiseRatio()
-    snr_val = snr(test_clean_raw, test_noisy_raw)
-    print('Mean SNR:', snr_val)
 
 def create_csv(path):
     total = len(os.listdir(path))
@@ -140,45 +124,50 @@ def create_csv(path):
 if __name__ == '__main__':
 
     print('Processing clean and noisy data...')
-    clean_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_wav_org/'
-    noisy_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_wav_org/'
+    # clean_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_wav_org/'
+    noisy_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/train_org/'
     # clean_test_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_clean_wav_org/'
-    # noisy_test_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_noisy_wav_org/'
+    noisy_test_data_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/test_org/'
 
-    clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
+    # clean_waveforms, clean_sample_rates, clean_filenames = get_data(clean_data_path)
     noisy_waveforms, noisy_sample_rates, noisy_filenames = get_data(noisy_data_path)
     # test_clean_waveforms, test_clean_sample_rates, clean_test_filenames = get_data(clean_test_data_path)
-    # test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data(noisy_test_data_path)
+    test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames = get_data(noisy_test_data_path)
 
-    clean_waveforms, clean_filenames = process_data_no_pad(clean_waveforms, clean_sample_rates, clean_filenames)
-    noisy_waveforms, noisy_filenames = process_data_no_pad(noisy_waveforms, noisy_sample_rates, noisy_filenames)
-    # test_clean_waveforms, clean_test_filenames = process_data_no_pad(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
-    # test_noisy_waveforms, noisy_test_filenames = process_data_no_pad(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
+    # clean_waveforms, clean_filenames = process_data(clean_waveforms, clean_sample_rates, clean_filenames)
+    noisy_waveforms, noisy_filenames = process_data(noisy_waveforms, noisy_sample_rates, noisy_filenames)
+    # test_clean_waveforms, clean_test_filenames = process_data(test_clean_waveforms, test_clean_sample_rates, clean_test_filenames)
+    test_noisy_waveforms, noisy_test_filenames = process_data(test_noisy_waveforms, test_noisy_sample_rates, noisy_test_filenames)
 
-    for i, waveform in enumerate(clean_waveforms):
-        torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_wav/'+clean_filenames[i]+'.wav', waveform, 16000)
-    for i, waveform in enumerate(noisy_waveforms):
-        torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_wav/'+noisy_filenames[i]+'.wav', noisy_waveforms[i], 16000)
+    ## Save in waveform format
+    # for i, waveform in enumerate(clean_waveforms):
+        # torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_wav/'+clean_filenames[i]+'.wav', waveform, 16000)
+    # for i, waveform in enumerate(noisy_waveforms):
+        # torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/train_wav/'+noisy_filenames[i]+'.wav', noisy_waveforms[i], 16000)
     # for i, waveform in enumerate(test_clean_waveforms):
     #     torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_clean_wav/'+clean_test_filenames[i]+'.wav', test_clean_waveforms[i], 16000)
     # for i, waveform in enumerate(test_noisy_waveforms):
-    #     torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_noisy_wav/'+noisy_test_filenames[i]+'.wav', test_noisy_waveforms[i], 16000)
+        # torchaudio.save('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/test_wav/'+noisy_test_filenames[i]+'.wav', test_noisy_waveforms[i], 16000)
 
 
 
-    clean_waveforms = stft(clean_waveforms)
+    # clean_waveforms = stft(clean_waveforms)
     noisy_waveforms = stft(noisy_waveforms)
     # test_clean_waveforms = stft(test_clean_waveforms)
-    # test_noisy_waveforms = stft(test_noisy_waveforms)
+    test_noisy_waveforms = stft(test_noisy_waveforms)
 
-    save_data(clean_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_stft/', clean_filenames)
-    save_data(noisy_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_stft/', noisy_filenames)
+    ## Save in STFT format
+    # save_data(clean_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_stft/', clean_filenames)
+    save_data(noisy_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/train_stft/', noisy_filenames)
     # save_data(test_clean_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_clean_stft/', clean_test_filenames)
-    # save_data(test_noisy_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/test_noisy_stft/', noisy_test_filenames)
+    save_data(test_noisy_waveforms, '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/FSD50K/test_stft/', noisy_test_filenames)
+
+
+
 
     # load the processed data
-    test = torch.load('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_stft/p231_469_2.pt')
-    print("shape of an stft file:", test.size())
+    # test = torch.load('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_stft/p231_469_2.pt')
+    # print("shape of an stft file:", test.size())
 
     # clean_stft_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_stft/'
     # noisy_stft_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_stft/'

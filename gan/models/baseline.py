@@ -15,8 +15,10 @@ def baseline_model():
     test_noisy_path = 'data/wav/test_noisy_wav/'
     test_clean_filenames = [file for file in os.listdir(test_clean_path) if file.endswith('.wav')]
     test_noisy_filenames = [file for file in os.listdir(test_noisy_path) if file.endswith('.wav')]
-    del test_clean_filenames[1208]
-    del test_noisy_filenames[1208]
+    # delete problematic file if it were to be loaded
+    if len(test_clean_filenames) > 1208:
+        del test_clean_filenames[1208]
+        del test_noisy_filenames[1208]
     test_clean_waveforms = []
     test_noisy_waveforms = []
     for i in tqdm.tqdm(range(len(test_clean_filenames)), "load test"):
@@ -58,16 +60,16 @@ def baseline_model():
 
     with open(f'baseline_scores_{datetime.datetime.now()}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch"])
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI Pred", "PESQ Pred", "SI-SDR Pred"])
 
-        for i in tqdm.tqdm(range(len(test_clean_waveforms))):
+        for i in tqdm.tqdm(range(len(test_clean_waveforms)), "compute scores"):
 
             reference_index = random.choice([j for j in range(len(test_clean_waveforms)) if j != i])
             non_matching_reference_waveform = test_clean_waveforms[reference_index]
-            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score = compute_scores(
+            sisnr, dnsmos, mos_squim, estoi, pesq_normal, pesq_torch, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
                                                 test_clean_waveforms[i], fake_clean_test_waveforms[i], non_matching_reference_waveform)
 
-            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score])
+            all_rows.append([sisnr, dnsmos, mos_squim, estoi, pesq_normal, pesq_torch, stoi_pred, pesq_pred, si_sdr_pred])
         
         ## Means
         writer.writerow(["Mean scores"])
@@ -93,6 +95,6 @@ if __name__ == '__main__':
     # DNSMOS: 2.3418
 # SI-SNR	            DNSMOS	            MOS Squim	        eSTOI	    PESQ	            PESQ Torch
 # Mean scores					
-# 8.775921516633739	2.464953484676369	3.5155139940137534	0.800223429	2.018250093647209	2.191852059578177
+# 8.775921516633739	    2.464953484676369	3.5155139940137534	0.800223429	2.018250093647209	2.191852059578177
 # SE of the means					
-# 0.1534424588948018	0.014703667128996725	0.021174075242125754	0.004222902	0.020609656	0.026059654793731245
+# 0.1534424588948018	0.01470366712899    0.021174075242125	0.004222902	0.020609656	        0.026059654793731245
