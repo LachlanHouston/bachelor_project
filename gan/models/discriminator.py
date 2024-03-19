@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 
 class Conv2DBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):
+    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0), use_bias=True):
         super().__init__()
         norm_f = nn.utils.spectral_norm
         self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=True))
@@ -18,7 +18,7 @@ class Conv2DBlock(nn.Module):
         return x
     
 class Discriminator(nn.Module):
-    def __init__(self, input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]):
+    def __init__(self, input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128], use_bias=True):
         super(Discriminator, self).__init__()
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
@@ -28,7 +28,7 @@ class Discriminator(nn.Module):
         assert len(self.input_sizes) == len(self.output_sizes), "Input and output sizes must be the same length"
 
         for i in range(len(self.input_sizes)):
-            self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2)))
+            self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2), use_bias=use_bias))
 
         self.activation = nn.LeakyReLU(0.1)    
 

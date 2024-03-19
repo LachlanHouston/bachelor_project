@@ -44,7 +44,7 @@ def main(cfg):
         data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
-    model = Autoencoder(discriminator=Discriminator(), 
+    model = Autoencoder(discriminator=Discriminator(use_bias=cfg.hyperparameters.use_bias), 
                         generator=Generator(in_channels=2, out_channels=2),
 
                         alpha_penalty=cfg.hyperparameters.alpha_penalty,
@@ -81,8 +81,7 @@ def main(cfg):
         wandb_logger = WandbLogger(
             project=cfg.wandb.project,
             name=cfg.wandb.name,
-            entity=cfg.wandb.entity,
-            sync_tensorboard=True,  
+            entity=cfg.wandb.entity, 
         )
         # log gradients and model topology
         wandb_logger.watch(model, log='all')

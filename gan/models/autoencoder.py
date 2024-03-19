@@ -47,6 +47,7 @@ class Autoencoder(L.LightningModule):
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # Create interpolated samples
         alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
+        alpha = alpha.expand(real_clean.size()) # B x C x H x W
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
@@ -65,15 +66,25 @@ class Autoencoder(L.LightningModule):
         # Adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
 
+        # Regularization loss
+        D_reg_loss = self.bias_regularizer(self.discriminator)
+
         # Total discriminator loss
-        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
-        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
+        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss + D_reg_loss
+        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss, D_reg_loss
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
         return g_opt, d_opt
+    
+    def bias_regularizer(self, module, lambda_=0.01):
+        l2_reg = torch.tensor(0., device=self.device)
+        for name, param in module.named_parameters():
+            if 'bias' in name:
+                l2_reg += lambda_ * torch.norm(param)
+        return l2_reg
             
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
@@ -92,7 +103,7 @@ class Autoencoder(L.LightningModule):
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
         D_fake_no_grad = D_fake.detach()
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        D_loss, D_gp_alpha, D_adv_loss, D_reg_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         # Backward pass
@@ -117,6 +128,7 @@ class Autoencoder(L.LightningModule):
         self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_reg_loss', D_reg_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
         # log generator losses
         self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
