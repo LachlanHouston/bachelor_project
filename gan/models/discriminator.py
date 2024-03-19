@@ -5,12 +5,13 @@ class Conv2DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0), use_bias=True):
         super().__init__()
         norm_f = nn.utils.spectral_norm
-        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=True))
+        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=use_bias))
         self.activation = nn.LeakyReLU(0.1)
         
         nn.init.xavier_uniform_(self.conv.weight)
         # nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
-        nn.init.zeros_(self.conv.bias)
+        if use_bias:
+            nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)
