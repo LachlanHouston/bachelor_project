@@ -36,7 +36,7 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
+        G_fidelity_loss = G_fidelity_loss / (real_noisy(0) * real_noisy(3))
         # compute adversarial loss
         G_adv_loss = - D_fake.mean()
         # Compute the total generator loss
@@ -70,8 +70,8 @@ class Autoencoder(L.LightningModule):
         D_reg_loss = self.bias_regularizer(self.discriminator)
 
         # Total discriminator loss
-        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss + D_reg_loss
-        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss, D_reg_loss
+        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
+        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
@@ -103,7 +103,7 @@ class Autoencoder(L.LightningModule):
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
         D_fake_no_grad = D_fake.detach()
 
-        D_loss, D_gp_alpha, D_adv_loss, D_reg_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         # Backward pass
@@ -129,7 +129,6 @@ class Autoencoder(L.LightningModule):
         self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_reg_loss', D_reg_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
         # log generator losses
         self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
