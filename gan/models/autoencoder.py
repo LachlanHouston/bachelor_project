@@ -29,8 +29,6 @@ class Autoencoder(L.LightningModule):
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
-        self.example_input_array = torch.randn(4, 2, 257, 321)
-
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
@@ -72,11 +70,11 @@ class Autoencoder(L.LightningModule):
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
-        g_opt = torch.optim.AdamW(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.AdamW(self.discriminator.parameters(), lr=self.d_learning_rate)
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
-        return [g_opt, d_opt]
-    
+        return g_opt, d_opt
+            
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
@@ -124,8 +122,6 @@ class Autoencoder(L.LightningModule):
         self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
         self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-
-        return {"g_loss": G_loss, "d_loss": D_loss}
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
