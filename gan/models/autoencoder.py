@@ -86,7 +86,6 @@ class Autoencoder(L.LightningModule):
 
         fake_clean, mask = self.generator(real_noisy)
 
-
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
@@ -123,6 +122,13 @@ class Autoencoder(L.LightningModule):
         self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
         self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
+        ## Scale Invariant Signal-to-Noise Ratio
+        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+        self.log('SI-SNR Training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
