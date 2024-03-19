@@ -10,7 +10,7 @@ class Conv2DBlock(nn.Module):
         
         nn.init.xavier_uniform_(self.conv.weight)
         # nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
-        # nn.init.zeros_(self.conv.bias)
+        nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)
