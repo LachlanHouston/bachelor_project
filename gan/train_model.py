@@ -65,6 +65,7 @@ def main(cfg):
 
                         visualize=True,
                         logging_freq=cfg.wandb.logging_freq,
+                        log_all_scores=cfg.wandb.log_all_scores,
                         batch_size=cfg.hyperparameters.batch_size,
                         )
     

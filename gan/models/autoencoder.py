@@ -157,41 +157,42 @@ class Autoencoder(L.LightningModule):
         estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
         self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        ## Mean Opinion Score (SQUIM)
-        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
-            reference_waveforms = perfect_shuffle(real_clean_waveforms)
-            subjective_model = SQUIM_SUBJECTIVE.get_model()
-            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
-            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        
-        ## Predicted objective metrics: STOI, PESQ, and SI-SDR
-        objective_model = SQUIM_OBJECTIVE.get_model()
-        stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-        self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        if self.log_all_scores:
+            ## Mean Opinion Score (SQUIM)
+            if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
+                reference_waveforms = perfect_shuffle(real_clean_waveforms)
+                subjective_model = SQUIM_SUBJECTIVE.get_model()
+                mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+                self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            
+            ## Predicted objective metrics: STOI, PESQ, and SI-SDR
+            objective_model = SQUIM_OBJECTIVE.get_model()
+            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 
-        # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
-        if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
-            vis_idx = torch.randint(0, self.batch_size, (1,)).item()
-            # log spectrograms
-            plt = visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx])
-            self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
-            plt.close()
-            # log waveforms
-            fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
-            mask_waveform = stft_to_waveform(mask[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
-            real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
-            real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
-            self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
-            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
+            # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
+            if batch_idx == 0 and self.current_epoch % self.logging_freq == 0:
+                vis_idx = torch.randint(0, self.batch_size, (1,)).item()
+                # log spectrograms
+                plt = visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx])
+                self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
+                plt.close()
+                # log waveforms
+                fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
+                mask_waveform = stft_to_waveform(mask[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
+                real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
+                real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device).detach().cpu().numpy().squeeze()
+                self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
+                self.logger.experiment.log({"mask_waveform": [wandb.Audio(mask_waveform, sample_rate=16000, caption="Learned Mask by Generator")]})
+                self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
+                self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
-            plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
-            self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
-            plt.close()
+                plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
+                self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
+                plt.close()
 
 
 if __name__ == "__main__":
