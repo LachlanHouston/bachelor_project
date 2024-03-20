@@ -1,4 +1,3 @@
-from typing import Any
 from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
@@ -36,12 +35,13 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy(0) * real_noisy(3))
+        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(0) * real_noisy.size(3))
         # compute adversarial loss
-        G_adv_loss = - D_fake.mean()
-        # Compute the total generator loss
+        G_adv_loss = - torch.mean(D_fake)
+        # # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
         # G_loss /= self.n_critic
+
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
@@ -66,18 +66,16 @@ class Autoencoder(L.LightningModule):
         # Adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
 
-        # Regularization loss
-        D_reg_loss = self.bias_regularizer(self.discriminator)
-
         # Total discriminator loss
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
+
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
-        return g_opt, d_opt
+        return [g_opt, d_opt], []
     
     def bias_regularizer(self, module, lambda_=0.01):
         l2_reg = torch.tensor(0., device=self.device)
@@ -89,32 +87,37 @@ class Autoencoder(L.LightningModule):
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
-        d_opt.zero_grad()
-        g_opt.zero_grad()
-
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
 
-        fake_clean, mask = self.generator(real_noisy)
+        fake_clean, mask = self(real_noisy)
 
+        # Train the discriminator
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
-        D_fake_no_grad = D_fake.detach()
+        D_D_fake_no_grad = D_fake.detach()
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
 
         # Backward pass
-        self.manual_backward(D_loss, retain_graph=True)
-
-        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
-            self.manual_backward(G_loss)
-
+        self.manual_backward(D_loss)
         d_opt.step()
+        d_opt.zero_grad()
 
-        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
+        # Train the generator
+        if (self.global_step + 1) % self.n_critic == 0:
+            # Backward pass
+            G_D_fake_no_grad = D_fake.detach()
+            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=G_D_fake_no_grad)
+            self.manual_backward(G_loss)
             g_opt.step()
+            g_opt.zero_grad()
+
+            # log generator losses
+            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Weight clipping
         if self.weight_clip:
@@ -129,11 +132,6 @@ class Autoencoder(L.LightningModule):
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
-        # log generator losses
-        self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
-        self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
         ## Scale Invariant Signal-to-Noise Ratio
@@ -207,15 +205,15 @@ if __name__ == "__main__":
 
     # Dummy train_loader
     train_loader = torch.utils.data.DataLoader(
-        [torch.randn(2, 257, 321), torch.randn(2, 257, 321)],
-        batch_size=10,
+        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
+        batch_size=4,
         shuffle=True
     )
 
     val_loader = torch.utils.data.DataLoader(
-        [torch.randn(2, 257, 321), torch.randn(2, 257, 321)],
-        batch_size=10,
-        shuffle=True
+        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
+        batch_size=4,
+        shuffle=False
     )
 
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False,
@@ -236,9 +234,11 @@ if __name__ == "__main__":
                         weight_clip_value=0.5,
 
                         logging_freq=5,
-                        batch_size=4)
+                        batch_size=4,
+                        log_all_scores=False)
     
-    trainer = L.Trainer(max_epochs=50, accelerator='auto', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=5, limit_val_batches=1,
-                        logger=False)
+    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
+                        log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
+                        logger=False,
+                        fast_dev_run=False)
     trainer.fit(model, train_loader, val_loader)
