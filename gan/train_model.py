@@ -13,7 +13,7 @@ from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
-# import tensorboard
+
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
