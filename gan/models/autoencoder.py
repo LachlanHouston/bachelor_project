@@ -21,6 +21,10 @@ class Autoencoder(L.LightningModule):
         super().__init__()
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+        self.discriminator=Discriminator(use_bias=self.use_bias)
+        self.generator=Generator(in_channels=2, out_channels=2)
+
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
@@ -147,7 +151,7 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
 
-        fake_clean, mask = self.generator(real_noisy)
+        fake_clean, mask = self(real_noisy)
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
@@ -224,6 +228,7 @@ if __name__ == "__main__":
                         alpha_fidelity=10,
 
                         n_critic=10,
+                        use_bias=True,
                         
                         d_learning_rate=1e-4,
                         d_scheduler_step_size=1000,
