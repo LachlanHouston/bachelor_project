@@ -91,11 +91,11 @@ class Autoencoder(L.LightningModule):
 
         # Train the discriminator
         D_real = self.discriminator(real_clean)
-        D_fake = self.discriminator(fake_clean.detach())
+        D_fake = self.discriminator(fake_clean)
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
-        D_D_fake_no_grad = D_fake
+        D_D_fake_no_grad = D_fake.detach()
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
 
         # Backward pass
         self.manual_backward(D_loss)
@@ -105,6 +105,7 @@ class Autoencoder(L.LightningModule):
         # Train the generator
         if (self.global_step + 1) % self.n_critic == 0:
             # Backward pass
+            print("Backward pass")
             G_D_fake_no_grad = D_fake.detach()
             G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=G_D_fake_no_grad)
             self.manual_backward(G_loss)
@@ -236,7 +237,7 @@ if __name__ == "__main__":
                         batch_size=4,
                         log_all_scores=False)
     
-    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=20, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
                         logger=False,
                         fast_dev_run=False)

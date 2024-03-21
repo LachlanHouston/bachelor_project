@@ -21,10 +21,6 @@ def main(cfg):
     # Print GPU information
     print(torch.cuda.is_available())
 
-    # Get number of GPUs
-    num_devices = torch.cuda.device_count() if torch.cuda.is_available() else 1
-    print("Number of GPUs:", num_devices)
-
     L.seed_everything(100)
     # configure wandb
     wandb_api_key = os.environ.get("WANDB_API_KEY")
@@ -40,12 +36,12 @@ def main(cfg):
 
     # load the data loaders
     if cfg.hyperparameters.dataset == "dummy":
-        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size * num_devices, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
+        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
     elif cfg.hyperparameters.dataset == "VCTK":
-        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size * num_devices, num_workers=cfg.hyperparameters.num_workers)
+        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
     elif cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
-        data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size * num_devices, num_workers=cfg.hyperparameters.num_workers)
+        data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(discriminator=Discriminator(use_bias=cfg.hyperparameters.use_bias), 
@@ -70,7 +66,7 @@ def main(cfg):
                         visualize=True,
                         logging_freq=cfg.wandb.logging_freq,
                         log_all_scores=cfg.wandb.log_all_scores,
-                        batch_size=cfg.hyperparameters.batch_size * num_devices,
+                        batch_size=cfg.hyperparameters.batch_size,
                         )
     
     # define saving of checkpoints
@@ -96,8 +92,8 @@ def main(cfg):
     # define the trainer 
     trainer = Trainer(
         accelerator='cuda' if torch.cuda.is_available() else 'cpu',
-        devices= num_devices if torch.cuda.is_available() else 'auto',
-        strategy='ddp_find_unused_parameters_true' if num_devices > 1 else 'auto',
+        devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+        strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         limit_train_batches=cfg.hyperparameters.train_fraction,
         limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
