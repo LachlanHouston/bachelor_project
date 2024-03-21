@@ -40,14 +40,14 @@ class Autoencoder(L.LightningModule):
         G_adv_loss = - torch.mean(D_fake)
         # # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        # G_loss /= self.n_critic
+        G_loss /= self.n_critic
 
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # Create interpolated samples
         alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
-        alpha = alpha.expand(real_clean.size()) # B x C x H x W
+        # alpha = alpha.expand(real_clean.size()) # B x C x H x W
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
