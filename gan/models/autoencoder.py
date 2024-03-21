@@ -11,7 +11,6 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
-import csv
 # from pesq import pesq
 
 
@@ -24,9 +23,6 @@ class Autoencoder(L.LightningModule):
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
-        self.csv_file = open('disc_weights.csv', 'a')
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -35,7 +31,7 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(0) * real_noisy.size(3))
+        G_fidelity_loss = G_fidelity_loss / (real_noisy.shape[0] * real_noisy.shape[3])
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
         # # Compute the total generator loss
@@ -60,7 +56,7 @@ class Autoencoder(L.LightningModule):
         
         # Calculate the gradient penalty
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
-        grad_norms = gradients.norm(2, dim=1) # B
+        grad_norms = gradients.norm(p=2, dim=1) # B
         gradient_penalty = ((grad_norms - 1) ** 2).mean() # 1
 
         # Adversarial loss
@@ -68,6 +64,7 @@ class Autoencoder(L.LightningModule):
 
         # Total discriminator loss
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
+
 
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
         
@@ -99,7 +96,7 @@ class Autoencoder(L.LightningModule):
         D_D_fake_no_grad = D_fake.detach()
 
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
-
+        
         # Backward pass
         self.manual_backward(D_loss)
         d_opt.step()
@@ -132,19 +129,22 @@ class Autoencoder(L.LightningModule):
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
+        
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
-        ## Scale Invariant Signal-to-Noise Ratio
-        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR Training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        if batch_idx % 10 == 0:
+            ## Predicted objective metric: SI-SDR
+            objective_model = SQUIM_OBJECTIVE.get_model()
+            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('si_sdr_pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
 
-        fake_clean, mask = self.generator(real_noisy)
+        fake_clean, mask = self(real_noisy)
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
@@ -220,7 +220,7 @@ if __name__ == "__main__":
                         alpha_penalty=10,
                         alpha_fidelity=10,
 
-                        n_critic=10,
+                        n_critic=2,
                         
                         d_learning_rate=1e-4,
                         d_scheduler_step_size=1000,
@@ -237,7 +237,7 @@ if __name__ == "__main__":
                         batch_size=4,
                         log_all_scores=False)
     
-    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=20, accelerator='auto', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
                         logger=False,
                         fast_dev_run=False)
