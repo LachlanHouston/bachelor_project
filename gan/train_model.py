@@ -13,14 +13,13 @@ from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
+# import tensorboard
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
     # Print GPU information
     print(torch.cuda.is_available())
-
-    num_gpus = torch.cuda.device_count()
 
     L.seed_everything(100)
     # configure wandb
@@ -92,9 +91,9 @@ def main(cfg):
 
     # define the trainer 
     trainer = Trainer(
-        accelerator='auto',
-        devices='auto',
-        strategy='ddp_find_unused_parameters_true' if num_gpus > 1 else 'auto',
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu',
+        devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+        strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         limit_train_batches=cfg.hyperparameters.train_fraction,
         limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
