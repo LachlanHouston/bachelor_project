@@ -57,7 +57,7 @@ class Autoencoder(L.LightningModule):
         
         # Calculate the gradient penalty
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
-        grad_norms = gradients.norm(2, dim=1) # B
+        grad_norms = gradients.norm(p=2, dim=1) # B
         gradient_penalty = ((grad_norms - 1) ** 2).mean() # 1
 
         # Adversarial loss
@@ -91,11 +91,11 @@ class Autoencoder(L.LightningModule):
 
         # Train the discriminator
         D_real = self.discriminator(real_clean)
-        D_fake = self.discriminator(fake_clean)
+        D_fake = self.discriminator(fake_clean.detach())
         # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
-        D_D_fake_no_grad = D_fake.detach()
+        D_D_fake_no_grad = D_fake
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake)
 
         # Backward pass
         self.manual_backward(D_loss)
@@ -143,7 +143,7 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
 
-        fake_clean, mask = self.generator(real_noisy)
+        fake_clean, mask = self(real_noisy)
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
@@ -219,7 +219,7 @@ if __name__ == "__main__":
                         alpha_penalty=10,
                         alpha_fidelity=10,
 
-                        n_critic=10,
+                        n_critic=2,
                         
                         d_learning_rate=1e-4,
                         d_scheduler_step_size=1000,
