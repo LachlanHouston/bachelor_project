@@ -22,7 +22,7 @@ def main(cfg):
     print(torch.cuda.is_available())
 
     # Get number of GPUs
-    num_devices = torch.cuda.device_count()
+    num_devices = torch.cuda.device_count() if torch.cuda.is_available() else 1
     print("Number of GPUs:", num_devices)
 
     L.seed_everything(100)
