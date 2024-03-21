@@ -12,7 +12,6 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
-import csv
 # from pesq import pesq
 
 
@@ -25,9 +24,6 @@ class Autoencoder(L.LightningModule):
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
-        self.csv_file = open('disc_weights.csv', 'a')
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -36,7 +32,7 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(0) * real_noisy.size(3))
+        G_fidelity_loss = G_fidelity_loss / (real_noisy.shape[0] * real_noisy.shape[3])
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
         # # Compute the total generator loss
@@ -135,10 +131,12 @@ class Autoencoder(L.LightningModule):
         
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
-        ## Scale Invariant Signal-to-Noise Ratio
-        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR Training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        if batch_idx % 10 == 0:
+            ## Predicted objective metric: SI-SDR
+            objective_model = SQUIM_OBJECTIVE.get_model()
+            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('si_sdr_pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
