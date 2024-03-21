@@ -40,7 +40,7 @@ class Autoencoder(L.LightningModule):
         G_adv_loss = - torch.mean(D_fake)
         # # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        # G_loss /= self.n_critic
+        G_loss /= self.n_critic
 
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
@@ -87,6 +87,9 @@ class Autoencoder(L.LightningModule):
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
 
+        g_opt.zero_grad()
+        d_opt.zero_grad()
+
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
 
@@ -103,7 +106,7 @@ class Autoencoder(L.LightningModule):
         # Backward pass
         self.manual_backward(D_loss)
         d_opt.step()
-        d_opt.zero_grad()
+        
 
         # Train the generator
         if (self.global_step + 1) % self.n_critic == 0:
@@ -112,7 +115,7 @@ class Autoencoder(L.LightningModule):
             G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=G_D_fake_no_grad)
             self.manual_backward(G_loss)
             g_opt.step()
-            g_opt.zero_grad()
+            
 
             # log generator losses
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
