@@ -11,7 +11,6 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
-import csv
 # from pesq import pesq
 
 
@@ -28,9 +27,6 @@ class Autoencoder(L.LightningModule):
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
-        self.csv_file = open('disc_weights.csv', 'a')
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["conv0", "conv1", "conv2", "conv3", "conv4", "conv5", "linear0", "linear1"])
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -247,7 +243,7 @@ if __name__ == "__main__":
                         batch_size=4,
                         log_all_scores=False)
     
-    trainer = L.Trainer(max_epochs=5, accelerator='auto', num_sanity_val_steps=0,
+    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
                         logger=False,
                         fast_dev_run=False)
