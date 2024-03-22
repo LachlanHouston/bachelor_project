@@ -13,7 +13,7 @@ from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
-
+# import tensorboard
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
@@ -44,13 +44,11 @@ def main(cfg):
         data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
-    model = Autoencoder(discriminator=Discriminator(use_bias=cfg.hyperparameters.use_bias), 
-                        generator=Generator(in_channels=2, out_channels=2),
-
-                        alpha_penalty=cfg.hyperparameters.alpha_penalty,
+    model = Autoencoder(alpha_penalty=cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
 
                         n_critic=cfg.hyperparameters.n_critic,
+                        use_bias=cfg.hyperparameters.use_bias,
                         
                         d_learning_rate=cfg.hyperparameters.d_learning_rate,
                         d_scheduler_step_size=cfg.hyperparameters.d_scheduler_step_size,
