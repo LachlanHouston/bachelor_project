@@ -90,48 +90,44 @@ class Autoencoder(L.LightningModule):
             
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+        # g_sch, d_sch = self.lr_schedulers()
 
-        g_opt.zero_grad()
         d_opt.zero_grad()
+        g_opt.zero_grad()
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
 
-        fake_clean, mask = self(real_noisy)
+        fake_clean, mask = self.generator(real_noisy)
 
-        # Train the discriminator
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
-        # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
-        D_D_fake_no_grad = D_fake.detach()
+        # detach fake_clean to avoid computing gradients for the generator when computing discriminator loss
+        D_fake_no_grad = self.discriminator(fake_clean.detach())
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
         # Backward pass
-        self.manual_backward(D_loss)
-        d_opt.step()
-        
+        self.manual_backward(D_loss, retain_graph=True)
 
-        # Train the generator
-        if (self.global_step + 1) % self.n_critic == 0:
-            # Backward pass
-            G_D_fake_no_grad = D_fake.detach()
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=G_D_fake_no_grad)
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
             self.manual_backward(G_loss)
-            g_opt.step()
-            
 
-            # log generator losses
-            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        d_opt.step()
+
+        if batch_idx % self.n_critic == 0 and self.current_epoch >= 0 and batch_idx != 0:
+            g_opt.step()
 
         # Weight clipping
         if self.weight_clip:
-            for name, p in self.discriminator.named_parameters():
-                if 'bias' in name:               
-                    p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
-        
+            for p in self.discriminator.parameters():
+                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
+            
+        # Update learning rate every epoch
+        # if self.trainer.is_last_batch:
+        #     g_sch.step()
+        #     d_sch.step()
 
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -139,14 +135,10 @@ class Autoencoder(L.LightningModule):
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
-
-        if batch_idx % 10 == 0:
-            ## Predicted objective metric: SI-SDR
-            objective_model = SQUIM_OBJECTIVE.get_model()
-            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-            self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # log generator losses
+        self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+        self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
