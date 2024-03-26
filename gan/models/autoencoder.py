@@ -85,14 +85,14 @@ class Autoencoder(L.LightningModule):
     
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
-        g_sch, d_sch = self.lr_schedulers()
-
         g_opt.zero_grad()
         d_opt.zero_grad()
+        train_G = (self.custom_global_step + 1) % self.n_critic == 0
 
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
 
+        # Generate fake clean
         fake_clean, mask = self.generator(real_noisy)
 
         # Train the discriminator
@@ -101,50 +101,43 @@ class Autoencoder(L.LightningModule):
         D_fake_no_grad = self.discriminator(fake_clean.detach())
 
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        
-        if (self.custom_global_step + 1) % self.n_critic == 0:
+        # Compute discriminator gradients
+        self.manual_backward(D_loss, retain_graph=train_G)
+    
+        if train_G:
             G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
-
-        retain_graph = (self.custom_global_step + 1) % self.n_critic == 0
-        self.manual_backward(D_loss, retain_graph=retain_graph)
-        
-        # Train the generator
-        if (self.custom_global_step + 1) % self.n_critic == 0:
-            # Backward pass
+            # Compute generator gradients
             self.manual_backward(G_loss)
-
+        
+        # Update discriminator weights
         d_opt.step()
-        if (self.custom_global_step + 1) % self.n_critic == 0:
+        # Update generator weights
+        if train_G:
             g_opt.step()
-            # log generator losses
-            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         # Weight clipping
         if self.weight_clip:
             for name, p in self.discriminator.named_parameters():
                 # if 'bias' in name:               
                 p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
-        
-        # Update learning rate every epoch
-        if self.trainer.is_last_batch:
-            g_sch.step()
-            d_sch.step()
 
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        if train_G:
+            # Log generator losses
+            self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
+            self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
 
         if batch_idx % 10 == 0:
-            ## Predicted objective metric: SI-SDR
+            # Predicted objective metric: SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
-            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
             self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         self.custom_global_step += 1
@@ -158,7 +151,6 @@ class Autoencoder(L.LightningModule):
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
-        real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).detach().cpu().squeeze()
 
         ## Scale Invariant Signal-to-Noise Ratio
         sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
