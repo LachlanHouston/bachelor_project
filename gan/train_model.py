@@ -98,9 +98,8 @@ def main(cfg):
         logger=[wandb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
-        fast_dev_run=False
+        precision="bf16"
     )
-
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
         print("Continuing training from checkpoint")
