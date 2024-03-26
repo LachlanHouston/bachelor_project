@@ -13,7 +13,6 @@ torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 # from pesq import pesq
 
-
 # define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
     def __init__(self, **kwargs):
@@ -23,7 +22,7 @@ class Autoencoder(L.LightningModule):
 
         self.discriminator=Discriminator(use_bias=self.use_bias)
         self.generator=Generator(in_channels=2, out_channels=2)
-
+        self.custom_global_step = 0
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
@@ -93,29 +92,29 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)
 
-        fake_clean, mask = self(real_noisy)
+        fake_clean, mask = self.generator(real_noisy)
 
         # Train the discriminator
         D_real = self.discriminator(real_clean)
         D_fake = self.discriminator(fake_clean)
-        # Use detach() on D_fake to create a version without gradients for the discriminator loss calculation
-        D_D_fake_no_grad = D_fake.detach()
+        D_fake_no_grad = self.discriminator(fake_clean.detach())
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_D_fake_no_grad)
-
-        # Backward pass
-        self.manual_backward(D_loss)
-        d_opt.step()
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         
+        if (self.custom_global_step + 1) % self.n_critic == 0:
+            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
 
+        retain_graph = (self.custom_global_step + 1) % self.n_critic == 0
+        self.manual_backward(D_loss, retain_graph=retain_graph)
+        
         # Train the generator
-        if (self.global_step + 1) % self.n_critic == 0:
+        if (self.custom_global_step + 1) % self.n_critic == 0:
             # Backward pass
-            G_D_fake_no_grad = D_fake.detach()
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=G_D_fake_no_grad)
             self.manual_backward(G_loss)
+
+        d_opt.step()
+        if (self.custom_global_step + 1) % self.n_critic == 0:
             g_opt.step()
-            
 
             # log generator losses
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -125,8 +124,8 @@ class Autoencoder(L.LightningModule):
         # Weight clipping
         if self.weight_clip:
             for name, p in self.discriminator.named_parameters():
-                if 'bias' in name:               
-                    p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
+                # if 'bias' in name:               
+                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
         
 
         # log discriminator losses
@@ -143,6 +142,8 @@ class Autoencoder(L.LightningModule):
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
             self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        
+        self.custom_global_step += 1
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
