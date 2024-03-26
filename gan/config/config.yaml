@@ -13,7 +13,7 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  use_bias: False
+  use_bias: False      
 
   weight_clip: False
   weight_clip_value: 0.01
@@ -32,7 +32,7 @@ system:
 wandb:
   use_wandb: True
   logging_freq: 1
-  log_all_scores: False
+  log_all_scores: False # Will make the training much slower
   entity: turtle_team
   name: ${now:%d/%m %H:%M:%S}
   project: bachelor2
