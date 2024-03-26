@@ -62,14 +62,16 @@ class Generator(nn.Module):
         self.out_channels = out_channels
 
         # Encoder
-        self.encoder.append(ConvBlock(self.in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(1, 1))) # B, 32, 129, 321
-        self.encoder.append(ConvBlock(32, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1))) # B, 64, 65, 321
-        self.encoder.append(ConvBlock(64, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1))) # B, 128, 33, 321
+        self.encoder.append(ConvBlock(self.in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
+        self.encoder.append(ConvBlock(32, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
+        self.encoder.append(ConvBlock(64, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
+        # self.encoder.append(ConvBlock(128, 256, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
 
         # Decoder
-        self.decoder.append(TransConvBlock(256, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0))) # B, 64, 65, 321
-        self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0))) # B, 32, 129, 321
-        self.decoder.append(TransConvBlock(64, self.out_channels, kernel_size=(5, 2), stride=(2, 1), padding=(1, 0), output_padding=(0, 0), is_last=True)) # B, 2, 257, 321
+        # self.decoder.append(TransConvBlock(512, 128, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
+        self.decoder.append(TransConvBlock(256, 64, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
+        self.decoder.append(TransConvBlock(128, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(1, 0)))
+        self.decoder.append(TransConvBlock(64, self.out_channels, kernel_size=(5, 2), stride=(2, 1), padding=(2, 0), output_padding=(0, 0), is_last=True))
 
         self.activation = nn.Tanh()
 

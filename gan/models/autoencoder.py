@@ -34,12 +34,12 @@ class Autoencoder(L.LightningModule):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(0) * real_noisy.size(3))
+        G_fidelity_loss = G_fidelity_loss / fake_clean.numel()
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
         # # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        G_loss /= self.n_critic
+        # G_loss /= self.n_critic
 
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
     
@@ -59,8 +59,8 @@ class Autoencoder(L.LightningModule):
         
         # Calculate the gradient penalty
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
-        grad_norms = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-10) 
-        gradient_penalty = torch.mean((grad_norms - 1.) ** 2)
+        grad_norms = gradients.norm(2, dim=1) # B
+        gradient_penalty = ((grad_norms - 1) ** 2).mean()
 
         # Adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
@@ -76,15 +76,16 @@ class Autoencoder(L.LightningModule):
 
         return [g_opt, d_opt], []
     
-    def bias_regularizer(self, module, lambda_=0.01):
-        l2_reg = torch.tensor(0., device=self.device)
-        for name, param in module.named_parameters():
-            if 'bias' in name:
-                l2_reg += lambda_ * torch.norm(param)
-        return l2_reg
-            
+    def configure_optimizers(self):
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)#, betas = (0., 0.9))
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
+        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
+        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
+        return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
+    
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
+        g_sch, d_sch = self.lr_schedulers()
 
         g_opt.zero_grad()
         d_opt.zero_grad()
@@ -115,7 +116,6 @@ class Autoencoder(L.LightningModule):
         d_opt.step()
         if (self.custom_global_step + 1) % self.n_critic == 0:
             g_opt.step()
-
             # log generator losses
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
@@ -127,6 +127,10 @@ class Autoencoder(L.LightningModule):
                 # if 'bias' in name:               
                 p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
         
+        # Update learning rate every epoch
+        if self.trainer.is_last_batch:
+            g_sch.step()
+            d_sch.step()
 
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -150,7 +154,7 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
 
-        fake_clean, mask = self(real_noisy)
+        fake_clean, mask = self.generator(real_noisy)
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).detach().cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).detach().cpu().squeeze()
@@ -226,7 +230,7 @@ if __name__ == "__main__":
                         alpha_penalty=10,
                         alpha_fidelity=10,
 
-                        n_critic=10,
+                        n_critic=2,
                         use_bias=True,
                         
                         d_learning_rate=1e-4,
