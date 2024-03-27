@@ -88,9 +88,10 @@ def main(cfg):
 
     # define the trainer 
     trainer = Trainer(
-        accelerator='cuda' if torch.cuda.is_available() else 'cpu',
-        devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
-        strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
+        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        devices=cfg.hyperparameters.num_gpus,
+        strategy='auto',
+        num_nodes=cfg.hyperparameters.num_gpus,
         limit_train_batches=cfg.hyperparameters.train_fraction,
         limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,

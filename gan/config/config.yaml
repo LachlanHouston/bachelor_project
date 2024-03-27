@@ -32,7 +32,7 @@ system:
 wandb:
   use_wandb: True
   logging_freq: 1
-  log_all_scores: False
+  log_all_scores: False # Will make the training much slower
   entity: turtle_team
   name: ${now:%d/%m %H:%M:%S}
   project: bachelor2
