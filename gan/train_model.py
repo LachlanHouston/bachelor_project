@@ -89,8 +89,8 @@ def main(cfg):
     # define the trainer 
     trainer = Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-        devices=cfg.hyperparameters.num_gpus,
-        strategy='auto',
+        devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+        strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         num_nodes=cfg.hyperparameters.num_gpus,
         limit_train_batches=cfg.hyperparameters.train_fraction,
         limit_val_batches= cfg.hyperparameters.val_fraction,
@@ -99,7 +99,6 @@ def main(cfg):
         logger=[wandb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
-        precision="bf16"
     )
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
