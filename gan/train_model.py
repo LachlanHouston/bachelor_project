@@ -99,7 +99,6 @@ def main(cfg):
         logger=[wandb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
-        precision="bf16"
     )
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
