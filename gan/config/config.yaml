@@ -13,7 +13,7 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  use_bias: False
+  use_bias: True
 
   weight_clip: False
   weight_clip_value: 0.01
