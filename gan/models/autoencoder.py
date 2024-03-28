@@ -98,7 +98,7 @@ class Autoencoder(L.LightningModule):
         self.manual_backward(D_loss, retain_graph=train_G)
     
         if train_G:
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake.detach())
+            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
             # Compute generator gradients
             self.manual_backward(G_loss)
         
