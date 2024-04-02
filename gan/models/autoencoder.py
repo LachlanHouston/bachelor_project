@@ -78,13 +78,13 @@ class Autoencoder(L.LightningModule):
     
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
-        g_opt.zero_grad()
-        d_opt.zero_grad()
+
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
 
         real_clean = batch[0].squeeze(1).to(self.device)
         real_noisy = batch[1].squeeze(1).to(self.device)
 
+        self.toggle_optimizer(g_opt)
         # Generate fake clean
         fake_clean, mask = self.generator(real_noisy)
 
@@ -93,20 +93,22 @@ class Autoencoder(L.LightningModule):
         D_fake = self.discriminator(fake_clean)
         D_fake_no_grad = self.discriminator(fake_clean.detach())
 
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        # Compute discriminator gradients
-        self.manual_backward(D_loss, retain_graph=train_G)
-    
         if train_G:
             G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
             # Compute generator gradients
             self.manual_backward(G_loss)
-        
+            g_opt.step()
+            g_opt.zero_grad()
+        self.untoggle_optimizer(g_opt)
+
+        self.toggle_optimizer(d_opt)
+        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean.detach(), D_real=D_real, D_fake_no_grad=D_fake_no_grad)
+        # Compute discriminator gradients
+        self.manual_backward(D_loss, retain_graph=train_G)
         # Update discriminator weights
         d_opt.step()
-        # Update generator weights
-        if train_G:
-            g_opt.step()
+        d_opt.zero_grad()
+        self.untoggle_optimizer(d_opt)
 
         # Weight clipping
         if self.weight_clip:
