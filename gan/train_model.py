@@ -64,6 +64,7 @@ def main(cfg):
                         logging_freq=cfg.wandb.logging_freq,
                         log_all_scores=cfg.wandb.log_all_scores,
                         batch_size=cfg.hyperparameters.batch_size,
+                        L2_reg=cfg.hyperparameters.L2_reg,
                         )
     
     # define saving of checkpoints
