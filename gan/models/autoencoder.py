@@ -114,6 +114,7 @@ class Autoencoder(L.LightningModule):
                 # if 'bias' in name:               
                 p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
 
+        D_fake = D_fake_no_grad
         # log discriminator losses
         self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -125,10 +126,10 @@ class Autoencoder(L.LightningModule):
             self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
         if self.log_all_scores:
             if batch_idx % 10 == 0:
+                fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
                 ## Predicted objective metric: SI-SDR
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
