@@ -13,6 +13,7 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
+  L2_reg: 10           # "False" or integer alpha value
   use_bias: True
 
   weight_clip: False
