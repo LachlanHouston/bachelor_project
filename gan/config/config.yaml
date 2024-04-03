@@ -2,23 +2,23 @@ hyperparameters:
   batch_size: 16
   num_workers: 20
   num_gpus: 1
-  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
 
   max_epochs: 10000
   dataset: "VCTK"   # "FSD50K" or "VCTK" or "dummy"
-  dummy_mean_dif: 0
   train_fraction: 1.
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  L2_reg: 10           # "False" or integer alpha value
-  use_bias: True
 
+  # Rarely touch:
+  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
+  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
+  L2_reg: False           # "False" or integer alpha value
+  use_bias: True
   weight_clip: False
   weight_clip_value: 0.01
-
+  dummy_mean_dif: 0
   d_scheduler_step_size: 1000
   d_scheduler_gamma: 1
   g_scheduler_step_size: 1000
@@ -32,9 +32,9 @@ system:
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
+  log_all_scores: False # Will make the training much slower
   use_wandb: True
   logging_freq: 1
-  log_all_scores: False # Will make the training much slower
   entity: turtle_team
   project: bachelor2
   
