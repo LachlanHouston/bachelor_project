@@ -102,7 +102,7 @@ class Autoencoder(L.LightningModule):
         D_real = self.discriminator(real_clean)
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean_no_grad, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
         # Compute discriminator gradients
-        self.manual_backward(D_loss, retain_graph=train_G)
+        self.manual_backward(D_loss)
         # Update discriminator weights
         d_opt.step()
         d_opt.zero_grad()
