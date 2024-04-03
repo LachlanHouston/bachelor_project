@@ -191,7 +191,6 @@ class Autoencoder(L.LightningModule):
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0:
             self.vis_batch_idx = torch.randint(0, (int(1428*self.val_fraction)) // self.batch_size, (1,)).item()
-            print(f"Visualizing batch {self.vis_batch_idx} at epoch {self.current_epoch}")
         if batch_idx == self.vis_batch_idx and self.current_epoch % self.logging_freq == 0:
             vis_idx = torch.randint(0, self.batch_size, (1,)).item()
             # log spectrograms
