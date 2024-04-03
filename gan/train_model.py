@@ -9,10 +9,10 @@ from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
 # Import models
-from gan import Generator, Discriminator
 from gan import Autoencoder
 # Import data
 from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
+
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
@@ -43,28 +43,29 @@ def main(cfg):
         data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
-    model = Autoencoder(alpha_penalty=cfg.hyperparameters.alpha_penalty,
-                        alpha_fidelity=cfg.hyperparameters.alpha_fidelity,
+    model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
+                        alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
-                        n_critic=cfg.hyperparameters.n_critic,
-                        use_bias=cfg.hyperparameters.use_bias,
+                        n_critic =              cfg.hyperparameters.n_critic,
+                        use_bias =              cfg.hyperparameters.use_bias,
                         
-                        d_learning_rate=cfg.hyperparameters.d_learning_rate,
-                        d_scheduler_step_size=cfg.hyperparameters.d_scheduler_step_size,
-                        d_scheduler_gamma=cfg.hyperparameters.d_scheduler_gamma,
+                        d_learning_rate =       cfg.hyperparameters.d_learning_rate,
+                        d_scheduler_step_size = cfg.hyperparameters.d_scheduler_step_size,
+                        d_scheduler_gamma =     cfg.hyperparameters.d_scheduler_gamma,
 
-                        g_learning_rate=cfg.hyperparameters.g_learning_rate,
-                        g_scheduler_step_size=cfg.hyperparameters.g_scheduler_step_size,
-                        g_scheduler_gamma=cfg.hyperparameters.g_scheduler_gamma,
+                        g_learning_rate =       cfg.hyperparameters.g_learning_rate,
+                        g_scheduler_step_size = cfg.hyperparameters.g_scheduler_step_size,
+                        g_scheduler_gamma =     cfg.hyperparameters.g_scheduler_gamma,
 
-                        weight_clip = cfg.hyperparameters.weight_clip,
-                        weight_clip_value=cfg.hyperparameters.weight_clip_value,
+                        weight_clip =           cfg.hyperparameters.weight_clip,
+                        weight_clip_value =     cfg.hyperparameters.weight_clip_value,
 
-                        visualize=True,
-                        logging_freq=cfg.wandb.logging_freq,
-                        log_all_scores=cfg.wandb.log_all_scores,
-                        batch_size=cfg.hyperparameters.batch_size,
-                        L2_reg=cfg.hyperparameters.L2_reg,
+                        visualize =             True,
+                        logging_freq =          cfg.wandb.logging_freq,
+                        log_all_scores =        cfg.wandb.log_all_scores,
+                        batch_size =            cfg.hyperparameters.batch_size,
+                        L2_reg =                cfg.hyperparameters.L2_reg,
+                        val_fraction =          cfg.hyperparameters.val_fraction,
                         )
     
     # define saving of checkpoints
