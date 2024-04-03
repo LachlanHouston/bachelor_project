@@ -11,7 +11,6 @@ hyperparameters:
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
 
-  # Rarely touch:
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   L2_reg: False           # "False" or integer alpha value
