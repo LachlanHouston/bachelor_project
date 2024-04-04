@@ -180,16 +180,17 @@ class Autoencoder(L.LightningModule):
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
-        ## Scale Invariant Signal-to-Noise Ratio
-        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        # SI-SNR for noisy = 8.753
+        if self.dataset == "VCTK":
+            ## Scale Invariant Signal-to-Noise Ratio
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # SI-SNR for noisy = 8.753
 
-        ## Extended Short Time Objective Intelligibility
-        estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-        estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
-        self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            ## Extended Short Time Objective Intelligibility
+            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+            estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
+            self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
