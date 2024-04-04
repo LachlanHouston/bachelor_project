@@ -65,7 +65,9 @@ def main(cfg):
                         log_all_scores =        cfg.wandb.log_all_scores,
                         batch_size =            cfg.hyperparameters.batch_size,
                         L2_reg =                cfg.hyperparameters.L2_reg,
+                        sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         val_fraction =          cfg.hyperparameters.val_fraction,
+                        dataset =               cfg.hyperparameters.dataset
                         )
     
     # define saving of checkpoints
