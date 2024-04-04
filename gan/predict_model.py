@@ -1,66 +1,118 @@
 import torch
-from gan import Generator
-from gan import Discriminator
-from gan import Autoencoder
-import torchaudio
+from models.generator import Generator
+from models.discriminator import Discriminator
+from models.autoencoder import Autoencoder
+from utils.utils import stft_to_waveform, compute_scores
+import os
+import hydra
+import numpy as np
+from tqdm import tqdm
+import csv
+import random
+import numpy as np
+torch.set_grad_enabled(False)
 
-def predict(
-    model: torch.nn.Module,
-    dataloader: torch.utils.data.DataLoader
-) -> None:
-    """Run prediction for a given model and dataloader.
+def load_model(cpkt_path):
+    cpkt_path = os.path.join(hydra.utils.get_original_cwd(), cpkt_path)
+    model = Autoencoder.load_from_checkpoint(cpkt_path, 
+                                            discriminator=Discriminator(), 
+                                            generator=Generator(in_channels=2, out_channels=2), 
+                                            visualize=False,
+                                            alpha_penalty=10,
+                                            alpha_fidelity=10,
+                                            n_critic=10,
+                                            d_learning_rate=1e-4,
+                                            d_scheduler_step_size=1000,
+                                            d_scheduler_gamma=1,
+                                            g_learning_rate=1e-4,
+                                            g_scheduler_step_size=1000,
+                                            g_scheduler_gamma=1,
+                                            weight_clip = False,
+                                            weight_clip_value=0.5,
+                                            logging_freq=5,
+                                            batch_size=4)
     
-    Args:
-        model: model to use for prediction
-        dataloader: dataloader with batches
-    
-    Returns
-        Tensor of shape [N, d] where N is the number of samples and d is the output dimension of the model
+    generator = model.generator
+    discriminator = model.discriminator
 
-    """
-    return torch.cat([model(batch) for batch in dataloader], 0)
+    return generator, discriminator
+
+
+def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files):
+    all_rows = []
+
+    with open('scores.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch"])
+
+        for i in tqdm(range(2)):
+            clean_stft_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
+            noisy_stft_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
+
+            fake_clean_stft, mask = generator(noisy_stft_stft)
+
+            real_clean_waveform = stft_to_waveform(clean_stft_stft, device=torch.device('cpu')).detach()
+            fake_clean_waveform = stft_to_waveform(fake_clean_stft, device=torch.device('cpu')).detach()
+
+            reference_index = random.choice([j for j in range(len(clean_files)) if j != i])
+            non_matching_reference_stft = torch.load(os.path.join(test_clean_path, clean_files[reference_index])).requires_grad_(False)
+            non_matching_reference_waveform = stft_to_waveform(non_matching_reference_stft.squeeze(0), device=torch.device('cpu')).detach()
+
+            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score = compute_scores(
+                                                real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform)
+
+            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score])
+        
+        ## Means
+        writer.writerow(["Mean scores"])
+        writer.writerow(np.mean(all_rows, axis=0))
+
+        ## Standard errors of the means
+        writer.writerow(["SE of the means" ])
+        se_values = np.std(all_rows, axis=0) / np.sqrt(len(all_rows))
+        writer.writerow(se_values)
+        
+        ## All scores
+        writer.writerow(["All Scores"])
+        for row in all_rows:
+            writer.writerow(row)
+
+def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files):
+    all_rows = []
+    with open('discriminator_scores.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Real", "Fake"])
+
+        for i in tqdm(range(10)):
+            clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
+            noisy_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
+
+            real_output = discriminator(clean_stft).mean()
+            fake_output = discriminator(noisy_stft).mean()
+
+            all_rows.append([real_output.item(), fake_output.item()])
+
+        for row in all_rows:
+            writer.writerow(row)
+
+        
+@hydra.main(config_path="config", config_name="config")
+def main(cfg, get_generator_scores = True, get_discriminator_scores = False):
+    if get_generator_scores:
+        generator, _ = load_model("models/epoch=279_Date_03-12_15-47-14.ckpt")
+        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+        clean_files = os.listdir(test_clean_path)
+        noisy_files = os.listdir(test_noisy_path)
+        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files)
+
+    if get_discriminator_scores:
+        _, discriminator = load_model("models/epoch=279_Date_03-12_15-47-14.ckpt")
+        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
+        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+        clean_files = os.listdir(test_clean_path)
+        noisy_files = os.listdir(test_noisy_path)
+        discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files)
 
 if __name__ == '__main__':
-    model = Autoencoder()
-
-    checkpoint = torch.load('models/epoch=14-val_SNR=-32.94.ckpt')
-    model.load_state_dict(checkpoint['state_dict'])
-
-    # Get the generator
-    generator = model.generator
-
-    # load a waveform
-    waveform, sample_rate = torchaudio.load('data/noisy_processed/p230_080_0.wav')
-
-    # downsample to 16 kHz
-    waveform = torchaudio.transforms.Resample(sample_rate, 16000)(waveform)
-
-    # transform the waveform to the STFT
-    input = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True, window=torch.hann_window(400))
-    input = torch.stack([input.real, input.imag], dim=1)
-    print("input shape:", input.shape)
-
-    # get the output from the generator
-    output = generator(input)
-    print("output shape:", output.shape)
-
-    # Separate the real and imaginary components
-    stft_real = output[:, 0, :, :]
-    stft_imag = output[:, 1, :, :]
-    # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
-
-    # convert the output to the waveform
-    output = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400)).detach().cpu().numpy()
-
-    # convert the output to a tensor
-    output = torch.tensor(output)
-    
-    print("output shape:", output.shape)
-
-    # Calculate the norm distance between the input and the output
-    norm = torch.norm(waveform - output, p=1)
-    print("Norm distance:", norm)
-
-    # save the output to a file
-    torchaudio.save('reports/waveform_output.wav', output, 16000)
+    main()

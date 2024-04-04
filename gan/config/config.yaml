@@ -1,32 +1,39 @@
 hyperparameters:
-  batch_size: 16 # NEVER SET IT HIGHER THAN 16, IT WILL CRASH
-  num_workers: 10
+  batch_size: 16
+  num_workers: 20
+  num_gpus: 1
+
+  max_epochs: 10000
+  dataset: "VCTK"   # "FSD50K" or "VCTK" or "dummy"
+  train_fraction: 1.
+  val_fraction: 1.
+  alpha_penalty: 10    # 10 used in UnSE paper
+  alpha_fidelity: 10   # 10 used in UnSE paper
+  n_critic: 10         # 10 used in UnSE paper
+
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-
+  L2_reg: False           # "False" or integer alpha value
+  use_bias: True
+  weight_clip: False
+  weight_clip_value: 0.01
+  dummy_mean_dif: 0
   d_scheduler_step_size: 1000
   d_scheduler_gamma: 1
   g_scheduler_step_size: 1000
   g_scheduler_gamma: 1
 
-  max_epochs: 1000
-  train_fraction: 1.
-  val_fraction: 1.
-  alpha_penalty: 10    # 10 used in UnSE paper
-  alpha_fidelity: 10    # 10 used in UnSE paper
-  n_critic: 10         # 10 used in UnSE paper
+system:
+  checkpointing: True
+  continue_training: False
+  ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none
+  profiler: False  # False or "simple" or "advanced" or "pytorch"
 
-  weight_clip: False
-  weight_clip_value: 0.01
-  
 wandb:
+  name: ${now:%d/%m %H:%M:%S}
+  log_all_scores: False # Will make the training much slower
   use_wandb: True
   logging_freq: 1
   entity: turtle_team
-  name: ${now:%d/%m %H:%M:%S}
   project: bachelor2
-
-data:
-  clean_processed_path: 'data/clean_processed/'
-  noisy_processed_path: 'data/noisy_processed/'
-  split: [0.8, 0.1, 0.1]
+  
