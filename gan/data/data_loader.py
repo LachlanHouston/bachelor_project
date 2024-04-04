@@ -6,12 +6,17 @@ import random
 
 # VCTK + DEMAND dataset class
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path):
+    def __init__(self, clean_path, noisy_path, is_train=True):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
         self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
         self.noisy_path = noisy_path
         self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
+
+        # Randomly shuffle the files
+        if is_train:
+            random.shuffle(self.clean_files)
+            random.shuffle(self.noisy_files)
 
     def __len__(self):
         return len(self.noisy_files)
@@ -19,6 +24,7 @@ class AudioDataset(Dataset):
     def __getitem__(self, idx):
         clean_stft = torch.load(os.path.join(self.clean_path, self.clean_files[idx]))
         noisy_stft = torch.load(os.path.join(self.noisy_path, self.noisy_files[idx]))
+        print(self.noisy_files[idx], self.clean_files[idx])
         return clean_stft, noisy_stft
 
 # Lightning DataModule
@@ -35,16 +41,14 @@ class VCTKDataModule(L.LightningDataModule):
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path)
-            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path)
+            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path, is_train=True)
+            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path, is_train=False)
 
     def train_dataloader(self):
         return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
     
     def val_dataloader(self):
         return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-
-
 
 # FSD50K dataset class
 class FSD50KDataset(Dataset):
@@ -130,4 +134,23 @@ class DummyDataModule(L.LightningDataModule):
 
 
 if __name__ == '__main__':
-   pass
+    # Test VCTKDataModule
+    dataset = AudioDataset('data/clean_stft/', 'data/noisy_stft/', is_train=True)
+    print(len(dataset))
+
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=6, persistent_workers=True, pin_memory=True, drop_last=True)
+
+    for clean_stft, noisy_stft in dataloader:
+        print(clean_stft.shape, noisy_stft.shape)
+        break
+
+    val_dataset = AudioDataset('data/test_clean_stft/', 'data/test_noisy_stft/', is_train=False)
+    print(len(val_dataset))
+
+    val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=6, persistent_workers=True, pin_memory=True, drop_last=True)
+
+    for clean_stft, noisy_stft in val_dataloader:
+        print(clean_stft.shape, noisy_stft.shape)
+        break
+
+    
