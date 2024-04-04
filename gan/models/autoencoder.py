@@ -11,6 +11,7 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
+import torchaudio
 # from pesq import pesq
 
 # define the Autoencoder class containing the training setup
@@ -30,18 +31,27 @@ class Autoencoder(L.LightningModule):
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
-    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, p=1):
+    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / (real_noisy.shape[1]*real_noisy.shape[2]*real_noisy.shape[3])
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
-        # # Compute the total generator loss
-        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        # G_loss /= self.n_critic
 
-        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
+        # Compute the total generator loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
+
+        if self.sisnr_loss:
+            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
+            fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            sisnr_loss *= self.sisnr_loss
+            G_loss += sisnr_loss
+            return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
+
+        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, None
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # Create interpolated samples
@@ -96,12 +106,18 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1).to(self.device)
         real_noisy = batch[1].squeeze(1).to(self.device)
 
+        # real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu()
+        # real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).cpu()
+        # # save the real and fake clean waveforms
+        # torchaudio.save(f"real_clean_{self.custom_global_step}.wav", real_clean_waveforms[0].unsqueeze(0), 16000)
+        # torchaudio.save(f"real_noisy_{self.custom_global_step}.wav", real_noisy_waveforms[0].unsqueeze(0), 16000)
+
         if train_G:
             self.toggle_optimizer(g_opt)
             # Generate fake clean
             fake_clean, mask = self.generator(real_noisy)
             D_fake = self.discriminator(fake_clean)
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+            G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
             # Compute generator gradients
             self.manual_backward(G_loss)
             g_opt.step()
@@ -139,6 +155,8 @@ class Autoencoder(L.LightningModule):
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            if self.sisnr_loss:
+                self.log('G_SI-SNR_Loss', sisnr_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
 
         if self.log_all_scores:
