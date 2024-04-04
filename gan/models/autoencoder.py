@@ -159,13 +159,14 @@ class Autoencoder(L.LightningModule):
                 self.log('G_SI-SNR_Loss', sisnr_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         
 
-        if self.log_all_scores:
-            if batch_idx % 10 == 0:
-                fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
-                ## Predicted objective metric: SI-SDR
-                objective_model = SQUIM_OBJECTIVE.get_model()
-                stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-                self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        if self.log_all_scores and self.custom_global_step % 50 == 0:
+            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
+            ## Predicted objective metric: SI-SDR
+            objective_model = SQUIM_OBJECTIVE.get_model()
+            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('STOI pred Training', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('PESQ pred Training', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         self.custom_global_step += 1
 
@@ -197,13 +198,13 @@ class Autoencoder(L.LightningModule):
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if self.log_all_scores:
+        if self.log_all_scores and batch_idx % 10 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
