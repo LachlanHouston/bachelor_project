@@ -20,7 +20,7 @@ def main(cfg):
     # Print GPU information
     print(torch.cuda.is_available())
 
-    L.seed_everything(100)
+    L.seed_everything(100, workers=True)
     # configure wandb
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
