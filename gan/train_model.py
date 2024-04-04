@@ -67,6 +67,7 @@ def main(cfg):
                         L2_reg =                cfg.hyperparameters.L2_reg,
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         val_fraction =          cfg.hyperparameters.val_fraction,
+                        dataset =               cfg.hyperparameters.dataset
                         )
     
     # define saving of checkpoints
