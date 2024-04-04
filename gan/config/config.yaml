@@ -10,10 +10,11 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
+  sisnr_loss: 1    # "False" or integer alpha value
 
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  L2_reg: False           # "False" or integer alpha value
+  L2_reg: False             # "False" or integer alpha value
   use_bias: True
   weight_clip: False
   weight_clip_value: 0.01
