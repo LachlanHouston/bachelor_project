@@ -45,10 +45,10 @@ def load_model(cpkt_path):
     return generator, discriminator
 
 
-def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, use_pesq=True):
+def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path, use_pesq=True):
     all_rows = []
 
-    with open('scores.csv', 'w', newline='') as file:
+    with open(f'scores{model_path}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
 
@@ -85,9 +85,9 @@ def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, n
         for row in all_rows:
             writer.writerow(row)
 
-def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files):
+def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path):
     all_rows = []
-    with open('discriminator_scores.csv', 'w', newline='') as file:
+    with open(f'discriminator_scores{model_path}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Real", "Fake"])
 
@@ -117,9 +117,9 @@ def main(model_path, get_generator_scores = True, get_discriminator_scores = Fal
         clean_files = os.listdir(test_clean_path)
         noisy_files = os.listdir(test_noisy_path)
     if get_generator_scores:
-        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, use_pesq=use_pesq)
+        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path, use_pesq=use_pesq)
     if get_discriminator_scores:
-        discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files)
+        discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path)
 
 if __name__ == '__main__':
     main(model_path = model_path, 
