@@ -12,8 +12,15 @@ import random
 import numpy as np
 torch.set_grad_enabled(False)
 
+model_path = "models/10pct_889.ckpt"
+get_generator_scores = True
+get_discriminator_scores = False
+limit_samples = 100     # False: use all samples, Integer: use only the first n samples
+use_pesq = True
+
+
 def load_model(cpkt_path):
-    cpkt_path = os.path.join(hydra.utils.get_original_cwd(), cpkt_path)
+    cpkt_path = os.path.join(os.getcwd(), cpkt_path)
     model = Autoencoder.load_from_checkpoint(cpkt_path, 
                                             discriminator=Discriminator(), 
                                             generator=Generator(in_channels=2, out_channels=2), 
@@ -38,30 +45,31 @@ def load_model(cpkt_path):
     return generator, discriminator
 
 
-def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files):
+def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, use_pesq=True):
     all_rows = []
 
     with open('scores.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch"])
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
 
-        for i in tqdm(range(2)):
-            clean_stft_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
-            noisy_stft_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
+        for i in tqdm(range(len(clean_files))):
+            clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
+            noisy_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
 
-            fake_clean_stft, mask = generator(noisy_stft_stft)
+            # fake_clean_stft, mask = generator(noisy_stft)
+            fake_clean_stft = noisy_stft
 
-            real_clean_waveform = stft_to_waveform(clean_stft_stft, device=torch.device('cpu')).detach()
+            real_clean_waveform = stft_to_waveform(clean_stft, device=torch.device('cpu')).detach()
             fake_clean_waveform = stft_to_waveform(fake_clean_stft, device=torch.device('cpu')).detach()
 
             reference_index = random.choice([j for j in range(len(clean_files)) if j != i])
             non_matching_reference_stft = torch.load(os.path.join(test_clean_path, clean_files[reference_index])).requires_grad_(False)
             non_matching_reference_waveform = stft_to_waveform(non_matching_reference_stft.squeeze(0), device=torch.device('cpu')).detach()
+            
+            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
+                                                real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, use_pesq=use_pesq)
 
-            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score = compute_scores(
-                                                real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform)
-
-            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score])
+            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
         
         ## Means
         writer.writerow(["Mean scores"])
@@ -96,23 +104,25 @@ def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_
             writer.writerow(row)
 
         
-@hydra.main(config_path="config", config_name="config")
-def main(cfg, get_generator_scores = True, get_discriminator_scores = False):
+# @hydra.main(config_path="config", config_name="config")
+def main(model_path, get_generator_scores = True, get_discriminator_scores = False, limit_samples=False):
+    
+    generator, discriminator = load_model(model_path)
+    test_clean_path = os.path.join(os.getcwd(), 'data/test_clean_stft/')
+    test_noisy_path = os.path.join(os.getcwd(), 'data/test_noisy_stft/')
+    if limit_samples:
+        clean_files = os.listdir(test_clean_path)[:limit_samples]
+        noisy_files = os.listdir(test_noisy_path)[:limit_samples]
+    else:
+        clean_files = os.listdir(test_clean_path)
+        noisy_files = os.listdir(test_noisy_path)
     if get_generator_scores:
-        generator, _ = load_model("models/epoch=279_Date_03-12_15-47-14.ckpt")
-        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
-        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
-        clean_files = os.listdir(test_clean_path)
-        noisy_files = os.listdir(test_noisy_path)
-        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files)
-
+        generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, use_pesq=use_pesq)
     if get_discriminator_scores:
-        _, discriminator = load_model("models/epoch=279_Date_03-12_15-47-14.ckpt")
-        test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
-        test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
-        clean_files = os.listdir(test_clean_path)
-        noisy_files = os.listdir(test_noisy_path)
         discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files)
 
 if __name__ == '__main__':
-    main()
+    main(model_path = model_path, 
+         get_generator_scores = get_generator_scores, 
+         get_discriminator_scores = get_discriminator_scores, 
+         limit_samples=limit_samples)

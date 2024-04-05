@@ -32,7 +32,7 @@ system:
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Will make the training much slower
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is FSD50K
   use_wandb: True
   logging_freq: 1
   entity: turtle_team
