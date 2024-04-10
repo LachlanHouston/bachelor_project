@@ -52,10 +52,10 @@ class VCTKDataModule(L.LightningDataModule):
 
 
 
-# FSD50K dataset class
-class FSD50KDataset(Dataset):
+# Authentic dataset class where the noisy data contains authentic noise and the clean data is VCTK
+class AuthenticDataset(Dataset):
     def __init__(self, clean_path, noisy_path):
-        super(FSD50KDataset, self).__init__()
+        super(AuthenticDataset, self).__init__()
         self.clean_path = clean_path
         self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
         self.noisy_path = noisy_path
@@ -71,9 +71,9 @@ class FSD50KDataset(Dataset):
         return clean_stft, noisy_stft
 
 # Lightning DataModule
-class FSD50KDataModule(L.LightningDataModule):
+class AuthenticDataModule(L.LightningDataModule):
     def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16):
-        super(FSD50KDataModule, self).__init__()
+        super(AuthenticDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
         self.test_clean_path = test_clean_path
@@ -84,14 +84,14 @@ class FSD50KDataModule(L.LightningDataModule):
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.FSD50K_train = FSD50KDataset(self.clean_path, self.noisy_path)
-            self.FSD50K_val = FSD50KDataset(self.test_clean_path, self.test_noisy_path)
+            self.Authentic_train = AuthenticDataset(self.clean_path, self.noisy_path)
+            self.Authentic_val = AuthenticDataset(self.test_clean_path, self.test_noisy_path)
 
     def train_dataloader(self):
-        return DataLoader(self.FSD50K_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
+        return DataLoader(self.Authentic_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
     
     def val_dataloader(self):
-        return DataLoader(self.FSD50K_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
+        return DataLoader(self.Authentic_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
 
 
 
