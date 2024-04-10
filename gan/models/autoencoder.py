@@ -11,6 +11,7 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
+import torchaudio
 # from pesq import pesq
 
 # define the Autoencoder class containing the training setup
@@ -30,18 +31,27 @@ class Autoencoder(L.LightningModule):
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
-    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, p=1):
+    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
         # Compute the Lp loss between the real clean and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
-        # # Compute the total generator loss
-        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        # G_loss /= self.n_critic
 
-        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss
+        # Compute the total generator loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
+
+        if self.sisnr_loss:
+            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
+            fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            sisnr_loss *= self.sisnr_loss
+            G_loss += sisnr_loss
+            return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
+
+        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, None
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
         # Create interpolated samples
@@ -101,7 +111,7 @@ class Autoencoder(L.LightningModule):
             # Generate fake clean
             fake_clean, mask = self.generator(real_noisy)
             D_fake = self.discriminator(fake_clean)
-            G_loss, G_fidelity_alpha, G_adv_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake)
+            G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
             # Compute generator gradients
             self.manual_backward(G_loss)
             g_opt.step()
@@ -139,15 +149,24 @@ class Autoencoder(L.LightningModule):
             self.log('G_Loss', G_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             self.log('G_Adversarial', G_adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True) # opposite sign as D_fake
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        
+            if self.sisnr_loss:
+                self.log('G_SI-SNR_Loss', sisnr_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
-        if self.log_all_scores:
-            if batch_idx % 10 == 0:
-                fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
-                ## Predicted objective metric: SI-SDR
-                objective_model = SQUIM_OBJECTIVE.get_model()
-                stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-                self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        if self.custom_global_step % 10 == 0:        
+            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
+            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        if self.log_all_scores and self.custom_global_step % 50 == 0:
+            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
+            ## Predicted objective metric: SI-SDR
+            objective_model = SQUIM_OBJECTIVE.get_model()
+            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('STOI pred Training', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('PESQ pred Training', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         self.custom_global_step += 1
 
@@ -161,16 +180,17 @@ class Autoencoder(L.LightningModule):
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
-        ## Scale Invariant Signal-to-Noise Ratio
-        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        # SI-SNR for noisy = 8.753
+        if self.dataset == "VCTK":
+            ## Scale Invariant Signal-to-Noise Ratio
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # SI-SNR for noisy = 8.753
 
-        ## Extended Short Time Objective Intelligibility
-        estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-        estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
-        self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            ## Extended Short Time Objective Intelligibility
+            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+            estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
+            self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
@@ -179,13 +199,13 @@ class Autoencoder(L.LightningModule):
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if self.log_all_scores:
+        if (self.log_all_scores or self.dataset == "FSD50K" or self.dataset == "AudioSet") and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs

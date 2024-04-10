@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 # Import models
 from gan import Autoencoder
 # Import data
-from gan import VCTKDataModule, FSD50KDataModule, DummyDataModule
+from gan import VCTKDataModule, AuthenticDataModule, DummyDataModule
 
 
 # main function using Hydra to organize configuration
@@ -32,15 +32,20 @@ def main(cfg):
     VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
     FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
     FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
+    AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_stft/')
+    AudioSet_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/test_stft/')
 
     # load the data loaders
     if cfg.hyperparameters.dataset == "dummy":
         data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
     elif cfg.hyperparameters.dataset == "VCTK":
-        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction)
     elif cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
-        data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+        data_module = AuthenticDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+    elif cfg.hyperparameters.dataset == "AudioSet":
+        # use AudioSet as noisy data and VCTK as clean data
+        data_module = AuthenticDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
@@ -65,7 +70,9 @@ def main(cfg):
                         log_all_scores =        cfg.wandb.log_all_scores,
                         batch_size =            cfg.hyperparameters.batch_size,
                         L2_reg =                cfg.hyperparameters.L2_reg,
+                        sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         val_fraction =          cfg.hyperparameters.val_fraction,
+                        dataset =               cfg.hyperparameters.dataset
                         )
     
     # define saving of checkpoints
@@ -93,13 +100,14 @@ def main(cfg):
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
-        limit_train_batches=cfg.hyperparameters.train_fraction,
-        limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=[wandb_logger] if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
+        deterministic=True,
+        limit_train_batches=cfg.hyperparameters.train_fraction if cfg.hyperparameters.dataset != "VCTK" else None,
+        limit_val_batches=cfg.hyperparameters.val_fraction if cfg.hyperparameters.dataset != "VCTK" else None,
     )
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:
@@ -108,7 +116,6 @@ def main(cfg):
     else:
         print("Starting new training")
         trainer.fit(model, data_module)
-
     # save profiling results
     if cfg.system.profiler:
         with open("profiling.txt", "w") as file:
