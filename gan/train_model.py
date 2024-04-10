@@ -37,7 +37,7 @@ def main(cfg):
     if cfg.hyperparameters.dataset == "dummy":
         data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
     elif cfg.hyperparameters.dataset == "VCTK":
-        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction)
     elif cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
         data_module = FSD50KDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
@@ -95,8 +95,6 @@ def main(cfg):
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
-        limit_train_batches=cfg.hyperparameters.train_fraction,
-        limit_val_batches= cfg.hyperparameters.val_fraction,
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
         logger=[wandb_logger] if cfg.wandb.use_wandb else None,

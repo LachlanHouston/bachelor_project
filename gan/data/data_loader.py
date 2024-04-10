@@ -6,12 +6,17 @@ import random
 
 # VCTK + DEMAND dataset class
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path):
+    def __init__(self, clean_path, noisy_path, is_train, fraction=1.0):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
         self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
         self.noisy_path = noisy_path
         self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
+
+        if is_train:
+            # Shuffle the dataset with given fraction
+            self.clean_files = random.sample(self.clean_files, int(fraction*len(self.clean_files)))
+            self.noisy_files = random.sample(self.noisy_files, int(fraction*len(self.noisy_files)))
 
     def __len__(self):
         return len(self.noisy_files)
@@ -23,7 +28,7 @@ class AudioDataset(Dataset):
 
 # Lightning DataModule
 class VCTKDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0):
         super(VCTKDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
@@ -31,12 +36,13 @@ class VCTKDataModule(L.LightningDataModule):
         self.test_noisy_path = test_noisy_path
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.fraction = fraction
         self.save_hyperparameters()
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path)
-            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path)
+            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path, is_train=True, fraction=self.fraction)
+            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path, is_train=False)
 
     def train_dataloader(self):
         return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
@@ -130,4 +136,11 @@ class DummyDataModule(L.LightningDataModule):
 
 
 if __name__ == '__main__':
-   pass
+   # Test the data loader
+    VCTK_clean_path = os.path.join(os.getcwd(), 'data/clean_stft/')
+    VCTK_noisy_path = os.path.join(os.getcwd(), 'data/noisy_stft/')
+    VCTK_test_clean_path = os.path.join(os.getcwd(), 'data/test_clean_stft/')
+    VCTK_test_noisy_path = os.path.join(os.getcwd(), 'data/test_noisy_stft/')
+
+    data = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
+    print(len(data))
