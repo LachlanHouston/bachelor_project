@@ -106,12 +106,6 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1).to(self.device)
         real_noisy = batch[1].squeeze(1).to(self.device)
 
-        # real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu()
-        # real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).cpu()
-        # # save the real and fake clean waveforms
-        # torchaudio.save(f"real_clean_{self.custom_global_step}.wav", real_clean_waveforms[0].unsqueeze(0), 16000)
-        # torchaudio.save(f"real_noisy_{self.custom_global_step}.wav", real_noisy_waveforms[0].unsqueeze(0), 16000)
-
         if train_G:
             self.toggle_optimizer(g_opt)
             # Generate fake clean
@@ -157,7 +151,13 @@ class Autoencoder(L.LightningModule):
             self.log('G_Fidelity', G_fidelity_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
             if self.sisnr_loss:
                 self.log('G_SI-SNR_Loss', sisnr_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        
+
+        if self.custom_global_step % 10 == 0:        
+            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
+            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.log_all_scores and self.custom_global_step % 50 == 0:
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
@@ -180,16 +180,17 @@ class Autoencoder(L.LightningModule):
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
-        ## Scale Invariant Signal-to-Noise Ratio
-        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-        sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-        self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        # SI-SNR for noisy = 8.753
+        if self.dataset == "VCTK":
+            ## Scale Invariant Signal-to-Noise Ratio
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # SI-SNR for noisy = 8.753
 
-        ## Extended Short Time Objective Intelligibility
-        estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-        estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
-        self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            ## Extended Short Time Objective Intelligibility
+            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
+            estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
+            self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
