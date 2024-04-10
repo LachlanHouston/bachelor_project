@@ -4,8 +4,8 @@ hyperparameters:
   num_gpus: 1
 
   max_epochs: 10000
-  dataset: "AudioSet"   # "VCTK", "FSD50K", "AudioSet", or "dummy"
-  train_fraction: 1.
+  dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", or "dummy"
+  train_fraction: 0.2
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper

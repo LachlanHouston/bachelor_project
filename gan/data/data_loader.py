@@ -1,5 +1,6 @@
 import os
 import torch
+import torchaudio
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as L
 import random
@@ -9,9 +10,9 @@ class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, is_train, fraction=1.0):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
-        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
+        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
         self.noisy_path = noisy_path
-        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
+        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
 
         if is_train:
             # Shuffle the dataset with given fraction
@@ -19,12 +20,45 @@ class AudioDataset(Dataset):
             self.noisy_files = random.sample(self.noisy_files, int(fraction*len(self.noisy_files)))
 
     def __len__(self):
-        return len(self.noisy_files)
+        return min(len(self.noisy_files), len(self.clean_files))
     
     def __getitem__(self, idx):
-        clean_stft = torch.load(os.path.join(self.clean_path, self.clean_files[idx]))
-        noisy_stft = torch.load(os.path.join(self.noisy_path, self.noisy_files[idx]))
-        print(self.noisy_files[idx], self.clean_files[idx])
+        # Get length of the audio files
+        clean_num_frames = torchaudio.info(os.path.join(self.clean_path, self.clean_files[idx])).num_frames
+        noisy_num_frames = torchaudio.info(os.path.join(self.noisy_path, self.noisy_files[idx])).num_frames
+        sample_rate = torchaudio.info(os.path.join(self.noisy_path, self.noisy_files[idx])).sample_rate
+        new_sample_rate = 16000 
+
+        # If the audio is less than 2 seconds
+        if clean_num_frames < 2*sample_rate:
+            clean_num_frames = 2*sample_rate
+        if noisy_num_frames < 2*sample_rate:
+            noisy_num_frames = 2*sample_rate
+
+        # Sample 2 seconds of audio randomly
+        clean_start_frame = random.randint(0, clean_num_frames-2*sample_rate)
+        noisy_start_frame = random.randint(0, noisy_num_frames-2*sample_rate)
+        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=clean_start_frame, num_frames=2*sample_rate)
+        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=noisy_start_frame, num_frames=2*sample_rate)
+
+        # Downsample the audio to 16kHz
+        clean_waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=new_sample_rate)(clean_waveform)
+        noisy_waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=new_sample_rate)(noisy_waveform)
+
+        # If the audio is less than 2 seconds, pad it with the start until it is 2 seconds
+        if clean_waveform.shape[1] < 2*new_sample_rate:
+            clean_waveform = torch.cat((clean_waveform, clean_waveform[:,:2*new_sample_rate-clean_waveform.shape[1]]), dim=1)
+        if noisy_waveform.shape[1] < 2*new_sample_rate:
+            noisy_waveform = torch.cat((noisy_waveform, noisy_waveform[:,:2*new_sample_rate-noisy_waveform.shape[1]]), dim=1)
+
+        # Compute the STFT of the audio
+        clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+
+        # Stack the real and imaginary parts of the STFT
+        clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
+        noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
+
         return clean_stft, noisy_stft
 
 # Lightning DataModule
@@ -63,7 +97,7 @@ class AuthenticDataset(Dataset):
         self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
 
     def __len__(self):
-        return len(self.noisy_files)
+        return min(len(self.noisy_files), len(self.clean_files))
     
     def __getitem__(self, idx):
         clean_idx = random.randint(0, len(self.clean_files)-1)
@@ -137,11 +171,54 @@ class DummyDataModule(L.LightningDataModule):
 
 
 if __name__ == '__main__':
-   # Test the data loader
-    VCTK_clean_path = os.path.join(os.getcwd(), 'data/clean_stft/')
-    VCTK_noisy_path = os.path.join(os.getcwd(), 'data/noisy_stft/')
-    VCTK_test_clean_path = os.path.join(os.getcwd(), 'data/test_clean_stft/')
-    VCTK_test_noisy_path = os.path.join(os.getcwd(), 'data/test_noisy_stft/')
+    VCTK_clean_path = os.path.join(os.getcwd(), 'org_data/test_clean_raw/')
+    VCTK_noisy_path = os.path.join(os.getcwd(), 'org_data/test_noisy_raw/')
 
-    data = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
-    print(len(data))
+    dataloader = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
+    data = DataLoader(dataloader, batch_size=4, shuffle=True, num_workers=1, persistent_workers=True, pin_memory=False, drop_last=True)
+    for clean, noisy in data:
+        print(clean.shape, noisy.shape)
+        # Turn into waveform
+        clean_real = clean[0][:, 0, :, :]
+        clean_imag = clean[0][:, 1, :, :]
+
+        noisy_real = noisy[0][:, 0, :, :]
+        noisy_imag = noisy[0][:, 1, :, :]
+
+        clean = torch.complex(clean_real, clean_imag)
+        noisy = torch.complex(noisy_real, noisy_imag)
+
+        clean_waveform = torch.istft(clean, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+        noisy_waveform = torch.istft(noisy, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+
+        # Save as wav file
+        torchaudio.save('clean.wav', clean_waveform, 16000)
+        torchaudio.save('noisy.wav', noisy_waveform, 16000)
+
+        break
+
+    VCTK_clean_path = os.path.join(os.getcwd(), 'org_data/clean_raw/')
+    VCTK_noisy_path = os.path.join(os.getcwd(), 'org_data/noisy_raw/')
+
+    dataloader = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
+    data = DataLoader(dataloader, batch_size=4, shuffle=True, num_workers=1, persistent_workers=True, pin_memory=True, drop_last=True)
+    for clean, noisy in data:
+        print(clean.shape, noisy.shape)
+        # Turn into waveform
+        clean_real = clean[0][:, 0, :, :]
+        clean_imag = clean[0][:, 1, :, :]
+
+        noisy_real = noisy[0][:, 0, :, :]
+        noisy_imag = noisy[0][:, 1, :, :]
+
+        clean = torch.complex(clean_real, clean_imag)
+        noisy = torch.complex(noisy_real, noisy_imag)
+
+        clean_waveform = torch.istft(clean, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+        noisy_waveform = torch.istft(noisy, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+
+        # Save as wav file
+        torchaudio.save('tclean.wav', clean_waveform, 16000)
+        torchaudio.save('tnoisy.wav', noisy_waveform, 16000)
+
+        break

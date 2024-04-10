@@ -26,10 +26,10 @@ def main(cfg):
     wandb.login(key=wandb_api_key)
 
     # define paths
-    VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_stft/')
-    VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_stft/')
-    VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_stft/')
-    VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_stft/')
+    VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw/')
+    VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
+    VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_raw/')
+    VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
     FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
     FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
     AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_stft/')
