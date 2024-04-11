@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 # Import models
 from gan import Autoencoder
 # Import data
-from gan import VCTKDataModule, AuthenticDataModule, DummyDataModule
+from gan import AudioDataModule, DummyDataModule
 
 
 # main function using Hydra to organize configuration
@@ -32,20 +32,20 @@ def main(cfg):
     VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
     FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
     FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
-    AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_stft/')
-    AudioSet_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/test_stft/')
+    AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_raw/')
+    AudioSet_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/test_raw/')
 
     # load the data loaders
     if cfg.hyperparameters.dataset == "dummy":
         data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
     elif cfg.hyperparameters.dataset == "VCTK":
-        data_module = VCTKDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction)
+        data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
     elif cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
-        data_module = AuthenticDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+        data_module = AudioDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
     elif cfg.hyperparameters.dataset == "AudioSet":
         # use AudioSet as noisy data and VCTK as clean data
-        data_module = AuthenticDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers)
+        data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
 
     # define the autoencoder class containing the training setup
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
@@ -106,8 +106,7 @@ def main(cfg):
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         deterministic=True,
-        limit_train_batches=cfg.hyperparameters.train_fraction if cfg.hyperparameters.dataset != "VCTK" else None,
-        limit_val_batches=cfg.hyperparameters.val_fraction if cfg.hyperparameters.dataset != "VCTK" else None,
+        limit_val_batches=cfg.hyperparameters.val_fraction,
     )
     # train the model. Continue training from the last checkpoint if specified in config
     if cfg.system.continue_training:

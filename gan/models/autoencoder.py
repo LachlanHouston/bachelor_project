@@ -152,7 +152,7 @@ class Autoencoder(L.LightningModule):
             if self.sisnr_loss:
                 self.log('G_SI-SNR_Loss', sisnr_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
-        if self.custom_global_step % 10 == 0:        
+        if self.custom_global_step % 10 == 0 and self.dataset == "VCTK":        
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
