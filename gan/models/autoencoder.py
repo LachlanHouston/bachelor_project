@@ -210,13 +210,9 @@ class Autoencoder(L.LightningModule):
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0:
-            self.vis_batch_idx = torch.randint(0, (int(1428*self.val_fraction)) // self.batch_size, (1,)).item()
+            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // self.batch_size, (1,)).item()
         if batch_idx == self.vis_batch_idx and self.current_epoch % self.logging_freq == 0:
             vis_idx = torch.randint(0, self.batch_size, (1,)).item()
-            # log spectrograms
-            plt = visualize_stft_spectrogram(real_clean[vis_idx], fake_clean[vis_idx], real_noisy[vis_idx])
-            self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
-            plt.close()
             # log waveforms
             fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
             mask_waveform = stft_to_waveform(mask[vis_idx], device=self.device).cpu().numpy().squeeze()
@@ -227,6 +223,10 @@ class Autoencoder(L.LightningModule):
             self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
             self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
+            # log spectrograms
+            plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
+            plt.close()
             plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
