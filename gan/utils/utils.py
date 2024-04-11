@@ -88,13 +88,13 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     S_real_n = real_noisy[0].cpu()
 
     # Spectrogram of real clean
-    mel_spect_rc = librosa.feature.melspectrogram(S=S_real_c, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spect_rc = librosa.feature.melspectrogram(y=S_real_c, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_rc = librosa.power_to_db(mel_spect_rc[0, :, :], ref=np.max)
     # Spectrogram of fake clean
-    mel_spect_fc = librosa.feature.melspectrogram(S=S_fake_c, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spect_fc = librosa.feature.melspectrogram(y=S_fake_c, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_fc = librosa.power_to_db(mel_spect_fc[0, :, :], ref=np.max)
     # Spectrogram of real noisy
-    mel_spect_rn = librosa.feature.melspectrogram(S=S_real_n, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spect_rn = librosa.feature.melspectrogram(y=S_real_n, sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_rn = librosa.power_to_db(mel_spect_rn[0, :, :], ref=np.max)
     
     # Create a figure with 3 subplots
