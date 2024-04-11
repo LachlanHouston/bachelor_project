@@ -12,8 +12,10 @@ def get_data(path, num_files=3):
     """Get the data from the path"""
     files = os.listdir(path)
 
+    # Shuffle the files
+
     # Get the first num_files files
-    files = files[:num_files]
+    files = files[4:5]
     print('Loaded', len(files), 'files')
 
     # Load the waveforms and sample rates
@@ -123,21 +125,48 @@ def find_global_max(waveforms):
 
 
 if __name__ == '__main__':
-    clean_path = os.path.join('org_data/clean_trainset_28spk_wav/') # 0.5799 train # 0.5057 test
-    noisy_path = os.path.join('org_data/noisy_trainset_28spk_wav/') # 0.9724 train # 0.9826 test
+    clean_path = os.path.join('data/test_clean_raw/') # 0.5799 train # 0.5057 test
+    noisy_path = os.path.join('data/test_noisy_raw/') # 0.9724 train # 0.9826 test
     
-    # Load 3 clean and 3 noisy waveforms
-    clean_waveforms, clean_sample_rates = get_data(clean_path)
-    noisy_waveforms, noisy_sample_rates = get_data(noisy_path)
+    # Load 1 clean and 1 noisy waveforms
+    clean_waveforms, clean_sample_rates = get_data(clean_path, num_files=1)
+    noisy_waveforms, noisy_sample_rates = get_data(noisy_path, num_files=1)
+    print('Clean sample rate:', clean_sample_rates)
+    print('Noisy sample rate:', noisy_sample_rates)
 
-    clean_waveforms = clean_waveforms[:3]
-    noisy_waveforms = noisy_waveforms[:3]
+    # Turn into numpy arrays
+    clean_waveforms = clean_waveforms[0].numpy()
+    noisy_waveforms = noisy_waveforms[0].numpy()
 
-    # Plot the mel spectrograms
-    #mel_spectrogram(clean_waveforms, noisy_waveforms, clean_sample_rates, noisy_sample_rates, 'Mel Spectrograms', 'mel_spectrogram_p1')
+    # Transform the waveforms to mel spectrograms
+    mel_clean = librosa.feature.melspectrogram(y=clean_waveforms, sr=clean_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
+    mel_noisy = librosa.feature.melspectrogram(y=noisy_waveforms, sr=noisy_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
+    mel_clean = librosa.power_to_db(mel_clean[0, :, :], ref=np.max)
+    mel_noisy = librosa.power_to_db(mel_noisy[0, :, :], ref=np.max)
 
-    # Plot the waveforms
-    plot_waveforms(clean_waveforms, clean_sample_rates, noisy_waveforms, noisy_sample_rates, 'Waveforms', 'waveforms')
+    # Plot the waveforms and the corresponding mel spectrograms underneath
+    fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+    ax[0, 0].plot(clean_waveforms[0])
+    ax[0, 0].xaxis.set_visible(False)
+    ax[0, 0].set_title('Clean')
+    ax[0, 0].set_ylabel('Amplitude')
+    ax[1, 0].plot(noisy_waveforms[0])
+    ax[1, 0].set_title('Noisy')
+    ax[1, 0].set_xlabel('Samples')
+    ax[1, 0].set_ylabel('Amplitude')
+    librosa.display.specshow(mel_clean, y_axis='mel', hop_length=100, sr=clean_sample_rates[0], ax=ax[0, 1], fmax=8000)
+    librosa.display.specshow(mel_noisy, y_axis='mel', x_axis='time', hop_length=100, sr=noisy_sample_rates[0], ax=ax[1, 1], fmax=8000)
+    ax[0, 1].set_title('Mel spectrogram of Clean')
+    # Move y-axis and unit to the right
+    ax[0, 1].yaxis.tick_right()
+    ax[0, 1].yaxis.set_label_position('right')
+    ax[1, 1].set_title('Mel spectrogram of Noisy')
+    # Move y-axis to the right
+    ax[1, 1].yaxis.tick_right()
+    ax[1, 1].yaxis.set_label_position('right')
+    plt.savefig('reports/figures/clean_noisy_waveforms_mel_spectrogram.png')
+
+    plt.show()
 
 
 
