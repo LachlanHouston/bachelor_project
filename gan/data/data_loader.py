@@ -5,39 +5,75 @@ from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as L
 import random
 
-# VCTK + DEMAND dataset class
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path, is_train, fraction=1.0):
+    def __init__(self, clean_path, noisy_path, is_train, fraction=1.0, authentic=False):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
-        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
         self.noisy_path = noisy_path
-        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
+        self.authentic = authentic
+        if fraction < 1.0:
+            if self.authentic:
+                clean_files = [file for file in os.listdir(clean_path) if file.endswith('.wav')]
+                noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
+
+                num_noisy_files_to_sample = int(fraction * len(noisy_files))
+                noisy_indices = random.sample(range(len(noisy_files)), num_noisy_files_to_sample)
+                self.noisy_files = sorted(noisy_files[i] for i in noisy_indices)
+                
+                num_clean_files_to_sample = int(fraction * len(clean_files))
+                clean_indices = random.sample(range(len(clean_files)), num_clean_files_to_sample)
+                self.clean_files = sorted(clean_files[i] for i in clean_indices)
+
+            else:
+                clean_files = [file for file in os.listdir(clean_path) if file.endswith('.wav')]
+                noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
+                assert len(clean_files) == len(noisy_files), "Mismatch in number of clean and noisy files"
+                num_files_to_sample = int(fraction * len(clean_files))
+                indices = random.sample(range(len(clean_files)), num_files_to_sample)
+                self.clean_files = sorted(clean_files[i] for i in indices)
+                self.noisy_files = sorted(noisy_files[i] for i in indices)
+        else:
+            self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
+            self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
 
     def __len__(self):
-        return min(len(self.noisy_files), len(self.clean_files))
+        if self.authentic:
+            return len(self.noisy_files)
+        else:
+            return min(len(self.noisy_files), len(self.clean_files))
     
     def __getitem__(self, idx):
+        if self.authentic:
+            clean_idx = random.randint(0, len(self.clean_files)-1)
+        else:
+            clean_idx = idx
         # Get length of the audio files
-        clean_num_frames = torchaudio.info(os.path.join(self.clean_path, self.clean_files[idx])).num_frames
+        clean_num_frames = torchaudio.info(os.path.join(self.clean_path, self.clean_files[clean_idx])).num_frames
         noisy_num_frames = torchaudio.info(os.path.join(self.noisy_path, self.noisy_files[idx])).num_frames
-        sample_rate = torchaudio.info(os.path.join(self.noisy_path, self.noisy_files[idx])).sample_rate
+        clean_sample_rate = torchaudio.info(os.path.join(self.clean_path, self.clean_files[idx])).sample_rate
+        noisy_sample_rate = torchaudio.info(os.path.join(self.noisy_path, self.noisy_files[idx])).sample_rate
         new_sample_rate = 16000 
 
         # If the audio is less than 2 seconds
-        if clean_num_frames < 2*sample_rate:
-            clean_num_frames = 2*sample_rate
-        if noisy_num_frames < 2*sample_rate:
-            noisy_num_frames = 2*sample_rate
+        if clean_num_frames < 2*clean_sample_rate:
+            clean_num_frames = 2*clean_sample_rate
+        if noisy_num_frames < 2*noisy_sample_rate:
+            noisy_num_frames = 2*noisy_sample_rate
 
         # Sample 2 seconds of audio randomly
-        start_frame = random.randint(0, clean_num_frames-2*sample_rate)
-        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate, backend='soundfile')
-        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate, backend='soundfile')
+        if self.authentic:
+            noisy_start_frame = random.randint(0, noisy_num_frames-2*noisy_sample_rate)
+            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=noisy_start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
+            clean_start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
+            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[clean_idx]), frame_offset=clean_start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
+        else:
+            start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
+            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
+            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
 
         # Downsample the audio to 16kHz
-        clean_waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=new_sample_rate)(clean_waveform)
-        noisy_waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=new_sample_rate)(noisy_waveform)
+        clean_waveform = torchaudio.transforms.Resample(orig_freq=clean_sample_rate, new_freq=new_sample_rate)(clean_waveform)
+        noisy_waveform = torchaudio.transforms.Resample(orig_freq=noisy_sample_rate, new_freq=new_sample_rate)(noisy_waveform)
 
         # If the audio is less than 2 seconds, pad it with the start until it is 2 seconds
         if clean_waveform.shape[1] < 2*new_sample_rate:
@@ -56,9 +92,9 @@ class AudioDataset(Dataset):
         return clean_stft, noisy_stft
 
 # Lightning DataModule
-class VCTKDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0):
-        super(VCTKDataModule, self).__init__()
+class AudioDataModule(L.LightningDataModule):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0, authentic=False):
+        super(AudioDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
         self.test_clean_path = test_clean_path
@@ -66,61 +102,19 @@ class VCTKDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.fraction = fraction
+        self.authentic = authentic
         self.save_hyperparameters()
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.vctk_train = AudioDataset(self.clean_path, self.noisy_path, is_train=True, fraction=self.fraction)
-            self.vctk_val = AudioDataset(self.test_clean_path, self.test_noisy_path, is_train=False)
+            self.train_dataset = AudioDataset(self.clean_path, self.noisy_path, is_train=True, fraction=self.fraction, authentic=self.authentic)
+            self.val_dataset = AudioDataset(self.test_clean_path, self.test_noisy_path, is_train=False, authentic=self.authentic)
 
     def train_dataloader(self):
-        return DataLoader(self.vctk_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
     
     def val_dataloader(self):
-        return DataLoader(self.vctk_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-
-
-
-# Authentic dataset class where the noisy data contains authentic noise and the clean data is VCTK
-class AuthenticDataset(Dataset):
-    def __init__(self, clean_path, noisy_path):
-        super(AuthenticDataset, self).__init__()
-        self.clean_path = clean_path
-        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.pt')])
-        self.noisy_path = noisy_path
-        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.pt')])
-
-    def __len__(self):
-        return min(len(self.noisy_files), len(self.clean_files))
-    
-    def __getitem__(self, idx):
-        clean_idx = random.randint(0, len(self.clean_files)-1)
-        clean_stft = torch.load(os.path.join(self.clean_path, self.clean_files[clean_idx]))
-        noisy_stft = torch.load(os.path.join(self.noisy_path, self.noisy_files[idx]))
-        return clean_stft, noisy_stft
-
-# Lightning DataModule
-class AuthenticDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16):
-        super(AuthenticDataModule, self).__init__()
-        self.clean_path = clean_path
-        self.noisy_path = noisy_path
-        self.test_clean_path = test_clean_path
-        self.test_noisy_path = test_noisy_path
-        self.batch_size = batch_size
-        self.num_workers = num_workers if torch.cuda.is_available() else 1
-        self.save_hyperparameters()
-
-    def setup(self, stage=None):
-        if stage == 'fit' or stage is None:
-            self.Authentic_train = AuthenticDataset(self.clean_path, self.noisy_path)
-            self.Authentic_val = AuthenticDataset(self.test_clean_path, self.test_noisy_path)
-
-    def train_dataloader(self):
-        return DataLoader(self.Authentic_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
-    
-    def val_dataloader(self):
-        return DataLoader(self.Authentic_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
 
 
 
