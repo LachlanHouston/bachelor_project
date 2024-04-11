@@ -4,6 +4,7 @@ from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
 import pytorch_lightning as L
 import torch
+import numpy as np
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
@@ -193,11 +194,11 @@ class Autoencoder(L.LightningModule):
             self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         ## Mean Opinion Score (SQUIM)
-        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
-            reference_waveforms = perfect_shuffle(real_clean_waveforms)
-            subjective_model = SQUIM_SUBJECTIVE.get_model()
-            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
-            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
+        #     reference_waveforms = perfect_shuffle(real_clean_waveforms)
+        #     subjective_model = SQUIM_SUBJECTIVE.get_model()
+        #     mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+        #     self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         if (self.log_all_scores or self.dataset == "FSD50K" or self.dataset == "AudioSet") and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
@@ -227,7 +228,7 @@ class Autoencoder(L.LightningModule):
             plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
             self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
             plt.close()
-            plt = visualize_stft_spectrogram(mask[vis_idx], torch.zeros_like(mask[vis_idx]), torch.zeros_like(mask[vis_idx]))
+            plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
 

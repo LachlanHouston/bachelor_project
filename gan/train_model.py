@@ -38,12 +38,12 @@ def main(cfg):
     # load the data loaders
     if cfg.hyperparameters.dataset == "dummy":
         data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
-    elif cfg.hyperparameters.dataset == "VCTK":
+    if cfg.hyperparameters.dataset == "VCTK":
         data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
-    elif cfg.hyperparameters.dataset == "FSD50K":
+    if cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
-    elif cfg.hyperparameters.dataset == "AudioSet":
+    if cfg.hyperparameters.dataset == "AudioSet":
         # use AudioSet as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
 

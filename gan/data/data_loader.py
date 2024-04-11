@@ -13,25 +13,26 @@ class AudioDataset(Dataset):
         self.authentic = authentic
         if fraction < 1.0:
             if self.authentic:
-                clean_files = [file for file in os.listdir(clean_path) if file.endswith('.wav')]
-                noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
+                clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
+                noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
 
                 num_noisy_files_to_sample = int(fraction * len(noisy_files))
                 noisy_indices = random.sample(range(len(noisy_files)), num_noisy_files_to_sample)
-                self.noisy_files = sorted(noisy_files[i] for i in noisy_indices)
+                self.noisy_files = [noisy_files[i] for i in noisy_indices]
                 
                 num_clean_files_to_sample = int(fraction * len(clean_files))
                 clean_indices = random.sample(range(len(clean_files)), num_clean_files_to_sample)
-                self.clean_files = sorted(clean_files[i] for i in clean_indices)
+                self.clean_files = [clean_files[i] for i in clean_indices]
 
             else:
-                clean_files = [file for file in os.listdir(clean_path) if file.endswith('.wav')]
-                noisy_files = [file for file in os.listdir(noisy_path) if file.endswith('.wav')]
+                clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
+                noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
                 assert len(clean_files) == len(noisy_files), "Mismatch in number of clean and noisy files"
                 num_files_to_sample = int(fraction * len(clean_files))
                 indices = random.sample(range(len(clean_files)), num_files_to_sample)
-                self.clean_files = sorted(clean_files[i] for i in indices)
-                self.noisy_files = sorted(noisy_files[i] for i in indices)
+                self.clean_files = [clean_files[i] for i in indices]
+                self.noisy_files = [noisy_files[i] for i in indices]
+
         else:
             self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
             self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
@@ -68,7 +69,7 @@ class AudioDataset(Dataset):
             clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[clean_idx]), frame_offset=clean_start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
         else:
             start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
-            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
+            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[clean_idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
             noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
 
         # Downsample the audio to 16kHz
@@ -159,8 +160,8 @@ class DummyDataModule(L.LightningDataModule):
 
 
 if __name__ == '__main__':
-    VCTK_clean_path = os.path.join(os.getcwd(), 'org_data/test_clean_raw/')
-    VCTK_noisy_path = os.path.join(os.getcwd(), 'org_data/test_noisy_raw/')
+    VCTK_clean_path = os.path.join(os.getcwd(), 'data/test_clean_raw/')
+    VCTK_noisy_path = os.path.join(os.getcwd(), 'data/test_noisy_raw/')
 
     dataloader = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
     data = DataLoader(dataloader, batch_size=4, shuffle=True, num_workers=1, persistent_workers=True, pin_memory=False, drop_last=True)
@@ -185,8 +186,8 @@ if __name__ == '__main__':
 
         break
 
-    VCTK_clean_path = os.path.join(os.getcwd(), 'org_data/clean_raw/')
-    VCTK_noisy_path = os.path.join(os.getcwd(), 'org_data/noisy_raw/')
+    VCTK_clean_path = os.path.join(os.getcwd(), 'data/clean_raw/')
+    VCTK_noisy_path = os.path.join(os.getcwd(), 'data/noisy_raw/')
 
     dataloader = AudioDataset(VCTK_clean_path, VCTK_noisy_path, is_train=True, fraction=0.2)
     data = DataLoader(dataloader, batch_size=4, shuffle=True, num_workers=1, persistent_workers=True, pin_memory=True, drop_last=True)
