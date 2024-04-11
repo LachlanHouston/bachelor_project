@@ -32,8 +32,8 @@ class AudioDataset(Dataset):
 
         # Sample 2 seconds of audio randomly
         start_frame = random.randint(0, clean_num_frames-2*sample_rate)
-        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate)
-        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate)
+        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate, backend='soundfile')
+        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*sample_rate, backend='soundfile')
 
         # Downsample the audio to 16kHz
         clean_waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=new_sample_rate)(clean_waveform)
