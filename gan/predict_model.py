@@ -12,7 +12,7 @@ import random
 import numpy as np
 torch.set_grad_enabled(False)
 
-model_path = "models/10pct_889.ckpt"
+model_path = False#"models/10pct_889.ckpt"
 get_generator_scores = True
 get_discriminator_scores = False
 limit_samples = 100     # False: use all samples, Integer: use only the first n samples
@@ -104,7 +104,6 @@ def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_
             writer.writerow(row)
 
         
-# @hydra.main(config_path="config", config_name="config")
 def main(model_path, get_generator_scores = True, get_discriminator_scores = False, limit_samples=False):
     
     generator, discriminator = load_model(model_path)
