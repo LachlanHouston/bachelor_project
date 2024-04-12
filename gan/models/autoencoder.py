@@ -193,12 +193,12 @@ class Autoencoder(L.LightningModule):
             estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
             self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        ## Mean Opinion Score (SQUIM)
-        # if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
-        #     reference_waveforms = perfect_shuffle(real_clean_waveforms)
-        #     subjective_model = SQUIM_SUBJECTIVE.get_model()
-        #     mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
-        #     self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # Mean Opinion Score (SQUIM)
+        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
+            reference_waveforms = perfect_shuffle(real_clean_waveforms)
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         if (self.log_all_scores or self.dataset == "FSD50K" or self.dataset == "AudioSet") and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
