@@ -4,13 +4,13 @@ hyperparameters:
   num_gpus: 1
 
   max_epochs: 10000
-  dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", or "dummy"
+  dataset: "Mix"   # "VCTK", "FSD50K", "AudioSet", "Mix", or "dummy"
   train_fraction: 1.
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  sisnr_loss: False    # "False" or integer alpha value
+  sisnr_loss: 10    # "False" or integer alpha value
 
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
@@ -32,7 +32,7 @@ system:
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is FSD50K
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not VCTK
   use_wandb: True
   logging_freq: 1
   entity: turtle_team

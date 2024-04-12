@@ -5,6 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as L
 import random
 
+
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, is_train, fraction=1.0, authentic=False):
         super(AudioDataset, self).__init__()
@@ -92,6 +93,7 @@ class AudioDataset(Dataset):
 
         return clean_stft, noisy_stft
 
+
 # Lightning DataModule
 class AudioDataModule(L.LightningDataModule):
     def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0, authentic=False):
@@ -116,7 +118,47 @@ class AudioDataModule(L.LightningDataModule):
     
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+    
 
+class MixDataSet(Dataset):
+    def __init__(self, clean_path, noisy_path_authentic, noisy_path_paired, is_train=None, fraction=1.0):
+        super(MixDataSet, self).__init__()
+        self.paired_dataset = AudioDataset(clean_path, noisy_path_paired, is_train, fraction, authentic=False)
+        self.unpaired_dataset = AudioDataset(clean_path, noisy_path_authentic, is_train, fraction, authentic=True)
+    
+    def __len__(self):
+        return min(len(self.paired_dataset), len(self.unpaired_dataset))
+    
+    def __getitem__(self, idx):
+        paired_samples = self.paired_dataset.__get_item__(idx)
+        unpaired_samples = self.unpaired_dataset.__get_item__(idx)
+        return paired_samples, unpaired_samples
+
+
+class MixDataModule(L.LightningDataModule):
+    def __init__(self, clean_path, noisy_path_authentic, noisy_path_paired, test_clean_path, test_noisy_path_authentic, test_noisy_path_paired, batch_size=16, num_workers=16, fraction=1.0):
+        super(MixDataModule, self).__init__()
+        self.clean_path = clean_path
+        self.noisy_path_authentic = noisy_path_authentic
+        self.noisy_path_paired = noisy_path_paired
+        self.test_clean_path = test_clean_path
+        self.test_noisy_path_authentic = test_noisy_path_authentic
+        self.test_noisy_path_paired = test_noisy_path_paired
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.fraction = fraction
+        self.save_hyperparameters()
+
+    def setup(self, stage=None):
+        if stage == 'fit' or stage is None:
+            self.train_dataset = MixDataSet(self.clean_path, self.noisy_path_authentic, self.noisy_path_paired, is_train=True, fraction=self.fraction)
+            self.val_dataset = MixDataSet(self.test_clean_path, self.test_noisy_path_authentic, self.test_noisy_path_paired, is_train=False, fraction=self.fraction)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
 
 
 # Dummy dataset class
