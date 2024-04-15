@@ -32,8 +32,8 @@ class AutoencoderMix(L.LightningModule):
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
-    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
-        # Compute the Lp loss between the real clean and the fake clean
+    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, authentic=False, p=1):
+        # Compute the Lp loss between fake clean and the original noisy signal
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
         # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
@@ -43,7 +43,7 @@ class AutoencoderMix(L.LightningModule):
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
 
-        if self.sisnr_loss:
+        if self.sisnr_loss and not authentic:
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
@@ -69,7 +69,7 @@ class AutoencoderMix(L.LightningModule):
                                         create_graph=True, retain_graph=True)[0] # B x C x H x W
         
         # Calculate the gradient penalty
-        gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
+        gradients = gradients.view(int(self.batch_size/2), -1) # B x (C*H*W)
         grad_norms = gradients.norm(2, dim=1) # B
         gradient_penalty = ((grad_norms - 1) ** 2).mean()
 
@@ -110,18 +110,16 @@ class AutoencoderMix(L.LightningModule):
         real_clean_authentic = authentic_data[0].squeeze(1).to(self.device)
         real_noisy_authentic = authentic_data[1].squeeze(1).to(self.device)
 
-
-
         if train_G:
             self.toggle_optimizer(g_opt)
             # Generate fake clean for paired data
             fake_clean_paired, mask_paired = self.generator(real_noisy_paired)
             D_fake_paired = self.discriminator(fake_clean_paired)
-            G_loss_paired, G_fidelity_alpha_paired, G_adv_loss_paired, sisnr_loss_paired = self._get_reconstruction_loss(real_noisy=real_noisy_paired, fake_clean=fake_clean_paired, D_fake=D_fake_paired, real_clean=real_clean_paired)
+            G_loss_paired, G_fidelity_alpha_paired, G_adv_loss_paired, sisnr_loss_paired = self._get_reconstruction_loss(real_noisy=real_noisy_paired, fake_clean=fake_clean_paired, D_fake=D_fake_paired, real_clean=real_clean_paired, authentic=False)
             # Generate fake clean for authentic data
             fake_clean_authentic, mask_authentic = self.generator(real_noisy_authentic)
             D_fake_authentic = self.discriminator(fake_clean_authentic)
-            G_loss_authentic, G_fidelity_alpha_authentic, G_adv_loss_authentic, _ = self._get_reconstruction_loss(real_noisy=real_noisy_authentic, fake_clean=fake_clean_authentic, D_fake=D_fake_authentic, real_clean=None)
+            G_loss_authentic, G_fidelity_alpha_authentic, G_adv_loss_authentic, _ = self._get_reconstruction_loss(real_noisy=real_noisy_authentic, fake_clean=fake_clean_authentic, D_fake=D_fake_authentic, real_clean=None, authentic=True)
             # Compute generator gradients
             G_loss = G_loss_paired + G_loss_authentic
             self.manual_backward(G_loss)
@@ -281,10 +279,10 @@ class AutoencoderMix(L.LightningModule):
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0:
-            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // self.batch_size, (1,)).item()
+            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // int(self.batch_size/2), (1,)).item()
 
         if batch_idx == self.vis_batch_idx and self.current_epoch % self.logging_freq == 0:
-            vis_idx = torch.randint(0, self.batch_size, (1,)).item()
+            vis_idx = torch.randint(0, int(self.batch_size/2), (1,)).item()
 
             # Paired data visualization
             fake_clean_waveform_paired = stft_to_waveform(fake_clean_paired[vis_idx], device=self.device).cpu().numpy().squeeze()
