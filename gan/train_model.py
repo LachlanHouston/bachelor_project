@@ -91,7 +91,7 @@ def main(cfg):
             entity=cfg.wandb.entity, 
         )
         # log gradients and model topology
-        wandb_logger.watch(model, log='all')
+        wandb_logger.watch(model, log='all', log_freq=cfg.wandb.logging_freq)
     else:
         wandb_logger = None
 
