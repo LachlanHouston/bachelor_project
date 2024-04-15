@@ -157,14 +157,15 @@ class MixDataModule(L.LightningDataModule):
             self.val_dataset_authentic = AudioDataset(self.test_clean_path, self.test_noisy_path_authentic, is_train=False, authentic=True)
 
     def train_dataloader(self):
-        paired = DataLoader(self.train_dataset_paired, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-        authentic = DataLoader(self.train_dataset_authentic, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-        return [paired, authentic]
+        paired = DataLoader(self.train_dataset_paired, int(batch_size=self.batch_size/2), shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        authentic = DataLoader(self.train_dataset_authentic, int(batch_size=self.batch_size/2), shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        return {"paired": paired, "authentic": authentic}
     
     def val_dataloader(self):
-        paired = DataLoader(self.val_dataset_paired, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-        authentic = DataLoader(self.val_dataset_authentic, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-        return [paired, authentic]
+        paired = DataLoader(self.val_dataset_paired, int(batch_size=self.batch_size/2), shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        authentic = DataLoader(self.val_dataset_authentic, int(batch_size=self.batch_size/2), shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        loaders = {"paired": paired, "authentic": authentic}
+        return loaders
 
 # Dummy dataset class
 class DummyDataset(Dataset):
