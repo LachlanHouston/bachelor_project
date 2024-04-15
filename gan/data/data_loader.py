@@ -151,15 +151,20 @@ class MixDataModule(L.LightningDataModule):
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.train_dataset = MixDataSet(self.clean_path, self.noisy_path_authentic, self.noisy_path_paired, is_train=True, fraction=self.fraction)
-            self.val_dataset = MixDataSet(self.test_clean_path, self.test_noisy_path_authentic, self.test_noisy_path_paired, is_train=False, fraction=self.fraction)
+            self.train_dataset_paired = AudioDataset(self.clean_path, self.noisy_path_paired, is_train=True, fraction=self.fraction, authentic=False)
+            self.train_dataset_authentic = AudioDataset(self.clean_path, self.noisy_path_authentic, is_train=True, fraction=self.fraction, authentic=True)
+            self.val_dataset_paired = AudioDataset(self.test_clean_path, self.test_noisy_path_paired, is_train=False, authentic=False)
+            self.val_dataset_authentic = AudioDataset(self.test_clean_path, self.test_noisy_path_authentic, is_train=False, authentic=True)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        paired = DataLoader(self.train_dataset_paired, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        authentic = DataLoader(self.train_dataset_authentic, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        return [paired, authentic]
     
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
-
+        paired = DataLoader(self.val_dataset_paired, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        authentic = DataLoader(self.val_dataset_authentic, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
+        return [paired, authentic]
 
 # Dummy dataset class
 class DummyDataset(Dataset):

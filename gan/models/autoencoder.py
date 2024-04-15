@@ -99,7 +99,8 @@ class Autoencoder(L.LightningModule):
 
         return [g_opt, d_opt], []
     
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, *args):
+        dataloader_idx = 0 if len(args) == 0 else args[0]
         g_opt, d_opt = self.optimizers()
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
@@ -171,7 +172,8 @@ class Autoencoder(L.LightningModule):
         
         self.custom_global_step += 1
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, *args):
+        dataloader_idx = 0 if len(args) == 0 else args[0]
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
