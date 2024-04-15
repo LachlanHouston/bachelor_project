@@ -100,7 +100,13 @@ class Autoencoder(L.LightningModule):
         return [g_opt, d_opt], []
     
     def training_step(self, batch, batch_idx, *args):
-        dataloader_idx = 0 if len(args) == 0 else args[0]
+        # Data
+        # Check if multiple dataloaders are passed as a dictionary
+        if isinstance(batch, dict):
+            batch = batch['paired']
+
+
+
         g_opt, d_opt = self.optimizers()
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
@@ -233,7 +239,6 @@ class Autoencoder(L.LightningModule):
             plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
-
 
 if __name__ == "__main__":
     # Print Device
