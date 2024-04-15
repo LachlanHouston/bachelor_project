@@ -1,9 +1,8 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 import torchaudio
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 import librosa
 import librosa.display
@@ -122,51 +121,102 @@ def find_global_max(waveforms):
             max_amplitude = waveform.max()
     return max_amplitude
 
+def generator_plot_loss(g_losses, titles, save_name):
+    """Plot the generator losses"""
+    # Generate 3 plots
+    fig, ax = plt.subplots(3, 1, figsize=(15, 10), sharex=True)
+    for i in range(3):
+        ax[i].plot(g_losses[i])
+        ax[i].set_title(titles[i])
+        ax[i].set_ylabel('Loss')
+
+        if i == 2:
+            ax[i].set_xlabel('Epoch')
+
+    plt.savefig('reports/figures/' + save_name + '_generator_loss.png')
+    plt.show()
+
+def discriminator_plot_loss(d_losses, titles, save_name):
+    """Plot the discriminator losses"""
+    # Generate 4 plots
+    fig, ax = plt.subplots(2, 2, figsize=(15, 10), sharex=True)
+    for i in range(4):
+        ax[i // 2, i % 2].plot(d_losses[i])
+        ax[i // 2, i % 2].set_title(titles[i])
+
+        if i >= 2:
+            ax[i // 2, i % 2].set_xlabel('Epoch')
+            
+        # On top row, set y-axis label to Output, on bottom row, set y-axis label to Loss
+        if i < 2:
+            ax[i // 2, i % 2].set_ylabel('Output')
+        else:
+            ax[i // 2, i % 2].set_ylabel('Loss')
+    plt.show()
+
+
+# clean_path = os.path.join('data/test_clean_raw/') # 0.5799 train # 0.5057 test
+#     noisy_path = os.path.join('data/test_noisy_raw/') # 0.9724 train # 0.9826 test
+    
+#     # Load 1 clean and 1 noisy waveforms
+#     clean_waveforms, clean_sample_rates = get_data(clean_path, num_files=1)
+#     noisy_waveforms, noisy_sample_rates = get_data(noisy_path, num_files=1)
+#     print('Clean sample rate:', clean_sample_rates)
+#     print('Noisy sample rate:', noisy_sample_rates)
+
+#     # Turn into numpy arrays
+#     clean_waveforms = clean_waveforms[0].numpy()
+#     noisy_waveforms = noisy_waveforms[0].numpy()
+
+#     # Transform the waveforms to mel spectrograms
+#     mel_clean = librosa.feature.melspectrogram(y=clean_waveforms, sr=clean_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
+#     mel_noisy = librosa.feature.melspectrogram(y=noisy_waveforms, sr=noisy_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
+#     mel_clean = librosa.power_to_db(mel_clean[0, :, :], ref=np.max)
+#     mel_noisy = librosa.power_to_db(mel_noisy[0, :, :], ref=np.max)
+
+#     # Plot the waveforms and the corresponding mel spectrograms underneath
+#     fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+#     ax[0, 0].plot(clean_waveforms[0])
+#     ax[0, 0].xaxis.set_visible(False)
+#     ax[0, 0].set_title('Clean')
+#     ax[0, 0].set_ylabel('Amplitude')
+#     ax[1, 0].plot(noisy_waveforms[0])
+#     ax[1, 0].set_title('Noisy')
+#     ax[1, 0].set_xlabel('Samples')
+#     ax[1, 0].set_ylabel('Amplitude')
+#     librosa.display.specshow(mel_clean, y_axis='mel', hop_length=100, sr=clean_sample_rates[0], ax=ax[0, 1], fmax=8000)
+#     librosa.display.specshow(mel_noisy, y_axis='mel', x_axis='time', hop_length=100, sr=noisy_sample_rates[0], ax=ax[1, 1], fmax=8000)
+#     ax[0, 1].set_title('Mel spectrogram of Clean')
+#     # Move y-axis and unit to the right
+#     ax[0, 1].yaxis.tick_right()
+#     ax[0, 1].yaxis.set_label_position('right')
+#     ax[1, 1].set_title('Mel spectrogram of Noisy')
+#     # Move y-axis to the right
+#     ax[1, 1].yaxis.tick_right()
+#     ax[1, 1].yaxis.set_label_position('right')
+#     plt.savefig('reports/figures/clean_noisy_waveforms_mel_spectrogram.png')
+
+#     plt.show()
+
 
 
 if __name__ == '__main__':
-    clean_path = os.path.join('data/test_clean_raw/') # 0.5799 train # 0.5057 test
-    noisy_path = os.path.join('data/test_noisy_raw/') # 0.9724 train # 0.9826 test
-    
-    # Load 1 clean and 1 noisy waveforms
-    clean_waveforms, clean_sample_rates = get_data(clean_path, num_files=1)
-    noisy_waveforms, noisy_sample_rates = get_data(noisy_path, num_files=1)
-    print('Clean sample rate:', clean_sample_rates)
-    print('Noisy sample rate:', noisy_sample_rates)
 
-    # Turn into numpy arrays
-    clean_waveforms = clean_waveforms[0].numpy()
-    noisy_waveforms = noisy_waveforms[0].numpy()
+    # Load losses from the training stored as a csv file
+    g_adv_loss = pd.read_csv('reports/g_adv.csv', header=None, skiprows=1)[4]
+    g_l1_loss = pd.read_csv('reports/g_fidelity.csv', header=None, skiprows=1)[4]
+    g_loss = pd.read_csv('reports/g_loss.csv', header=None, skiprows=1)[4]
 
-    # Transform the waveforms to mel spectrograms
-    mel_clean = librosa.feature.melspectrogram(y=clean_waveforms, sr=clean_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
-    mel_noisy = librosa.feature.melspectrogram(y=noisy_waveforms, sr=noisy_sample_rates[0], n_fft=512, hop_length=100, power=2, win_length=400, window='hann', n_mels=64)
-    mel_clean = librosa.power_to_db(mel_clean[0, :, :], ref=np.max)
-    mel_noisy = librosa.power_to_db(mel_noisy[0, :, :], ref=np.max)
+    # plot the generator losses
+    generator_plot_loss([g_adv_loss, g_l1_loss, g_loss], ['Adversarial Loss', 'Fidelity Loss', 'Total Generator Loss'], 'generator')
 
-    # Plot the waveforms and the corresponding mel spectrograms underneath
-    fig, ax = plt.subplots(2, 2, figsize=(15, 10))
-    ax[0, 0].plot(clean_waveforms[0])
-    ax[0, 0].xaxis.set_visible(False)
-    ax[0, 0].set_title('Clean')
-    ax[0, 0].set_ylabel('Amplitude')
-    ax[1, 0].plot(noisy_waveforms[0])
-    ax[1, 0].set_title('Noisy')
-    ax[1, 0].set_xlabel('Samples')
-    ax[1, 0].set_ylabel('Amplitude')
-    librosa.display.specshow(mel_clean, y_axis='mel', hop_length=100, sr=clean_sample_rates[0], ax=ax[0, 1], fmax=8000)
-    librosa.display.specshow(mel_noisy, y_axis='mel', x_axis='time', hop_length=100, sr=noisy_sample_rates[0], ax=ax[1, 1], fmax=8000)
-    ax[0, 1].set_title('Mel spectrogram of Clean')
-    # Move y-axis and unit to the right
-    ax[0, 1].yaxis.tick_right()
-    ax[0, 1].yaxis.set_label_position('right')
-    ax[1, 1].set_title('Mel spectrogram of Noisy')
-    # Move y-axis to the right
-    ax[1, 1].yaxis.tick_right()
-    ax[1, 1].yaxis.set_label_position('right')
-    plt.savefig('reports/figures/clean_noisy_waveforms_mel_spectrogram.png')
+    d_fake_loss = pd.read_csv('reports/d_fake.csv', header=None, skiprows=1)[4]
+    d_real_loss = pd.read_csv('reports/d_real.csv', header=None, skiprows=1)[4]
+    d_penalty_loss = pd.read_csv('reports/d_penalty.csv', header=None, skiprows=1)[4]
+    d_loss = pd.read_csv('reports/d_loss.csv', header=None, skiprows=1)[4]
 
-    plt.show()
+    # plot the discriminator losses
+    discriminator_plot_loss([d_fake_loss, d_real_loss, d_penalty_loss, d_loss], ['Discriminator Output (fake)', 'Discriminator Output (real)', 'Penalty Loss', 'Total Discriminator Loss'], 'discriminator')
 
 
 
