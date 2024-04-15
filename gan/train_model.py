@@ -8,8 +8,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-# Import models
-from gan import Autoencoder
 # Import data
 from gan import AudioDataModule, DummyDataModule, MixDataModule
 
@@ -56,6 +54,10 @@ def main(cfg):
                                     batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.hyperparameters.num_workers, fraction = cfg.hyperparameters.train_fraction)
 
     # define the autoencoder class containing the training setup
+    if cfg.hyperparameters.dataset == "Mix":
+        from gan import AutoencoderMix as Autoencoder
+    else:
+        from gan import Autoencoder
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
