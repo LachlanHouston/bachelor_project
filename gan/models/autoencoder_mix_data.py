@@ -231,16 +231,14 @@ class AutoencoderMix(L.LightningModule):
         fake_clean_waveforms_authentic = stft_to_waveform(fake_clean_authentic, device=self.device).cpu().squeeze()
 
         # SI-SNR scores
-        if self.dataset == "VCTK":
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            sisnr_score_paired = sisnr(preds=fake_clean_waveforms_paired, target=real_clean_waveforms_paired)
-            self.log('SI-SNR_Paired', sisnr_score_paired, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        sisnr_score_paired = sisnr(preds=fake_clean_waveforms_paired, target=real_clean_waveforms_paired)
+        self.log('SI-SNR_Paired', sisnr_score_paired, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-            # Extended Short Time Objective Intelligibility (eSTOI)
-            estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
-            estoi_score_paired = estoi(preds=fake_clean_waveforms_paired, target=real_clean_waveforms_paired)
-            self.log('eSTOI_Paired', estoi_score_paired, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
+        # Extended Short Time Objective Intelligibility (eSTOI)
+        estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
+        estoi_score_paired = estoi(preds=fake_clean_waveforms_paired, target=real_clean_waveforms_paired)
+        self.log('eSTOI_Paired', estoi_score_paired, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Mean Opinion Score (SQUIM) for paired, authentic, and combined
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
