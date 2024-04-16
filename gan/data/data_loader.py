@@ -131,14 +131,8 @@ def custom_collate_fn(batch):
     clean_paired = torch.stack([b[0] for b in paired_data])
     noisy_paired = torch.stack([b[1] for b in paired_data])
     clean_authentic = torch.stack([b[0] for b in authentic_data])
-    try:
-        noisy_authentic = torch.stack([b[1] for b in authentic_data])
-    except:
-        print('authentic shape:', authentic_data.shape,
-              '\n[b[1] for b in authentic_data]:', [b[1] for b in authentic_data])
-    
+    noisy_authentic = torch.stack([b[1] for b in authentic_data])
     return (clean_paired, noisy_paired), (clean_authentic, noisy_authentic)
-
 
 
 class CombinedDataset(Dataset):
