@@ -28,6 +28,7 @@ class Autoencoder(L.LightningModule):
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
         self.automatic_optimization = False
+        self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -94,9 +95,8 @@ class Autoencoder(L.LightningModule):
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss, None
         
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-
+        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)#, betas = (0., 0.9))
+        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
         return [g_opt, d_opt], []
     
     def training_step(self, batch, batch_idx):
@@ -130,12 +130,6 @@ class Autoencoder(L.LightningModule):
         d_opt.step()
         d_opt.zero_grad()
         self.untoggle_optimizer(d_opt)
-
-        # Weight clipping
-        if self.weight_clip:
-            for name, p in self.discriminator.named_parameters():
-                # if 'bias' in name:               
-                p.data.clamp_(-self.weight_clip_value, self.weight_clip_value)
 
         D_fake = D_fake_no_grad
         # log discriminator losses
@@ -194,11 +188,11 @@ class Autoencoder(L.LightningModule):
             self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Mean Opinion Score (SQUIM)
-        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
-            reference_waveforms = perfect_shuffle(real_clean_waveforms)
-            subjective_model = SQUIM_SUBJECTIVE.get_model()
-            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
-            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
+        #     reference_waveforms = perfect_shuffle(real_clean_waveforms)
+        #     subjective_model = SQUIM_SUBJECTIVE.get_model()
+        #     mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+        #     self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         if (self.log_all_scores or self.dataset == "FSD50K" or self.dataset == "AudioSet") and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR

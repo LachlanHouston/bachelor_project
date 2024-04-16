@@ -5,7 +5,7 @@ hyperparameters:
 
   max_epochs: 10000
   dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", or "dummy"
-  train_fraction: 0.7
+  train_fraction: 1.
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
@@ -31,10 +31,10 @@ system:
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
-  name: ${now:%d/%m %H:%M:%S} - 70% data
+  name: ${now:%d/%m %H:%M:%S} - testing wandb
   log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is FSD50K
   use_wandb: True
-  logging_freq: 10
+  logging_freq: 1
   entity: turtle_team
   project: bachelor2
   

@@ -10,6 +10,8 @@ import warnings
 warnings.filterwarnings("ignore")
 # Import models
 from gan import Autoencoder
+from gan import Discriminator
+from gan import Generator
 # Import data
 from gan import AudioDataModule, DummyDataModule
 
@@ -48,7 +50,8 @@ def main(cfg):
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
 
     # define the autoencoder class containing the training setup
-    model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
+    model = Autoencoder(discriminator=Discriminator(), generator=Generator(),
+                        alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
                         n_critic =              cfg.hyperparameters.n_critic,
@@ -84,16 +87,14 @@ def main(cfg):
     )
 
     # define Weights and Biases logger
-    if cfg.wandb.use_wandb:
-        wandb_logger = WandbLogger(
-            project=cfg.wandb.project,
-            name=cfg.wandb.name,
-            entity=cfg.wandb.entity, 
-        )
-        # log gradients and model topology
-        wandb_logger.watch(model, log='all', log_freq=cfg.wandb.logging_freq, log_graph=True)
-    else:
-        wandb_logger = None
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        name=cfg.wandb.name,
+        entity=cfg.wandb.entity, 
+    )
+
+    # log gradients and model topology
+    wandb_logger.watch(model, log='all', log_freq=1)
 
     # define the trainer 
     trainer = Trainer(
@@ -102,7 +103,7 @@ def main(cfg):
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=[wandb_logger] if cfg.wandb.use_wandb else None,
+        logger=wandb_logger,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         deterministic=True,
