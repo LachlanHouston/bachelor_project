@@ -8,12 +8,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-# Import models
-from gan import Autoencoder
-from gan import Discriminator
-from gan import Generator
 # Import data
-from gan import AudioDataModule, DummyDataModule
+from gan import AudioDataModule, DummyDataModule, MixDataModule
 
 
 # main function using Hydra to organize configuration
@@ -48,10 +44,21 @@ def main(cfg):
     if cfg.hyperparameters.dataset == "AudioSet":
         # use AudioSet as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
+    if cfg.hyperparameters.dataset == "Mix":
+        data_module = MixDataModule(clean_path = VCTK_clean_path,
+                                    noisy_path_authentic = AudioSet_noisy_path,
+                                    noisy_path_paired = VCTK_noisy_path,
+                                    test_clean_path = VCTK_test_clean_path,
+                                    test_noisy_path_authentic = AudioSet_test_noisy_path,
+                                    test_noisy_path_paired = VCTK_test_noisy_path,
+                                    batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.hyperparameters.num_workers, fraction = cfg.hyperparameters.train_fraction)
 
     # define the autoencoder class containing the training setup
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator(),
-                        alpha_penalty =         cfg.hyperparameters.alpha_penalty,
+    if cfg.hyperparameters.dataset == "Mix":
+        from gan import AutoencoderMix as Autoencoder
+    else:
+        from gan import Autoencoder
+    model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
                         n_critic =              cfg.hyperparameters.n_critic,

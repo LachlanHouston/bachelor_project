@@ -99,7 +99,8 @@ class Autoencoder(L.LightningModule):
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
         return [g_opt, d_opt], []
     
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, *args):
+
         g_opt, d_opt = self.optimizers()
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
@@ -165,7 +166,7 @@ class Autoencoder(L.LightningModule):
         
         self.custom_global_step += 1
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, *args):
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
@@ -194,7 +195,7 @@ class Autoencoder(L.LightningModule):
         #     mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
         #     self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if (self.log_all_scores or self.dataset == "FSD50K" or self.dataset == "AudioSet") and batch_idx % 50 == 0:
+        if (self.log_all_scores or self.dataset != "VCTK") and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
@@ -225,7 +226,6 @@ class Autoencoder(L.LightningModule):
             plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
-
 
 if __name__ == "__main__":
     # Print Device
