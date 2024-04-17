@@ -89,10 +89,6 @@ def baseline_model():
 if __name__ == '__main__':
     baseline_model()
 
-    # SNR: 8.3789
-    # eSTOI: 0.6115
-    # SegSNR: 4.7741
-    # DNSMOS: 2.3418
 # SI-SNR	            DNSMOS	            MOS Squim	        eSTOI	    PESQ	            PESQ Torch
 # Mean scores					
 # 8.775921516633739	    2.464953484676369	3.5155139940137534	0.800223429	2.018250093647209	2.191852059578177

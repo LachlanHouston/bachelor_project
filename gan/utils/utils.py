@@ -3,10 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
 from speechmos import dnsmos
+
 
 def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, use_pesq=True):
 
@@ -33,7 +35,6 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
 
     if use_pesq:
-        from torchmetrics.audio import PerceptualEvaluationSpeechQuality
         from pesq import pesq
         ## PESQ Normal
         pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')

@@ -55,8 +55,10 @@ def main(cfg):
 
     # define the autoencoder class containing the training setup
     if cfg.hyperparameters.dataset == "Mix":
+        print("Using a mixture of authentic and paired data")
         from gan import AutoencoderMix as Autoencoder
     else:
+        print("Using a single dataset")
         from gan import Autoencoder
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
