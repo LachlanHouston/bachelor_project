@@ -33,13 +33,19 @@ class AutoencoderMix(L.LightningModule):
         return self.generator(real_noisy)
 
     def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, authentic=False, p=1):
-        # Compute the Lp loss between fake clean and the original noisy signal
-        G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
-        # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
+        if authentic:
+            # Compute the Lp loss between fake clean and the original noisy signal
+            G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
+            # Normalize the loss by the number of elements in the tensor
+            G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
+        else:
+            # Compute the Lp loss between fake clean and the original clean signal
+            G_fidelity_loss = torch.norm(fake_clean - real_clean, p=p)
+            # Normalize the loss by the number of elements in the tensor
+            G_fidelity_loss = G_fidelity_loss / (real_clean.size(1) * real_clean.size(2) * real_clean.size(3))
+        
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
-
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
 
@@ -114,11 +120,15 @@ class AutoencoderMix(L.LightningModule):
             self.toggle_optimizer(g_opt)
             # Generate fake clean for paired data
             fake_clean_paired, mask_paired = self.generator(real_noisy_paired)
+            # Compute discriminator output for fake clean
             D_fake_paired = self.discriminator(fake_clean_paired)
+            # Compute generator losses
             G_loss_paired, G_fidelity_alpha_paired, G_adv_loss_paired, sisnr_loss_paired = self._get_reconstruction_loss(real_noisy=real_noisy_paired, fake_clean=fake_clean_paired, D_fake=D_fake_paired, real_clean=real_clean_paired, authentic=False)
             # Generate fake clean for authentic data
             fake_clean_authentic, mask_authentic = self.generator(real_noisy_authentic)
+            # Compute discriminator output for fake clean
             D_fake_authentic = self.discriminator(fake_clean_authentic)
+            # Compute generator losses
             G_loss_authentic, G_fidelity_alpha_authentic, G_adv_loss_authentic, _ = self._get_reconstruction_loss(real_noisy=real_noisy_authentic, fake_clean=fake_clean_authentic, D_fake=D_fake_authentic, real_clean=None, authentic=True)
             # Compute generator gradients
             G_loss = G_loss_paired + G_loss_authentic
