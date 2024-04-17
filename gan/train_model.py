@@ -23,6 +23,12 @@ def main(cfg):
     wandb_api_key = os.environ.get("WANDB_API_KEY")
     wandb.login(key=wandb_api_key)
 
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        name=cfg.wandb.name,
+        entity=cfg.wandb.entity, 
+    )
+
     # define paths
     VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw/')
     VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
