@@ -8,18 +8,23 @@ import torchaudio
 import numpy as np
 import csv
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from gan.utils.utils import waveform_to_stft, stft_to_waveform
+from gan.utils.utils import stft_to_waveform
 
-def SNR_scores(train=True, model=None, device='cpu'):
+PYTORCH_CUDA_ALLOC_CONF=True
+
+def SNR_scores(train=True, model=None):
     clean_train_path = os.path.join(os.getcwd(), 'data/clean_raw/')
     noisy_train_path = os.path.join(os.getcwd(), 'data/noisy_raw/')
     clean_test_path = os.path.join(os.getcwd(), 'data/test_clean_raw/')
     noisy_test_path = os.path.join(os.getcwd(), 'data/test_noisy_raw/')
 
-    clean_train_files = sorted(os.listdir(clean_train_path))
-    noisy_train_files = sorted(os.listdir(noisy_train_path))
+    # clean_train_files = sorted(os.listdir(clean_train_path))
+    # noisy_train_files = sorted(os.listdir(noisy_train_path))
     clean_test_files = sorted(os.listdir(clean_test_path))
     noisy_test_files = sorted(os.listdir(noisy_test_path))
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Device: {device}")
 
     if model is None:
         model = Autoencoder(alpha_penalty =         10,
@@ -44,70 +49,49 @@ def SNR_scores(train=True, model=None, device='cpu'):
                             dataset =               "VCTK"
                         ).generator
 
+    model.to(device)
+
     snr_scores = []
-    i = 0
 
-    if train:
-        print("Train data")
-        for data in zip(clean_train_files, noisy_train_files):
-            print(f"File {i}/{len(clean_train_files)}")
+    print("Test data")
+    for i in range(len(clean_test_files)):
+        print(f"File {i}/{len(clean_test_files)}")
+        print(f"File: {clean_test_files[i]}")
 
-            # Load data
-            clean_waveform, clean_sr = torchaudio.load(os.path.join(clean_train_path, data[0]))
-            noisy_waveform, noisy_sr = torchaudio.load(os.path.join(noisy_train_path, data[1]))
+        # Load data
+        clean_waveform, sr = torchaudio.load(os.path.join(clean_test_path, clean_test_files[i]))
+        noisy_waveform, _ = torchaudio.load(os.path.join(noisy_test_path, noisy_test_files[i]))
 
-            # Resample to 16kHz
-            clean_waveform = torchaudio.transforms.Resample(orig_freq=clean_sr, new_freq=16000)(clean_waveform)
-            noisy_waveform = torchaudio.transforms.Resample(orig_freq=noisy_sr, new_freq=16000)(noisy_waveform)
+        # Resample to 16kHz
+        clean_waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(clean_waveform).to(device)
+        noisy_waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(noisy_waveform).to(device)
 
-            # Transform waveform to STFT
-            clean_stft = waveform_to_stft(clean_waveform, device=device)
-            noisy_stft = waveform_to_stft(noisy_waveform, device=device)
-            
-            output_real, _ = model(clean_stft)
-            output_fake, _ = model(noisy_stft)
+        # Transform waveform to STFT
+        clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
+        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
 
-            # Transform the output to waveform
-            real_clean_waveform = stft_to_waveform(output_real, device=device)
-            fake_clean_waveform = stft_to_waveform(output_fake, device=device)
+        clean_stft = torch.stack([clean_stft.real, clean_stft.imag], dim=1)
+        noisy_stft = torch.stack([noisy_stft.real, noisy_stft.imag], dim=1)
+        
+        output_real, _ = model(clean_stft)
+        output_fake, _ = model(noisy_stft)
 
-            # Compute SI-SNR
-            sisnr = ScaleInvariantSignalNoiseRatio()
-            snr = sisnr(preds=fake_clean_waveform, target=real_clean_waveform).item()
-            print(f"SNR: {snr}")
+        # Transform the output to waveform
+        real_clean_waveform = stft_to_waveform(output_real, device=device)
+        fake_clean_waveform = stft_to_waveform(output_fake, device=device)
 
-            snr_scores.append(snr)
+        # Compute SI-SNR
+        sisnr = ScaleInvariantSignalNoiseRatio().to(device)
+        snr = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+        print(f"SNR: {snr}")
 
-            i += 1
+        snr_scores.append(snr)
 
-    else:
-        print("Test data")
-        for data in zip(clean_test_files, noisy_test_files):
-            print(f"File {i}/{len(clean_test_files)}")
+        # Clean up
+        del clean_waveform, noisy_waveform, clean_stft, noisy_stft, output_real, output_fake, real_clean_waveform, fake_clean_waveform
 
-            # Load data
-            clean_waveform, _ = torchaudio.load(os.path.join(clean_test_path, data[0]))
-            noisy_waveform, _ = torchaudio.load(os.path.join(noisy_test_path, data[1]))
-
-            # Transform waveform to STFT
-            clean_stft = waveform_to_stft(clean_waveform, device=device)
-            noisy_stft = waveform_to_stft(noisy_waveform, device=device)
-            
-            output_real, _ = model(clean_stft)
-            output_fake, _ = model(noisy_stft)
-
-            # Transform the output to waveform
-            real_clean_waveform = stft_to_waveform(output_real, device=device)
-            fake_clean_waveform = stft_to_waveform(output_fake, device=device)
-
-            # Compute SI-SNR
-            sisnr = ScaleInvariantSignalNoiseRatio()
-            snr = sisnr(preds=fake_clean_waveform, target=real_clean_waveform).item()
-            print(f"SNR: {snr}")
-
-            snr_scores.append(snr)
-
-            i += 1
+        # Clear cache
+        torch.cuda.empty_cache()
 
     return snr_scores
 
@@ -121,24 +105,10 @@ if __name__ == '__main__':
     for model_name in model_names:
         cpkt_path = os.path.join('models', model_name)
         cpkt_path = os.path.join(os.getcwd(), cpkt_path)
-        model = Autoencoder.load_from_checkpoint(cpkt_path,  
-                                                visualize=False,
-                                                alpha_penalty=10,
-                                                alpha_fidelity=10,
-                                                n_critic=10,
-                                                d_learning_rate=1e-4,
-                                                d_scheduler_step_size=1000,
-                                                d_scheduler_gamma=1,
-                                                g_learning_rate=1e-4,
-                                                g_scheduler_step_size=1000,
-                                                g_scheduler_gamma=1,
-                                                weight_clip = False,
-                                                weight_clip_value=0.5,
-                                                logging_freq=5,
-                                                batch_size=16).generator
+        model = Autoencoder.load_from_checkpoint(cpkt_path).generator
         
         #SNR_train = SNR_scores(train=True, model=None)
-        SNR_test = SNR_scores(train=False, model=None)
+        SNR_test = SNR_scores(train=False, model=model)
 
         #train_snr.append([model_name, np.mean(SNR_train), np.std(SNR_train)])   
         test_snr.append([model_name, np.mean(SNR_test), np.std(SNR_test)])

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+# from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
 from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
