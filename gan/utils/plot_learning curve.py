@@ -112,40 +112,39 @@ def SNR_scores(train=True, model=None, device='cpu'):
     return snr_scores
 
 if __name__ == '__main__':
-    model_names = ['10_cpkt']#, '20_cpkt', '30_cpkt', '40_cpkt', '50_cpkt', '60_cpkt', '70_cpkt', '80_cpkt', '90_cpkt', '100_cpkt']
+    model_names = ['standardmodel.ckpt']#, '20_cpkt', '30_cpkt', '40_cpkt', '50_cpkt', '60_cpkt', '70_cpkt', '80_cpkt', '90_cpkt', '100_cpkt']
 
     train_snr = []
     test_snr = []
 
     # Loop through all models
     for model_name in model_names:
-        # cpkt_path = os.path.join(os.getcwd(), cpkt_path)
-        # model = Autoencoder.load_from_checkpoint(cpkt_path, 
-        #                                         discriminator=Discriminator(), 
-        #                                         generator=Generator(in_channels=2, out_channels=2), 
-        #                                         visualize=False,
-        #                                         alpha_penalty=10,
-        #                                         alpha_fidelity=10,
-        #                                         n_critic=10,
-        #                                         d_learning_rate=1e-4,
-        #                                         d_scheduler_step_size=1000,
-        #                                         d_scheduler_gamma=1,
-        #                                         g_learning_rate=1e-4,
-        #                                         g_scheduler_step_size=1000,
-        #                                         g_scheduler_gamma=1,
-        #                                         weight_clip = False,
-        #                                         weight_clip_value=0.5,
-        #                                         logging_freq=5,
-        #                                         batch_size=16).generator
+        cpkt_path = os.path.join('models', model_name)
+        cpkt_path = os.path.join(os.getcwd(), cpkt_path)
+        model = Autoencoder.load_from_checkpoint(cpkt_path,  
+                                                visualize=False,
+                                                alpha_penalty=10,
+                                                alpha_fidelity=10,
+                                                n_critic=10,
+                                                d_learning_rate=1e-4,
+                                                d_scheduler_step_size=1000,
+                                                d_scheduler_gamma=1,
+                                                g_learning_rate=1e-4,
+                                                g_scheduler_step_size=1000,
+                                                g_scheduler_gamma=1,
+                                                weight_clip = False,
+                                                weight_clip_value=0.5,
+                                                logging_freq=5,
+                                                batch_size=16).generator
         
-        SNR_train = SNR_scores(train=True, model=None)
+        #SNR_train = SNR_scores(train=True, model=None)
         SNR_test = SNR_scores(train=False, model=None)
 
-        train_snr.append([model_name, np.mean(SNR_train), np.std(SNR_train)])   
+        #train_snr.append([model_name, np.mean(SNR_train), np.std(SNR_train)])   
         test_snr.append([model_name, np.mean(SNR_test), np.std(SNR_test)])
 
         print(f"Model {model_name}:")
-        print(f"Train SNR: {np.mean(SNR_train)} +- {np.std(SNR_train)}")
+        #print(f"Train SNR: {np.mean(SNR_train)} +- {np.std(SNR_train)}")
         print(f"Test SNR: {np.mean(SNR_test)} +- {np.std(SNR_test)}")
 
     # Save scores to csv
