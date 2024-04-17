@@ -64,6 +64,15 @@ def perfect_shuffle(tensor):
 
     return tensor[idx]
 
+def waveform_to_stft(waveform, device=torch.device('cuda')):
+    # Perform STFT to obtain the complex-valued spectrogram
+    stft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
+    # Separate the real and imaginary components
+    stft_real = stft.real
+    stft_imag = stft.imag
+    # Combine the real and imaginary components to form the complex-valued spectrogram
+    stft = torch.stack([stft_real, stft_imag], dim=1)
+    return stft
 
 def stft_to_waveform(stft, device=torch.device('cuda')):
     if len(stft.shape) == 3:
