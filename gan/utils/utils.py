@@ -70,7 +70,6 @@ def stft_to_waveform(stft, device=torch.device('cuda')):
     waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
     return waveform
 
-
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     """
     Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
