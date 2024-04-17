@@ -101,33 +101,12 @@ class Autoencoder(L.LightningModule):
     
     def training_step(self, batch, batch_idx, *args):
 
-        dataset_sources = batch[2]
-
-        paired_indices = [i for i, x in enumerate(dataset_sources) if x == 'paired']
-        authentic_indices = [i for i, x in enumerate(dataset_sources) if x == 'authentic']
-
-
-        for i in range(len(dataset_sources)):
-            if dataset_sources[i] == "VCTK":
-                self.dataset = "VCTK"
-                break
-            elif dataset_sources[i] == "AudioSet":
-                self.dataset = "AudioSet"
-                break
-
         g_opt, d_opt = self.optimizers()
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
 
         real_clean = batch[0].squeeze(1).to(self.device)
         real_noisy = batch[1].squeeze(1).to(self.device)
-
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-        real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).cpu().squeeze()
-        # save waveforms
-        for i in range(self.batch_size):
-            torchaudio.save(f"real_clean_train{i}.wav", real_clean_waveforms[i].unsqueeze(0), 16000)
-            torchaudio.save(f"real_noisy_train{i}.wav", real_noisy_waveforms[i].unsqueeze(0), 16000)
 
         if train_G:
             self.toggle_optimizer(g_opt)
@@ -194,9 +173,6 @@ class Autoencoder(L.LightningModule):
         self.custom_global_step += 1
 
     def validation_step(self, batch, batch_idx, *args):
-        dataloader_idx = 0 if len(args) == 0 else args[0]
-        if isinstance(batch, dict):
-            batch = batch['paired']
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
@@ -205,11 +181,6 @@ class Autoencoder(L.LightningModule):
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
-        real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device).cpu().squeeze()
-        # save waveforms
-        for i in range(self.batch_size):
-            torchaudio.save(f"real_clean_{i}.wav", real_clean_waveforms[i].unsqueeze(0), 16000)
-            torchaudio.save(f"real_noisy_{i}.wav", real_noisy_waveforms[i].unsqueeze(0), 16000)
 
         if self.dataset == "VCTK":
             ## Scale Invariant Signal-to-Noise Ratio
