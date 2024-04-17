@@ -23,32 +23,16 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     sisnr = ScaleInvariantSignalNoiseRatio()
     sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
 
-    ## DNSMOS
-    dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
+    # if use_pesq:
+    #     from pesq import pesq
+    #     ## PESQ Normal
+    #     pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
 
-    ## MOS Squim
-    subjective_model = SQUIM_SUBJECTIVE.get_model()
-    mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform)
-        
-    ## eSTOI
-    estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-    estoi_score = estoi(preds = fake_clean_waveform, target = real_clean_waveform)
+    #     ## PESQ Torch
+    #     pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+    #     pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
 
-    if use_pesq:
-        from pesq import pesq
-        ## PESQ Normal
-        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
-
-        ## PESQ Torch
-        pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
-
-    ## Predicted objective metrics: STOI, PESQ, and SI-SDR
-    objective_model = SQUIM_OBJECTIVE.get_model()
-    stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveform.unsqueeze(0))
-    if use_pesq:
-        return sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), pesq_normal_score, pesq_torch_score.item(), stoi_pred.item(), pesq_pred.item(), si_sdr_pred.item()
-    return sisnr_score.item(), dnsmos_score, mos_squim_score.item(), estoi_score.item(), 0,                 0,                       stoi_pred.item(), pesq_pred.item(), si_sdr_pred.item()
+    return sisnr_score.item()
 
 def perfect_shuffle(tensor):
     # Ensure the tensor is at least 2D
