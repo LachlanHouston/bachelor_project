@@ -3,7 +3,10 @@ import torchaudio
 from models.generator import Generator
 from models.discriminator import Discriminator
 from models.autoencoder import Autoencoder
+from data.data_loader import AudioDataModule, AudioDataset
+from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
+from pytorch_lightning import Trainer
 import os
 import hydra
 import numpy as np
@@ -13,13 +16,13 @@ import random
 import numpy as np
 torch.set_grad_enabled(False)
 
-test_clean_dir = 'data/AudioSet/test_wav/'
-test_noisy_dir = 'data/AudioSet/test_wav/'
-model_path = False#"models/10pct_889.ckpt"
+test_clean_dir = 'data/test_clean_raw/'
+test_noisy_dir = 'data/test_noisy_raw/'
+model_path = "models/standardmodel.ckpt"
 get_generator_scores = True
 get_discriminator_scores = False
 limit_samples = False     # False: use all samples, Integer: use only the first n samples
-use_pesq = False
+use_pesq = True
 
 
 def load_model(cpkt_path):
@@ -40,7 +43,7 @@ def load_model(cpkt_path):
                                             weight_clip = False,
                                             weight_clip_value=0.5,
                                             logging_freq=5,
-                                            batch_size=4)
+                                            batch_size=1)
     
     generator = model.generator
     discriminator = model.discriminator
@@ -120,7 +123,23 @@ def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_
 
         
 def main(model_path, get_generator_scores = True, get_discriminator_scores = False, limit_samples=False):
-    
+    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False)
+
+    data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=20 if torch.cuda.is_available() else 1, 
+                            persistent_workers=True, pin_memory=True, drop_last=True)
+    model = Autoencoder.load_from_checkpoint(model_path)
+    model.eval()
+
+    trainer = Trainer(
+        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        check_val_every_n_epoch=1,
+        deterministic=True,
+        )
+
+    predictions = trainer.predict(model, data_loader)
+
+    return predictions
+
     if model_path:
         generator, discriminator = load_model(model_path)
     test_clean_path = os.path.join(os.getcwd(), test_clean_dir)

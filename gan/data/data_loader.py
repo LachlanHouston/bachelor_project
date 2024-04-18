@@ -104,7 +104,7 @@ class AudioDataModule(L.LightningDataModule):
         self.test_clean_path = test_clean_path
         self.test_noisy_path = test_noisy_path
         self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.num_workers = num_workers if torch.cuda.is_available() else 0
         self.fraction = fraction
         self.authentic = authentic
         self.save_hyperparameters()

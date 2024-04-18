@@ -30,7 +30,8 @@ class Autoencoder(L.LightningModule):
         self.automatic_optimization = False
         self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
-    def forward(self, real_noisy):
+    def forward(self, batch):
+        real_noisy = batch[1].squeeze(1).to(self.device)
         return self.generator(real_noisy)
 
     def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
