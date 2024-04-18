@@ -1,6 +1,6 @@
 hyperparameters:
-  batch_size: 2
-  num_workers: 6
+  batch_size: 16
+  num_workers: 20
   num_gpus: 1
 
   max_epochs: 10000
@@ -10,8 +10,8 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  sisnr_loss: 10    # False or integer alpha value
-  supervised_fidelity: True
+  sisnr_loss: False    # False or integer alpha value
+  supervised_fidelity: False
 
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
