@@ -1,6 +1,6 @@
 hyperparameters:
-  batch_size: 16
-  num_workers: 20
+  batch_size: 2
+  num_workers: 6
   num_gpus: 1
 
   max_epochs: 10000
