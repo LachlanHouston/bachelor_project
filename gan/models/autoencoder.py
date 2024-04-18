@@ -30,18 +30,23 @@ class Autoencoder(L.LightningModule):
         self.automatic_optimization = False
         self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
-    def forward(self, batch):
-        real_noisy = batch[1].squeeze(1).to(self.device)
+    def forward(self, real_noisy):
         return self.generator(real_noisy)
 
     def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
-        # Compute the Lp loss between the real clean and the fake clean
-        G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
-        # Normalize the loss by the number of elements in the tensor
-        G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
+        if self.supervised_fidelity:
+            # Compute the Lp loss between the real clean and the fake clean
+            G_fidelity_loss = torch.norm(fake_clean - real_clean, p=p)
+            # Normalize the loss by the number of elements in the tensor
+            G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
+        else:
+            # Compute the Lp loss between the real noisy and the fake clean
+            G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
+            # Normalize the loss by the number of elements in the tensor
+            G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
+        
         # compute adversarial loss
         G_adv_loss = - torch.mean(D_fake)
-
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
 

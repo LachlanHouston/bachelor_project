@@ -89,6 +89,7 @@ def main(cfg):
                         batch_size =            cfg.hyperparameters.batch_size,
                         L2_reg =                cfg.hyperparameters.L2_reg,
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
+                        supervised_fidelity =   cfg.hyperparameters.supervised_fidelity,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset
                         )

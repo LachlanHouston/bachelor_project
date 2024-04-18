@@ -123,7 +123,7 @@ def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_
 
         
 def main(model_path, get_generator_scores = True, get_discriminator_scores = False, limit_samples=False):
-    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False)
+    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False, only_noisy=True)
 
     data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=20 if torch.cuda.is_available() else 1, 
                             persistent_workers=True, pin_memory=True, drop_last=True)

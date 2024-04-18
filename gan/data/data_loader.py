@@ -7,11 +7,12 @@ import random
 
 
 class AudioDataset(Dataset):
-    def __init__(self, clean_path, noisy_path, is_train, fraction=1.0, authentic=False):
+    def __init__(self, clean_path, noisy_path, is_train, fraction=1.0, authentic=False, only_noisy=False):
         super(AudioDataset, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
         self.authentic = authentic
+        self.only_noisy = only_noisy
         if fraction < 1.0:
             if self.authentic:
                 clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
@@ -91,6 +92,9 @@ class AudioDataset(Dataset):
         # Stack the real and imaginary parts of the STFT
         clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
         noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
+        
+        if self.only_noisy:
+            return noisy_stft.squeeze(1)
 
         return clean_stft, noisy_stft
 
@@ -104,7 +108,7 @@ class AudioDataModule(L.LightningDataModule):
         self.test_clean_path = test_clean_path
         self.test_noisy_path = test_noisy_path
         self.batch_size = batch_size
-        self.num_workers = num_workers if torch.cuda.is_available() else 0
+        self.num_workers = num_workers if torch.cuda.is_available() else 1
         self.fraction = fraction
         self.authentic = authentic
         self.save_hyperparameters()
