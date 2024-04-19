@@ -13,7 +13,7 @@ training_squim_mos = [2.9, 3.2, 3.6, 3.7, 3.8, 2.9, 3.2, 3.6, 3.7, 3.8]
 training_squim_mos_se = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
 # Validation
-val_sisnr_10, val_sisnr_se_10 = 16.107284186710828, 0.1
+val_sisnr_10, val_sisnr_se_10 = 11, 0.1
 val_sisnr_20, val_sisnr_se_20 = 12, 0.1
 val_sisnr_30, val_sisnr_se_30 = 13, 0.1
 val_sisnr_40, val_sisnr_se_40 = 14, 0.1
@@ -22,7 +22,7 @@ val_sisnr_60, val_sisnr_se_60 = 16, 0.1
 val_sisnr_70, val_sisnr_se_70 = 12, 0.1
 val_sisnr_80, val_sisnr_se_80 = 13, 0.1
 val_sisnr_90, val_sisnr_se_90 = 14, 0.1
-val_sisnr_100, val_sisnr_se_100 = 15, 0.1
+val_sisnr_100, val_sisnr_se_100 = 16.107284186710828, 0.13237278740425423
 
 val_squim_mos_10, val_squim_mos_se_10 = 2.5, 0.1
 val_squim_mos_20, val_squim_mos_se_20 = 2.9, 0.1

@@ -68,7 +68,13 @@ def main(model_path):
             reference_index = random.choice(range(len(clean_reference_filenames)))
             non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/', clean_reference_filenames[reference_index]))[0]
 
-            sisnr_score = compute_scores(real_clean[i], fake_clean[i], non_matching_reference_waveform, use_pesq=use_pesq)
+            sisnr_score = compute_scores(real_clean[i], fake_clean[i], non_matching_reference_waveform, 
+                                         use_sisnr=     False, 
+                                         use_dnsmos=    False, 
+                                         use_mos_squim= True, 
+                                         use_estoi=     False,
+                                         use_pesq=      False, 
+                                         use_pred=      False)
             # sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(...)
             dnsmos_score = mos_squim_score = estoi_score = pesq_normal_score = pesq_torch_score = stoi_pred = pesq_pred = si_sdr_pred = 0
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
