@@ -1,198 +1,83 @@
 import matplotlib.pyplot as plt
-from gan.models.autoencoder import Autoencoder
-from gan.models.discriminator import Discriminator
-from gan.models.generator import Generator
-import os
-import torch
-import torchaudio
-import numpy as np
-import csv
-from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from gan.utils.utils import stft_to_waveform
-from tqdm import tqdm
 
-PYTORCH_CUDA_ALLOC_CONF=True
+# Sample data: fractions of data used and their corresponding performance metrics.
+# Replace these with your actual fractions and performance metrics.
+total_training_examples = 11572
+fractions_of_data = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+training_examples = [int(total_training_examples * frac) for frac in fractions_of_data]
 
-def SNR_scores(train=True, model=None):
-    clean_train_path = os.path.join(os.getcwd(), 'data/clean_raw/')
-    noisy_train_path = os.path.join(os.getcwd(), 'data/noisy_raw/')
-    clean_test_path = os.path.join(os.getcwd(), 'data/test_clean_raw/')
-    noisy_test_path = os.path.join(os.getcwd(), 'data/test_noisy_raw/')
+# Training
+training_sisnr = [12, 13, 14, 15, 16,16, 17, 18, 19, 20]
+training_sisnr_se = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+training_squim_mos = [2.9, 3.2, 3.6, 3.7, 3.8, 2.9, 3.2, 3.6, 3.7, 3.8]
+training_squim_mos_se = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
-    # clean_train_files = sorted(os.listdir(clean_train_path))
-    # noisy_train_files = sorted(os.listdir(noisy_train_path))
-    clean_test_files = sorted(os.listdir(clean_test_path))
-    noisy_test_files = sorted(os.listdir(noisy_test_path))
+# Validation
+val_sisnr_10, val_sisnr_se_10 = 16.107284186710828, 0.1
+val_sisnr_20, val_sisnr_se_20 = 12, 0.1
+val_sisnr_30, val_sisnr_se_30 = 13, 0.1
+val_sisnr_40, val_sisnr_se_40 = 14, 0.1
+val_sisnr_50, val_sisnr_se_50 = 15, 0.1
+val_sisnr_60, val_sisnr_se_60 = 16, 0.1
+val_sisnr_70, val_sisnr_se_70 = 12, 0.1
+val_sisnr_80, val_sisnr_se_80 = 13, 0.1
+val_sisnr_90, val_sisnr_se_90 = 14, 0.1
+val_sisnr_100, val_sisnr_se_100 = 15, 0.1
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Device: {device}")
+val_squim_mos_10, val_squim_mos_se_10 = 2.5, 0.1
+val_squim_mos_20, val_squim_mos_se_20 = 2.9, 0.1
+val_squim_mos_30, val_squim_mos_se_30 = 3.2, 0.1
+val_squim_mos_40, val_squim_mos_se_40 = 3.6, 0.1
+val_squim_mos_50, val_squim_mos_se_50 = 3.7, 0.1
+val_squim_mos_60, val_squim_mos_se_60 = 2.5, 0.1
+val_squim_mos_70, val_squim_mos_se_70 = 2.9, 0.1
+val_squim_mos_80, val_squim_mos_se_80 = 3.2, 0.1
+val_squim_mos_90, val_squim_mos_se_90 = 3.6, 0.1
+val_squim_mos_100, val_squim_mos_se_100 = 3.7, 0.1
 
-    if model is None:
-        model = Autoencoder(alpha_penalty =         10,
-                            alpha_fidelity =        10,
+validation_sisnr = [val_sisnr_10, val_sisnr_20, val_sisnr_30, val_sisnr_40, val_sisnr_50, val_sisnr_60, val_sisnr_70, val_sisnr_80, val_sisnr_90, val_sisnr_100]
+validation_sisnr_se = [val_sisnr_se_10, val_sisnr_se_20, val_sisnr_se_30, val_sisnr_se_40, val_sisnr_se_50, val_sisnr_se_60, val_sisnr_se_70, val_sisnr_se_80, val_sisnr_se_90, val_sisnr_se_100]
+validation_squim_mos = [val_squim_mos_10, val_squim_mos_20, val_squim_mos_30, val_squim_mos_40, val_squim_mos_50, val_squim_mos_60, val_squim_mos_70, val_squim_mos_80, val_squim_mos_90, val_squim_mos_100]
+validation_squim_mos_se = [val_squim_mos_se_10, val_squim_mos_se_20, val_squim_mos_se_30, val_squim_mos_se_40, val_squim_mos_se_50, val_squim_mos_se_60, val_squim_mos_se_70, val_squim_mos_se_80, val_squim_mos_se_90, val_squim_mos_se_100]
 
-                            n_critic =              10,
-                            use_bias =              True,
-                            
-                            d_learning_rate =       1e-4,
-                            g_learning_rate =       1e-4,
+# Creating subplots
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # 1 row, 2 columns
 
-                            weight_clip =           False,
-                            weight_clip_value =     1,
+# SI-SNR subplot
+axs[0].plot(fractions_of_data, training_sisnr, label='Training SI-SNR', marker='o', color='blue')
+axs[0].fill_between(fractions_of_data, 
+                    [a - b for a, b in zip(training_sisnr, training_sisnr_se)], 
+                    [a + b for a, b in zip(training_sisnr, training_sisnr_se)], 
+                    color='blue', alpha=0.2)
+axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
+axs[0].fill_between(fractions_of_data, 
+                    [a - b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
+                    [a + b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
+                    color='red', alpha=0.2)
+axs[0].set_title('SI-SNR Learning Curves')
+axs[0].set_xlabel('Fraction of Data Used')
+axs[0].set_ylabel('SI-SNR')
+axs[0].set_xticks(fractions_of_data)
+axs[0].legend()
 
-                            visualize =             True,
-                            logging_freq =          5,
-                            log_all_scores =        False,
-                            batch_size =            4,
-                            L2_reg =                False,
-                            sisnr_loss =            False,
-                            val_fraction =          1.,
-                            dataset =               "VCTK"
-                        ).generator
+# Squim MOS subplot
+axs[1].plot(fractions_of_data, training_squim_mos, label='Training Squim MOS', marker='o',color='blue')
+axs[1].fill_between(fractions_of_data, 
+                    [a - b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
+                    [a + b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
+                    color='blue', alpha=0.2)
+axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
+axs[1].fill_between(fractions_of_data, 
+                    [a - b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
+                    [a + b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
+                    color='red', alpha=0.2)
+axs[1].set_title('Squim MOS Learning Curves')
+axs[1].set_xlabel('Fraction of Data Used')
+axs[1].set_ylabel('Squim MOS')
+axs[1].set_xticks(fractions_of_data)
+axs[1].legend()
 
-    model.to(device)
-
-    snr_scores = []
-
-    print("Test data")
-    for i in range(len(clean_test_files)):
-        print(f"File {i}/{len(clean_test_files)}")
-        print(f"File: {clean_test_files[i]}")
-
-        # Load data
-        clean_waveform, sr = torchaudio.load(os.path.join(clean_test_path, clean_test_files[i]))
-        noisy_waveform, _ = torchaudio.load(os.path.join(noisy_test_path, noisy_test_files[i]))
-
-        # Resample to 16kHz
-        # clean_waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(clean_waveform).to(device)
-        # noisy_waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(noisy_waveform).to(device)
-
-        # Transform waveform to STFT
-        clean_waveform = clean_waveform.to(device)
-        noisy_waveform = noisy_waveform.to(device)
-
-        clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
-        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
-
-        clean_stft = torch.stack([clean_stft.real, clean_stft.imag], dim=1)
-        noisy_stft = torch.stack([noisy_stft.real, noisy_stft.imag], dim=1)
-        
-        output_real, _ = model(clean_stft)
-        output_fake, _ = model(noisy_stft)
-
-        # Transform the output to waveform
-        real_clean_waveform = stft_to_waveform(output_real, device=device)
-        fake_clean_waveform = stft_to_waveform(output_fake, device=device)
-
-        # Compute SI-SNR
-        sisnr = ScaleInvariantSignalNoiseRatio().to(device)
-        snr = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
-        print(f"SNR: {snr}")
-
-        snr_scores.append(snr)
-
-        # Clean up
-        del clean_waveform, noisy_waveform, clean_stft, noisy_stft, output_real, output_fake, real_clean_waveform, fake_clean_waveform
-
-        # Clear cache
-        torch.cuda.empty_cache()
-
-    return snr_scores
-
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, use_pesq=True):
-
-    if real_clean_waveform.size() == (1, 32000):
-        real_clean_waveform = real_clean_waveform.squeeze(0)
-    if fake_clean_waveform.size() == (1, 32000):
-        fake_clean_waveform = fake_clean_waveform.squeeze(0)
-
-    ## SI-SNR
-    sisnr = ScaleInvariantSignalNoiseRatio().to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-    sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
-
-    # if use_pesq:
-    #     from pesq import pesq
-    #     ## PESQ Normal
-    #     pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
-
-    #     ## PESQ Torch
-    #     pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-    #     pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
-
-    return sisnr_score.item()
-
-def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path, use_pesq=True):
-    all_rows = []
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    generator = generator.to(device)
-
-    with open(f'scores{model_path}.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
-
-        for i in tqdm(range(len(clean_files))):
-            clean_wav, sr = torchaudio.load(os.path.join(test_clean_path, clean_files[i]))
-            noisy_wav, _ = torchaudio.load(os.path.join(test_noisy_path, noisy_files[i]))
-
-            # Resample to 16kHz
-            clean_wav = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(clean_wav).to(device)
-            noisy_wav = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(noisy_wav).to(device)
-
-            # Compute the STFT of the audio
-            clean_stft = torch.stft(clean_wav, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
-            noisy_stft = torch.stft(noisy_wav, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device), return_complex=True)
-
-            # Stack the real and imaginary parts of the STFT
-            clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
-            noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
-
-            fake_clean_stft, _ = generator(noisy_stft)
-
-            real_clean_waveform = stft_to_waveform(clean_stft, device=device).detach()
-            fake_clean_waveform = stft_to_waveform(fake_clean_stft, device=device).detach()
-
-            sisnr_score = compute_scores(
-                                                real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform = 1, use_pesq=use_pesq)
-
-            all_rows.append([sisnr_score])
-        
-        ## Means
-        writer.writerow(["Mean scores"])
-        writer.writerow(np.mean(all_rows, axis=0))
-
-        ## Standard errors of the means
-        writer.writerow(["SE of the means" ])
-        se_values = np.std(all_rows, axis=0) / np.sqrt(len(all_rows))
-        writer.writerow(se_values)
-        
-        ## All scores
-        writer.writerow(["All Scores"])
-        for row in all_rows:
-            writer.writerow(row)
-
-if __name__ == '__main__':
-    model_names = ['10p.ckpt']#, '20_cpkt', '30_cpkt', '40_cpkt', '50_cpkt', '60_cpkt', '70_cpkt', '80_cpkt', '90_cpkt', '100_cpkt']
-
-    clean_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/clean_raw/')))
-    noisy_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/noisy_raw/')))
-    test_clean_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/test_clean_raw/')))
-    test_noisy_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/test_noisy_raw/')))
-
-    train_snr = []
-    test_snr = []
-
-    # Loop through all models
-    for model_name in model_names:
-        cpkt_path = os.path.join('models', model_name)
-        cpkt_path = os.path.join(os.getcwd(), cpkt_path)
-        model = Autoencoder.load_from_checkpoint(cpkt_path).generator
-        
-        SNR_train = generator_scores(model, os.path.join(os.getcwd(), 'data/clean_raw/'), os.path.join(os.getcwd(), 'data/noisy_raw/'), clean_files, noisy_files, model_name + "_train", use_pesq=True)
-        SNR_test = generator_scores(model, os.path.join(os.getcwd(), 'data/test_clean_raw/'), os.path.join(os.getcwd(), 'data/test_noisy_raw/'), test_clean_files, test_noisy_files, model_name + "_test", use_pesq=True)
-
-
+plt.show()
 
 
 

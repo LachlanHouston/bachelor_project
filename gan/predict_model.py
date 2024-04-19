@@ -18,8 +18,8 @@ torch.set_grad_enabled(False)
 
 test_clean_dir = 'data/test_clean_raw/'
 test_noisy_dir = 'data/test_noisy_raw/'
-model_path = "models/standardmodel.ckpt"
-fraction = 0.01
+model_path = "models/learning_curve/90p.ckpt"
+fraction = 1.
 use_pesq = False
 
 
