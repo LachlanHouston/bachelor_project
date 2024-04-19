@@ -14,6 +14,7 @@ from tqdm import tqdm
 import csv
 import random
 import numpy as np
+from tqdm import tqdm
 torch.set_grad_enabled(False)
 
 test_clean_dir = 'data/test_clean_raw/'
@@ -32,33 +33,35 @@ def data_load():
     return data_loader
 
 def model_load(model_path):
-    model = Autoencoder.load_from_checkpoint(model_path)
-    generator = model.generator
-    discriminator = model.discriminator
-    return generator, discriminator
+    autoencoder = Autoencoder.load_from_checkpoint(model_path)
+    generator = autoencoder.generator
+    discriminator = autoencoder.discriminator
+    return autoencoder, generator, discriminator
 
 def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
-    _, model = model_load(model_path)
+    _, _, model = model_load(model_path)
 
     model.to(device)
     model.eval()
-    
-    # Feed the data to the discriminator (first clean, then noisy)
-    for i, batch in enumerate(data_loader):
-        real_clean = batch[0].squeeze(1).to(device)
-        real_noisy = batch[1].squeeze(1).to(device)
-        D_clean = model(real_clean)
-        D_noisy = model(real_noisy)
-        print(f"Real clean: {D_clean}")
-        print(f"Real noisy: {D_noisy}")
-        if i == 10:
-            break
-        
-def generator_scores(model_path):
+
+    with open('discriminator_scores.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["D_Real", "D_Fake"])
+        for batch in tqdm(data_loader):
+            real_clean = batch[0].squeeze(1).to(device)
+            real_noisy = batch[1].squeeze(1).to(device)
+            D_clean = model(real_clean)
+            D_noisy = model(real_noisy)
+            writer.writerow([D_clean.item(), D_noisy.item()])
+
+def generator_scores(model_path, device='cuda'):
     data_loader = data_load()
-    model, _ = model_load(model_path)
+    model, _, _ = model_load(model_path)
+
+    model.to(device)
     model.eval()
+
     trainer = Trainer(accelerator='gpu' if torch.cuda.is_available() else 'cpu',
                       check_val_every_n_epoch=1,
                       deterministic=True)
@@ -110,5 +113,6 @@ def generator_scores(model_path):
 
 
 if __name__ == '__main__':
-    #generator_scores(model_path)
+    #generator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
     discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
+    print("Done")
