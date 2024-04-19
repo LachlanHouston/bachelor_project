@@ -91,7 +91,7 @@ def main(cfg):
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         supervised_fidelity =   cfg.hyperparameters.supervised_fidelity,
                         val_fraction =          cfg.hyperparameters.val_fraction,
-                        dataset =               cfg.hyperparameters.dataset
+                        dataset =               cfg.hyperparameters.dataset,
                         )
     
     # define saving of checkpoints

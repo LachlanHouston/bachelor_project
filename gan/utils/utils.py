@@ -22,15 +22,15 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     sisnr = ScaleInvariantSignalNoiseRatio()
     sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
 
-    # if use_pesq:
-    #     from pesq import pesq
-    #     ## PESQ Normal
-    #     pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+    if use_pesq:
+        from pesq import pesq
+        ## PESQ Normal
+        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
 
-    #     ## PESQ Torch
-          # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-    #     pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-    #     pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+        ## PESQ Torch
+        from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+        pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
 
     return sisnr_score.item()
 
