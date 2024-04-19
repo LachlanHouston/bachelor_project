@@ -19,7 +19,7 @@ torch.set_grad_enabled(False)
 test_clean_dir = 'data/test_clean_raw/'
 test_noisy_dir = 'data/test_noisy_raw/'
 model_path = "models/standardmodel.ckpt"
-fraction = 1.
+fraction = 0.01
 use_pesq = False
 
 
@@ -57,7 +57,7 @@ def main(model_path):
     real_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in real_clean]
     fake_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in fake_clean]
 
-    clean_reference_filenames = os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/'))
+    clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/')) if file.endswith('.wav')]
     all_rows = []
     csv_name = model_path.split('/')[-1][:-5]
     with open(f'scores_{csv_name}.csv', 'w', newline='') as file:
