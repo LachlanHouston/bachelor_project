@@ -23,26 +23,41 @@ fraction = 1.
 use_pesq = False
 
 
-def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_files, noisy_files, model_path):
-    all_rows = []
-    with open(f'discriminator_scores{model_path}.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Real", "Fake"])
-        for i in tqdm(range(10)):
-            clean_stft = torch.load(os.path.join(test_clean_path, clean_files[i])).requires_grad_(False)
-            noisy_stft = torch.load(os.path.join(test_noisy_path, noisy_files[i])).requires_grad_(False)
-            real_output = discriminator(clean_stft).mean()
-            fake_output = discriminator(noisy_stft).mean()
-            all_rows.append([real_output.item(), fake_output.item()])
-        for row in all_rows:
-            writer.writerow(row)
 
-        
-def main(model_path):
-    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False, fraction=fraction)
-    data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=20 if torch.cuda.is_available() else 1, 
+def data_load():
+    val_dataset = AudioDataset(clean_path='data/test_clean_raw/', noisy_path='data/test_noisy_raw/', is_train=False, authentic=False, fraction=1.)
+    data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=8 if torch.cuda.is_available() else 1, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
+    
+    return data_loader
+
+def model_load(model_path):
     model = Autoencoder.load_from_checkpoint(model_path)
+    generator = model.generator
+    discriminator = model.discriminator
+    return generator, discriminator
+
+def discriminator_scores(model_path, device='cuda'):
+    data_loader = data_load()
+    _, model = model_load(model_path)
+
+    model.to(device)
+    model.eval()
+    
+    # Feed the data to the discriminator (first clean, then noisy)
+    for i, batch in enumerate(data_loader):
+        real_clean = batch[0].squeeze(1).to(device)
+        real_noisy = batch[1].squeeze(1).to(device)
+        D_clean = model(real_clean)
+        D_noisy = model(real_noisy)
+        print(f"Real clean: {D_clean}")
+        print(f"Real noisy: {D_noisy}")
+        if i == 10:
+            break
+        
+def generator_scores(model_path):
+    data_loader = data_load()
+    model, _ = model_load(model_path)
     model.eval()
     trainer = Trainer(accelerator='gpu' if torch.cuda.is_available() else 'cpu',
                       check_val_every_n_epoch=1,
@@ -95,4 +110,5 @@ def main(model_path):
 
 
 if __name__ == '__main__':
-    main(model_path)
+    #generator_scores(model_path)
+    discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
