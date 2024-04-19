@@ -19,6 +19,7 @@ torch.set_grad_enabled(False)
 test_clean_dir = 'data/test_clean_raw/'
 test_noisy_dir = 'data/test_noisy_raw/'
 model_path = "models/standardmodel.ckpt"
+fraction = 1.
 use_pesq = False
 
 
@@ -38,7 +39,7 @@ def discriminator_scores(discriminator, test_clean_path, test_noisy_path, clean_
 
         
 def main(model_path):
-    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False)
+    val_dataset = AudioDataset(clean_path=test_clean_dir, noisy_path=test_noisy_dir, is_train=False, authentic=False, fraction=fraction)
     data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=20 if torch.cuda.is_available() else 1, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
     model = Autoencoder.load_from_checkpoint(model_path)
@@ -52,6 +53,9 @@ def main(model_path):
     real_clean = [p[:][0][:][:][:][:] for p in predictions]
     # extract fake_clean and remove mask
     fake_clean = [p[:][1][0][:][:][:][:] for p in predictions] 
+
+    real_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in real_clean]
+    fake_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in fake_clean]
 
     clean_reference_filenames = os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/'))
     all_rows = []
@@ -68,7 +72,7 @@ def main(model_path):
             # sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(...)
             dnsmos_score = mos_squim_score = estoi_score = pesq_normal_score = pesq_torch_score = stoi_pred = pesq_pred = si_sdr_pred = 0
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
-    
+
         ## Means
         writer.writerow(["Mean scores"])
         writer.writerow(np.mean(all_rows, axis=0))
