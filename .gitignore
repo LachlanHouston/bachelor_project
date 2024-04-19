@@ -202,5 +202,4 @@ models/wav2vec2.ckpt
 /FrederikTests
 models/epoch=279_Date_03-12_15-47-14.ckpt
 discriminator_weights.csv
-*.csv
 gan/models/autoencoder fidus.py

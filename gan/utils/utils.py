@@ -3,14 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
-from speechmos import dnsmos
 
 
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, use_pesq=True):
-
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform,
+                   use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
+                   use_pesq=True, use_pred=True):
+    
     if real_clean_waveform.numpy().shape == (1, 32000):
         real_clean_waveform = real_clean_waveform.squeeze(0)
     if fake_clean_waveform.numpy().shape == (1, 32000):
@@ -18,21 +16,60 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     if len(non_matching_reference_waveform.numpy().shape) == 1:
         non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
 
+    sisnr_score = 0
+    dnsmos_score = 0
+    mos_squim_score = 0
+    estoi_score = 0
+    pesq_normal_score = 0
+    pesq_torch_score = 0
+    stoi_pred = 0
+    pesq_pred = 0
+    si_sdr_pred = 0
+
     ## SI-SNR
-    sisnr = ScaleInvariantSignalNoiseRatio()
-    sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+    if use_sisnr:
+        from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+        sisnr = ScaleInvariantSignalNoiseRatio()
+        sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform).item()
 
-    # if use_pesq:
-    #     from pesq import pesq
-    #     ## PESQ Normal
-    #     pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+    ## DNSMOS
+    if use_dnsmos:
+        from speechmos import dnsmos
+        dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
 
-    #     ## PESQ Torch
-          # from torchmetrics.audio import PerceptualEvaluationSpeechQuality
-    #     pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-    #     pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+    ## MOS Squim
+    if use_mos_squim:
+        from torchaudio.pipelines import SQUIM_SUBJECTIVE
+        subjective_model = SQUIM_SUBJECTIVE.get_model()
+        mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform).item()
 
-    return sisnr_score.item()
+    ## eSTOI
+    if use_estoi:
+        from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+        estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
+        estoi_score = estoi(preds=fake_clean_waveform, target=real_clean_waveform).item()
+
+    if use_pesq:
+        from torchmetrics.audio import PerceptualEvaluationSpeechQuality
+        from pesq import pesq
+        ## PESQ Normal
+        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        ## PESQ Torch
+        pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()
+
+    ## Predicted objective metrics: STOI, PESQ, and SI-SDR
+    if use_pred:
+        from torchaudio.pipelines import SQUIM_OBJECTIVE
+        objective_model = SQUIM_OBJECTIVE.get_model()
+        stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveform.unsqueeze(0))
+        stoi_pred = stoi_pred.item()
+        pesq_pred = pesq_pred.item()
+        si_sdr_pred = si_sdr_pred.item()
+
+    return (sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, 
+            pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred)
+
 
 def perfect_shuffle(tensor):
     # Ensure the tensor is at least 2D

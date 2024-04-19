@@ -173,7 +173,7 @@ def generator_scores(generator, test_clean_path, test_noisy_path, clean_files, n
             writer.writerow(row)
 
 if __name__ == '__main__':
-    model_names = ['20p.ckpt', '30p.ckpt', '40p.ckpt', '50p.ckpt', '60p.ckpt', '70p.ckpt', '80p.ckpt', '90p.ckpt']
+    model_names = ['10p.ckpt']#, '20_cpkt', '30_cpkt', '40_cpkt', '50_cpkt', '60_cpkt', '70_cpkt', '80_cpkt', '90_cpkt', '100_cpkt']
 
     clean_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/clean_raw/')))
     noisy_files = sorted(os.listdir(os.path.join(os.getcwd(), 'data/noisy_raw/')))
