@@ -103,16 +103,16 @@ class pl_Discriminator(L.LightningModule):
         D_clean = self.discriminator(real_clean)
         D_noisy = self.discriminator(real_noisy)
 
-        self.log('D_Real', D_clean.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_Fake', D_noisy.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Real', D_clean.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('D_Fake', D_noisy.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Compute the discriminator loss
         D_loss, penalty, adv_loss = self._get_discriminator_loss(real_clean, real_noisy, D_clean, D_noisy)
 
         # Log the discriminator loss
-        self.log('D_Loss', D_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('Penalty', penalty, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log('Adv_Loss', adv_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('D_Loss', D_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('Penalty', penalty, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('Adv_Loss', adv_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         return D_loss
 
@@ -124,16 +124,16 @@ class pl_Discriminator(L.LightningModule):
         D_clean = self.discriminator(real_clean)
         D_noisy = self.discriminator(real_noisy)
 
-        self.log('D_Real_val', D_clean.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('D_Fake_val', D_noisy.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Real_val', D_clean.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('D_Fake_val', D_noisy.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Compute the discriminator loss
         D_loss, penalty, adv_loss = self._get_discriminator_loss(real_clean, real_noisy, D_clean, D_noisy)
 
         # Log the discriminator loss
-        self.log('D_Loss_val', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Penalty_val', penalty, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('Adv_Loss_val', adv_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Loss_val', D_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('Penalty_val', penalty, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('Adv_Loss_val', adv_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 if __name__ == '__main__':
     # Print Device
