@@ -130,12 +130,9 @@ speechmos==0.0.1.1
 sqltrie==0.11.0
 sympy==1.12
 tabulate==0.9.0
-tensorboard==2.12.0
-tensorboard-data-server==0.7.2
-tensorboard-plugin-wit==1.8.1
 tomlkit==0.12.3
-torch==2.0.0
-torchaudio==2.0.1
+torch==2.2.2
+torchaudio==2.2.2
 torchmetrics==1.2.1
 tqdm==4.66.1
 typer==0.9.0
@@ -145,7 +142,7 @@ uritemplate==4.1.1
 urllib3==2.2.0
 vine==5.1.0
 virtualenv==20.25.0
-wandb==0.16.1
+wandb
 wheel==0.41.2
 wcwidth==0.2.13
 Werkzeug==3.0.1
