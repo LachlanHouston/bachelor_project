@@ -14,20 +14,22 @@ from tqdm import tqdm
 import csv
 import random
 import numpy as np
-from tqdm import tqdm
 torch.set_grad_enabled(False)
+PYTORCH_ENABLE_MPS_FALLBACK=1
 
-test_clean_dir = 'data/test_clean_raw/'
-test_noisy_dir = 'data/test_noisy_raw/'
-model_path = "models/learning_curve/90p.ckpt"
+clean_path = 'data/clean_raw/'
+noisy_path = 'data/noisy_raw/'
+model_paths = [f"models/learning_curve/{pct}p.ckpt" for pct in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]]
+is_train = True
 fraction = 1.
-use_pesq = False
+device = torch.device('mps')
+
 
 
 
 def data_load():
-    val_dataset = AudioDataset(clean_path='data/test_clean_raw/', noisy_path='data/test_noisy_raw/', is_train=False, authentic=False, fraction=1.)
-    data_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=8 if torch.cuda.is_available() else 1, 
+    dataset = AudioDataset(clean_path=clean_path, noisy_path=noisy_path, is_train=False, authentic=False, fraction=fraction)
+    data_loader = DataLoader(dataset, batch_size=1, shuffle=is_train, num_workers=1 if torch.device == 'cpu' else 8, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
     
     return data_loader
@@ -55,14 +57,14 @@ def discriminator_scores(model_path, device='cuda'):
             D_noisy = model(real_noisy)
             writer.writerow([D_clean.item(), D_noisy.item()])
 
-def generator_scores(model_path, device='cuda'):
+def generator_scores(model_path):
     data_loader = data_load()
     model, _, _ = model_load(model_path)
 
     model.to(device)
     model.eval()
 
-    trainer = Trainer(accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+    trainer = Trainer(accelerator='gpu' if device != torch.device('cpu') else 'cpu',
                       check_val_every_n_epoch=1,
                       deterministic=True)
     predictions = trainer.predict(model, data_loader)
@@ -70,10 +72,10 @@ def generator_scores(model_path, device='cuda'):
     # extract real_clean
     real_clean = [p[:][0][:][:][:][:] for p in predictions]
     # extract fake_clean and remove mask
-    fake_clean = [p[:][1][0][:][:][:][:] for p in predictions] 
+    fake_clean = [p[:][1][0][:][:][:][:] for p in predictions]
 
-    real_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in real_clean]
-    fake_clean = [stft_to_waveform(stft, device = torch.device('cpu')) for stft in fake_clean]
+    real_clean = [stft_to_waveform(stft, device = device) for stft in real_clean]
+    fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
 
     clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/')) if file.endswith('.wav')]
     all_rows = []
@@ -81,20 +83,19 @@ def generator_scores(model_path, device='cuda'):
     with open(f'scores_{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
-        for i in range(len(fake_clean)):
+        for i in tqdm(range(len(fake_clean))):
 
             reference_index = random.choice(range(len(clean_reference_filenames)))
             non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/', clean_reference_filenames[reference_index]))[0]
 
-            sisnr_score = compute_scores(real_clean[i], fake_clean[i], non_matching_reference_waveform, 
-                                         use_sisnr=     False, 
+            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
+                                                                                                real_clean[i], fake_clean[i], non_matching_reference_waveform, 
+                                         use_sisnr=     True, 
                                          use_dnsmos=    False, 
-                                         use_mos_squim= True, 
+                                         use_mos_squim= False, 
                                          use_estoi=     False,
                                          use_pesq=      False, 
                                          use_pred=      False)
-            # sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(...)
-            dnsmos_score = mos_squim_score = estoi_score = pesq_normal_score = pesq_torch_score = stoi_pred = pesq_pred = si_sdr_pred = 0
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
 
         ## Means
@@ -113,6 +114,6 @@ def generator_scores(model_path, device='cuda'):
 
 
 if __name__ == '__main__':
-    #generator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
-    discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
+    generator_scores(model_path)# if torch.cuda.is_available() else 'cpu')
+    # discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
     print("Done")
