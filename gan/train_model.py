@@ -10,6 +10,7 @@ import warnings
 warnings.filterwarnings("ignore")
 # Import data
 from gan import AudioDataModule, DummyDataModule, MixDataModule
+import optuna
 
 
 # main function using Hydra to organize configuration
@@ -66,7 +67,31 @@ def main(cfg):
     else:
         print("Using a single dataset")
         from gan import Autoencoder
-    model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
+    
+    # define saving of checkpoints
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k = -1,  # save all checkpoints
+        dirpath="models/",  # path where checkpoints will be saved
+        filename="{epoch}",  # the name of the checkpoint files
+        every_n_epochs=5,  # how often to save a model checkpoint
+    )
+
+    # define Weights and Biases logger
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        name=cfg.wandb.name,
+        entity=cfg.wandb.entity, 
+    )
+
+    def objective(trial):
+        trial_ap = trial.suggest_float("alpha_penalty", 5, 15)
+        trial_af = trial.suggest_float("alpha_fidelity", 5, 15)
+        trial_G_lr = trial.suggest_loguniform("g_learning_rate", 1e-6, 1e-3)
+        trial_D_lr = trial.suggest_loguniform("d_learning_rate", 1e-6, 1e-3)
+        trial_n_critic = trial.suggest_int("n_critic", 2, 20)
+
+
+        model = Autoencoder(alpha_penalty =     cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
                         n_critic =              cfg.hyperparameters.n_critic,
@@ -93,49 +118,37 @@ def main(cfg):
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset
                         )
-    
-    # define saving of checkpoints
-    checkpoint_callback = ModelCheckpoint(
-        save_top_k = -1,  # save all checkpoints
-        dirpath="models/",  # path where checkpoints will be saved
-        filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=5,  # how often to save a model checkpoint
-    )
+        
+        print(f'alpha_penalty: {trial_ap}, alpha_fidelity: {trial_af}')
+        print(f'g_learning_rate: {trial_G_lr}, d_learning_rate: {trial_D_lr}, n_critic: {trial_n_critic}')
 
-    # define Weights and Biases logger
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity, 
-    )
-
-    # log gradients and model topology
-    wandb_logger.watch(model, log='all', log_freq=1)
-
-    # define the trainer 
-    trainer = Trainer(
-        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-        devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
-        strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
-        max_epochs=cfg.hyperparameters.max_epochs,
-        check_val_every_n_epoch=1,
-        logger=wandb_logger,
-        callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
-        profiler=cfg.system.profiler if cfg.system.profiler else None,
-        deterministic=True,
-        limit_val_batches=cfg.hyperparameters.val_fraction,
-    )
-    # train the model. Continue training from the last checkpoint if specified in config
-    if cfg.system.continue_training:
-        print("Continuing training from checkpoint")
-        trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
-    else:
+        # log gradients and model topology
+        wandb_logger.watch(model, log='all')
+        
+        trainer = Trainer(
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+            strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
+            max_epochs=cfg.hyperparameters.max_epochs,
+            check_val_every_n_epoch=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+            profiler=cfg.system.profiler if cfg.system.profiler else None,
+            deterministic=True,
+            limit_val_batches=cfg.hyperparameters.val_fraction,
+        )
+        
         print("Starting new training")
         trainer.fit(model, data_module)
-    # save profiling results
-    if cfg.system.profiler:
-        with open("profiling.txt", "w") as file:
-            file.write(trainer.profiler.summary())
+
+        sisnr_score = trainer.callback_metrics['SI-SNR']
+        
+        return sisnr_score.item()
+
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100)
+
+    print(study.best_params)
 
 if __name__ == "__main__":
     main()

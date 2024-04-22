@@ -14,6 +14,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 import torchaudio
 # from pesq import pesq
+import optuna
 
 # define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
@@ -159,7 +160,7 @@ class Autoencoder(L.LightningModule):
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('SI-SNR training', sisnr_score.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.log_all_scores and self.custom_global_step % 50 == 0:
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
@@ -186,13 +187,13 @@ class Autoencoder(L.LightningModule):
             ## Scale Invariant Signal-to-Noise Ratio
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('SI-SNR', sisnr_score.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             # SI-SNR for noisy = 8.753
 
             ## Extended Short Time Objective Intelligibility
             estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
             estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
-            self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('eSTOI', estoi_score.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
@@ -250,32 +251,50 @@ if __name__ == "__main__":
         shuffle=False
     )
 
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), visualize=False,
-                        alpha_penalty=10,
-                        alpha_fidelity=10,
+    def objective(trial):
+        trial_ap = trial.suggest_float("alpha_penalty", 5, 10)
+        trial_af = trial.suggest_float("alpha_fidelity", 5, 10)
+        trial_G_lr = trial.suggest_loguniform("g_learning_rate", 1e-6, 1e-3)
+        trial_D_lr = trial.suggest_loguniform("d_learning_rate", 1e-6, 1e-3)
+        trial_n_critic = trial.suggest_int("n_critic", 2, 10)
 
-                        n_critic=1,
-                        use_bias=True,
-                        
-                        d_learning_rate=1e-4,
-                        d_scheduler_step_size=1000,
-                        d_scheduler_gamma=1,
 
-                        g_learning_rate=1e-4,
-                        g_scheduler_step_size=1000,
-                        g_scheduler_gamma=1,
+        model = Autoencoder(alpha_penalty =         trial_ap,
+                            alpha_fidelity =        trial_af,
 
-                        weight_clip = False,
-                        weight_clip_value=0.5,
+                            n_critic =              10,
+                            use_bias =              True,
+                            
+                            d_learning_rate =       1e-4,
 
-                        logging_freq=5,
-                        batch_size=4,
-                        log_all_scores=True,
-                        L2_reg = False,
-                        val_fraction = 1.)
-    
-    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
-                        logger=False,
-                        fast_dev_run=False)
-    trainer.fit(model, train_loader, val_loader)
+                            g_learning_rate =       1e-4,
+
+                            weight_clip =           False,
+                            weight_clip_value =     0.1,
+
+                            visualize =             False,
+                            logging_freq =          20,
+                            log_all_scores =        False,
+                            batch_size =            4,
+                            L2_reg =                False,
+                            sisnr_loss =            False,
+                            supervised_fidelity =   False,
+                            val_fraction =          1.,
+                            dataset =               "VCTK")
+        
+        print(f'alpha_penalty: {trial_ap}, alpha_fidelity: {trial_af}')
+        
+        trainer = L.Trainer(max_epochs=2, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
+                            log_every_n_steps=1, limit_train_batches=2, limit_val_batches=1,
+                            logger=False,
+                            fast_dev_run=False)
+        trainer.fit(model, train_loader, val_loader)
+
+        sisnr_score = trainer.callback_metrics['SI-SNR']
+        
+        return sisnr_score.item()
+
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=5)
+
+    print(study.best_params)
