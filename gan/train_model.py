@@ -70,7 +70,7 @@ def main(cfg):
     
     # define saving of checkpoints
     checkpoint_callback = ModelCheckpoint(
-        save_top_k = -1,  # save all checkpoints
+        save_top_k = 0,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
         every_n_epochs=5,  # how often to save a model checkpoint
@@ -121,9 +121,6 @@ def main(cfg):
         
         print(f'alpha_penalty: {trial_ap}, alpha_fidelity: {trial_af}')
         print(f'g_learning_rate: {trial_G_lr}, d_learning_rate: {trial_D_lr}, n_critic: {trial_n_critic}')
-
-        # log gradients and model topology
-        wandb_logger.watch(model, log='all')
         
         trainer = Trainer(
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
