@@ -1,14 +1,11 @@
 import torch
 import torchaudio
-from models.generator import Generator
-from models.discriminator import Discriminator
 from models.autoencoder import Autoencoder
-from data.data_loader import AudioDataModule, AudioDataset
+from data.data_loader import AudioDataset, PreMadeDataset
 from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
 from pytorch_lightning import Trainer
 import os
-import hydra
 import numpy as np
 from tqdm import tqdm
 import csv
@@ -17,21 +14,17 @@ import numpy as np
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/clean_raw/'
-noisy_path = 'data/noisy_raw/'
-model_paths = [f"models/learning_curve/{pct}p.ckpt" for pct in [30, 40, 50, 60, 70, 80, 90, 100]]
-is_train = True
+clean_path = 'data/clean_sampled/'
+noisy_path = 'data/noisy_sampled/'
+model_paths = [f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [50]]
 fraction = 1.
 device = torch.device('mps')
 
 
-
-
 def data_load():
-    dataset = AudioDataset(clean_path=clean_path, noisy_path=noisy_path, is_train=False, authentic=False, fraction=fraction)
-    data_loader = DataLoader(dataset, batch_size=1, shuffle=is_train, num_workers=1 if torch.device == 'cpu' else 8, 
+    dataset = PreMadeDataset(clean_path, noisy_path, fraction)
+    data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1 if torch.device == 'cpu' else 8, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
-    
     return data_loader
 
 def model_load(model_path):
@@ -80,7 +73,7 @@ def generator_scores(model_path):
     clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/')) if file.endswith('.wav')]
     all_rows = []
     csv_name = model_path.split('/')[-1][:-5]
-    with open(f'scores_{csv_name}.csv', 'w', newline='') as file:
+    with open(f'MOS_train_{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
         for i in tqdm(range(len(fake_clean))):
@@ -90,9 +83,9 @@ def generator_scores(model_path):
 
             sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
                                                                                                 real_clean[i], fake_clean[i], non_matching_reference_waveform, 
-                                         use_sisnr=     True, 
+                                         use_sisnr=     False, 
                                          use_dnsmos=    False, 
-                                         use_mos_squim= False, 
+                                         use_mos_squim= True, 
                                          use_estoi=     False,
                                          use_pesq=      False, 
                                          use_pred=      False)
@@ -115,6 +108,7 @@ def generator_scores(model_path):
 
 if __name__ == '__main__':
     for model_path in model_paths:
+        print(f"Starting with {model_path}")
         generator_scores(model_path)# if torch.cuda.is_available() else 'cpu')
         print(f"Done with {model_path}")
     # discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')

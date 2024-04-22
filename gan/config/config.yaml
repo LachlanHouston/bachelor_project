@@ -1,12 +1,13 @@
 hyperparameters:
-  batch_size: 16
+  batch_size: 4
   num_workers: 20
   num_gpus: 1
 
   max_epochs: 10000
   dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", "Mix", or "dummy"
-  train_fraction: 1.
-  val_fraction: 1.
+  pretrain_epochs: 5
+  train_fraction: 0.001
+  val_fraction: 0.01
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper

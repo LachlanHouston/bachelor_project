@@ -6,6 +6,30 @@ import pytorch_lightning as L
 import random
 
 
+class PreMadeDataset(Dataset):
+    def __init__(self, clean_path, noisy_path, fraction=1.):
+        self.clean_path = clean_path
+        self.noisy_path = noisy_path
+        num_files = int(fraction * len(os.listdir(clean_path)))
+        self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])[:num_files]
+        self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])[:num_files]
+    
+    def __len__(self):
+        return min(len(self.clean_files), len(self.noisy_files))
+    
+    def __getitem__(self, idx):
+        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]))
+        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]))
+        # Compute the STFT of the audio
+        clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+
+        # Stack the real and imaginary parts of the STFT
+        clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
+        noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
+        return clean_stft, noisy_stft
+    
+
 class AudioDataset(Dataset):
     def __init__(self, clean_path, noisy_path, is_train, fraction=1.0, authentic=False):
         super(AudioDataset, self).__init__()

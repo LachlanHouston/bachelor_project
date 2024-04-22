@@ -58,9 +58,7 @@ def main(cfg):
                                     test_noisy_path_authentic = AudioSet_test_noisy_path,
                                     test_noisy_path_paired = VCTK_test_noisy_path,
                                     batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.hyperparameters.num_workers, fraction = cfg.hyperparameters.train_fraction)
-
-    # define the autoencoder class containing the training setup
-    if cfg.hyperparameters.dataset == "Mix":
+        # define the autoencoder class containing the training setup
         print("Using a mixture of authentic and paired data")
         from gan import AutoencoderMix as Autoencoder
     else:
@@ -125,17 +123,65 @@ def main(cfg):
         deterministic=True,
         limit_val_batches=cfg.hyperparameters.val_fraction,
     )
+    if cfg.hyperparameters.pretrain_epochs>0:
+        # define the trainer 
+        pre_trainer = Trainer(
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+            strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
+            max_epochs=cfg.hyperparameters.pretrain_epochs,
+            check_val_every_n_epoch=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+            profiler=cfg.system.profiler if cfg.system.profiler else None,
+            deterministic=True,
+            limit_val_batches=cfg.hyperparameters.val_fraction,
+        )
+        
+        # define Weights and Biases logger
+        wandb_logger2 = WandbLogger(
+            project=cfg.wandb.project,
+            name=cfg.wandb.name,
+            entity=cfg.wandb.entity, 
+        )
+        post_trainer = Trainer(
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
+            strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
+            max_epochs=cfg.hyperparameters.max_epochs,
+            check_val_every_n_epoch=1,
+            logger=wandb_logger2,
+            callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
+            profiler=cfg.system.profiler if cfg.system.profiler else None,
+            deterministic=True,
+            limit_val_batches=cfg.hyperparameters.val_fraction,
+        )
+
+        data_module_paired = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
+        data_module_authentic = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
+        
+        print(f"Starting pretraining ({cfg.hyperparameters.pretrain_epochs} epochs)")
+        pre_trainer.fit(model, data_module_authentic)
+
+        model_path = os.path.join(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir, "models", f"epoch={cfg.hyperparameters.pretrain_epochs-1}.ckpt")
+
+        print(f"Starting posttraining ({cfg.hyperparameters.max_epochs} epochs)")
+        post_trainer.fit(model, data_module_paired, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), model_path))
+    
     # train the model. Continue training from the last checkpoint if specified in config
-    if cfg.system.continue_training:
+    elif cfg.system.continue_training:
         print("Continuing training from checkpoint")
         trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
+    
     else:
         print("Starting new training")
         trainer.fit(model, data_module)
+
     # save profiling results
     if cfg.system.profiler:
         with open("profiling.txt", "w") as file:
             file.write(trainer.profiler.summary())
+
 
 if __name__ == "__main__":
     main()
