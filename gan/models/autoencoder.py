@@ -25,6 +25,7 @@ class Autoencoder(L.LightningModule):
 
         self.discriminator=Discriminator(use_bias=self.use_bias).to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        self.subjective_model = {"squim_model": SQUIM_SUBJECTIVE.get_model()}
         self.custom_global_step = 0
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
@@ -198,8 +199,8 @@ class Autoencoder(L.LightningModule):
         # Mean Opinion Score (SQUIM)
         if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
             reference_waveforms = perfect_shuffle(real_clean_waveforms)
-            subjective_model = SQUIM_SUBJECTIVE.get_model()
-            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            
+            mos_squim_score = torch.mean(self.subjective_model["squim_model"](fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
         if (self.log_all_scores or self.dataset != "VCTK") and batch_idx % 50 == 0:
