@@ -18,16 +18,16 @@ val_sisnr_80, val_sisnr_se_80 = 16.648266483857793, 0.13842938219873466
 val_sisnr_90, val_sisnr_se_90 = 16.350830761553013, 0.1484269456651788
 val_sisnr_100, val_sisnr_se_100 = 16.107284186710828, 0.13237278740425423
 
-val_squim_mos_10, val_squim_mos_se_10 = 2.5, 0.1
-val_squim_mos_20, val_squim_mos_se_20 = 2.9, 0.1
-val_squim_mos_30, val_squim_mos_se_30 = 3.2, 0.1
-val_squim_mos_40, val_squim_mos_se_40 = 3.6, 0.1
-val_squim_mos_50, val_squim_mos_se_50 = 3.7, 0.1
-val_squim_mos_60, val_squim_mos_se_60 = 2.5, 0.1
-val_squim_mos_70, val_squim_mos_se_70 = 2.9, 0.1
-val_squim_mos_80, val_squim_mos_se_80 = 3.2, 0.1
-val_squim_mos_90, val_squim_mos_se_90 = 3.6, 0.1
-val_squim_mos_100, val_squim_mos_se_100 = 3.7, 0.1
+val_squim_mos_10, val_squim_mos_se_10 = 3.8459095251791684, 0.022879437318376196
+val_squim_mos_20, val_squim_mos_se_20 = 3.971659612597771, 0.02143530861088559
+val_squim_mos_30, val_squim_mos_se_30 = 3.91085997513197, 0.022633777779394293
+val_squim_mos_40, val_squim_mos_se_40 = 3.9448364793675617, 0.021412188796201936
+val_squim_mos_50, val_squim_mos_se_50 = 4.013431800800619, 0.020381643001799708
+val_squim_mos_60, val_squim_mos_se_60 = 3.997125227185129, 0.020627241630852583
+val_squim_mos_70, val_squim_mos_se_70 = 4.004416220685811, 0.020308686152108468
+val_squim_mos_80, val_squim_mos_se_80 = 4.090607931023663, 0.017952077167521528
+val_squim_mos_90, val_squim_mos_se_90 = 3.97871040748161, 0.020787025400390822
+val_squim_mos_100, val_squim_mos_se_100 = 4.046145101774086, 0.018766099495034026
 
 validation_sisnr = [val_sisnr_10, val_sisnr_20, val_sisnr_30, val_sisnr_40, val_sisnr_50, val_sisnr_60, val_sisnr_70, val_sisnr_80, val_sisnr_90, val_sisnr_100]
 validation_sisnr_se = [val_sisnr_se_10, val_sisnr_se_20, val_sisnr_se_30, val_sisnr_se_40, val_sisnr_se_50, val_sisnr_se_60, val_sisnr_se_70, val_sisnr_se_80, val_sisnr_se_90, val_sisnr_se_100]
@@ -36,9 +36,9 @@ validation_squim_mos_se = [val_squim_mos_se_10, val_squim_mos_se_20, val_squim_m
 
 
 # Training
-train_sisnr_10, train_sisnr_se_10 = 17, 1
-train_sisnr_20, train_sisnr_se_20 = 18, 1
-train_sisnr_30, train_sisnr_se_30 = 18, 1
+train_sisnr_10, train_sisnr_se_10 = 11.751247124202413, 0.04897517145027679
+train_sisnr_20, train_sisnr_se_20 = 12.21057095263725, 0.049083701321878566
+train_sisnr_30, train_sisnr_se_30 = 12.043808353015011, 0.04934631147655701
 train_sisnr_40, train_sisnr_se_40 = 18, 1
 train_sisnr_50, train_sisnr_se_50 = 18, 1
 train_sisnr_60, train_sisnr_se_60 = 18, 1
@@ -47,10 +47,10 @@ train_sisnr_80, train_sisnr_se_80 = 18, 1
 train_sisnr_90, train_sisnr_se_90 = 18, 1
 train_sisnr_100, train_sisnr_se_100 = 18, 1
 
-train_squim_mos_10, train_squim_mos_se_10 = 4, 1
-train_squim_mos_20, train_squim_mos_se_20 = 4, 1
-train_squim_mos_30, train_squim_mos_se_30 = 5, 1
-train_squim_mos_40, train_squim_mos_se_40 = 5, 1
+train_squim_mos_10, train_squim_mos_se_10 = 3.44692169766998, 0.007685242973447401
+train_squim_mos_20, train_squim_mos_se_20 = 3.6065924139200836, 0.007327884343945209
+train_squim_mos_30, train_squim_mos_se_30 = 3.5381764278995345, 0.007461553508165439
+train_squim_mos_40, train_squim_mos_se_40 = 3.6469974181168308, 0.0072017856847729185
 train_squim_mos_50, train_squim_mos_se_50 = 5, 1
 train_squim_mos_60, train_squim_mos_se_60 = 4, 1
 train_squim_mos_70, train_squim_mos_se_70 = 4, 1
