@@ -39,24 +39,24 @@ validation_squim_mos_se = [val_squim_mos_se_10, val_squim_mos_se_20, val_squim_m
 train_sisnr_10, train_sisnr_se_10 = 11.751247124202413, 0.04897517145027679
 train_sisnr_20, train_sisnr_se_20 = 12.21057095263725, 0.049083701321878566
 train_sisnr_30, train_sisnr_se_30 = 12.043808353015011, 0.04934631147655701
-train_sisnr_40, train_sisnr_se_40 = 18, 1
-train_sisnr_50, train_sisnr_se_50 = 18, 1
-train_sisnr_60, train_sisnr_se_60 = 18, 1
-train_sisnr_70, train_sisnr_se_70 = 18, 1
-train_sisnr_80, train_sisnr_se_80 = 18, 1
-train_sisnr_90, train_sisnr_se_90 = 18, 1
-train_sisnr_100, train_sisnr_se_100 = 18, 1
+train_sisnr_40, train_sisnr_se_40 = 12.205102008810886, 0.048473134398917726
+train_sisnr_50, train_sisnr_se_50 = 12.24662312886478, 0.048285924858393885
+train_sisnr_60, train_sisnr_se_60 = 12.153604656483393, 0.047595365486127306
+train_sisnr_70, train_sisnr_se_70 = 12.438217402515495, 0.048380003854892356
+train_sisnr_80, train_sisnr_se_80 = 12.519000597700066, 0.04708759275166661
+train_sisnr_90, train_sisnr_se_90 = 12.347745827596533, 0.04796324465811897
+train_sisnr_100, train_sisnr_se_100 = 12.05933319001014, 0.04609703623147264
 
 train_squim_mos_10, train_squim_mos_se_10 = 3.44692169766998, 0.007685242973447401
 train_squim_mos_20, train_squim_mos_se_20 = 3.6065924139200836, 0.007327884343945209
 train_squim_mos_30, train_squim_mos_se_30 = 3.5381764278995345, 0.007461553508165439
 train_squim_mos_40, train_squim_mos_se_40 = 3.6469974181168308, 0.0072017856847729185
-train_squim_mos_50, train_squim_mos_se_50 = 5, 1
-train_squim_mos_60, train_squim_mos_se_60 = 4, 1
-train_squim_mos_70, train_squim_mos_se_70 = 4, 1
-train_squim_mos_80, train_squim_mos_se_80 = 5, 1
-train_squim_mos_90, train_squim_mos_se_90 = 5, 1
-train_squim_mos_100, train_squim_mos_se_100 = 5, 1
+train_squim_mos_50, train_squim_mos_se_50 = 3.6810038726592698, 0.007138933526150617
+train_squim_mos_60, train_squim_mos_se_60 = 3.6593500163536192, 0.007253502529366114
+train_squim_mos_70, train_squim_mos_se_70 = 3.6811951151200737, 0.007143417199912405
+train_squim_mos_80, train_squim_mos_se_80 = 3.7932277275664643, 0.006721966464551902
+train_squim_mos_90, train_squim_mos_se_90 = 3.7057521190974607, 0.007060354797931947
+train_squim_mos_100, train_squim_mos_se_100 = 3.7749090338923548, 0.006743689625758027
 
 
 training_sisnr = [train_sisnr_10, train_sisnr_20, train_sisnr_30, train_sisnr_40, train_sisnr_50, train_sisnr_60, train_sisnr_70, train_sisnr_80, train_sisnr_90, train_sisnr_100]
@@ -103,6 +103,7 @@ axs[1].set_ylabel('Squim MOS')
 axs[1].set_xticks(fractions_of_data)
 axs[1].legend()
 
+plt.savefig('learning_curves.png', dpi=300)
 plt.show()
 
 

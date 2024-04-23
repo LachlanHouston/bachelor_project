@@ -110,7 +110,7 @@ class Autoencoder(L.LightningModule):
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)#, betas = (0., 0.9))
         return [g_opt, d_opt], []
     
-    def training_step(self, batch, batch_idx, *args):
+    def training_step(self, batch, batch_idx):
 
         g_opt, d_opt = self.optimizers()
 
@@ -177,7 +177,7 @@ class Autoencoder(L.LightningModule):
         
         self.custom_global_step += 1
 
-    def validation_step(self, batch, batch_idx, *args):
+    def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     

@@ -16,7 +16,7 @@ PYTORCH_ENABLE_MPS_FALLBACK=1
 
 clean_path = 'data/clean_sampled/'
 noisy_path = 'data/noisy_sampled/'
-model_paths = [f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [50]]
+model_paths = [f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
 fraction = 1.
 device = torch.device('mps')
 
