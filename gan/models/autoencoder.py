@@ -4,6 +4,7 @@ from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
 import pytorch_lightning as L
 import torch
+from torch.optim.swa_utils import AveragedModel, SWALR
 import numpy as np
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 from torchmetrics.audio import ShortTimeObjectiveIntelligibility
@@ -21,12 +22,13 @@ class Autoencoder(L.LightningModule):
         super().__init__()
         for key, value in kwargs.items():
             setattr(self, key, value)
-
+        
         self.discriminator=Discriminator(use_bias=self.use_bias).to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        if (self.swa_start_epoch_g is not False):
+            self.swa_generator = AveragedModel(self.generator)
         self.custom_global_step = 0
-        # save hyperparameters to Weights and Biases
-        self.save_hyperparameters(kwargs)
+        self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
         self.automatic_optimization = False
         self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
@@ -130,6 +132,10 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
             g_opt.zero_grad()
             self.untoggle_optimizer(g_opt)
+            
+            # Update SWA weights after certain steps
+            if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
+                self.swa_generator.update_parameters(self.generator)
 
         self.toggle_optimizer(d_opt)
         fake_clean_no_grad = self.generator(real_noisy)[0].detach()
@@ -182,7 +188,10 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].squeeze(1)
         real_noisy = batch[1].squeeze(1)     
 
-        fake_clean, mask = self.generator(real_noisy)
+        if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
+            fake_clean, mask = self.swa_generator(real_noisy)
+        else:
+            fake_clean, mask = self.generator(real_noisy)
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
