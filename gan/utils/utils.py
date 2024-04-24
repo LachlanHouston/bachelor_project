@@ -36,7 +36,10 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
     ## DNSMOS
     if use_dnsmos:
         from speechmos import dnsmos
-        dnsmos_score = dnsmos.run(fake_clean_waveform.numpy(), 16000)['ovrl_mos']
+        fake_clean = fake_clean_waveform.numpy()
+        if np.max(abs(fake_clean)) > 1:
+            fake_clean = fake_clean / np.max(abs(fake_clean))
+        dnsmos_score = dnsmos.run(fake_clean, 16000)['ovrl_mos']
 
     ## MOS Squim
     if use_mos_squim:

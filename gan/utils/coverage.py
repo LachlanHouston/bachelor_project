@@ -21,7 +21,7 @@ def compute_coverage(real_clean, fake_clean):
     for real_waveform in real_clean:
         dist, index = fake_tree.query(real_waveform)
         if isinstance(index, np.ndarray):
-            index = index.item()  # or index[0] if index is always an array with one element
+            index = index.item()
         nearest_fake_indices.add(index)
 
     # Compute the coverage score
