@@ -29,7 +29,7 @@ class Autoencoder(L.LightningModule):
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
         self.automatic_optimization = False
-        self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
+        # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
@@ -119,6 +119,7 @@ class Autoencoder(L.LightningModule):
 
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
+        
 
         if (self.swa_start_epoch_g is not False) and self.current_epoch == self.swa_start_epoch_g and batch_idx == 0:
             self.swa_generator = AveragedModel(self.generator)
@@ -203,8 +204,8 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        real_clean = batch[0]
-        real_noisy = batch[1]     
+        real_clean = batch[0].to(self.device)
+        real_noisy = batch[1].to(self.device)     
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
