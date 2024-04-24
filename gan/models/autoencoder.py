@@ -14,6 +14,7 @@ torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 import torchaudio
+import os
 # from pesq import pesq
 
 # define the Autoencoder class containing the training setup
@@ -191,7 +192,14 @@ class Autoencoder(L.LightningModule):
             # Update Batch Normalization statistics for the swa_generator
             torch.optim.swa_utils.update_bn(self.trainer.train_dataloader, self.swa_generator)
             # Now the swa_generator is ready to be used for validation
-
+          
+            # Save SWA generator checkpoint every 5 epochs
+            if (self.current_epoch+1) % 5 == 0:
+                # Create the directory if it doesn't exist
+                if not os.path.exists('models'):
+                    os.makedirs('models')
+                # Save the SWA generator checkpoint
+                torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
