@@ -14,11 +14,22 @@ import numpy as np
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/AudioSet/test_raw'
-noisy_path = 'data/AudioSet/test_raw'
+clean_path = 'data/test_clean_sampled'
+noisy_path = 'data/test_noisy_sampled'
+# use fake clean path if you want to use pre-generated samples or untouched noisy samples (no model)
+fake_clean_path = 'data/test_noisy_sampled'
 model_paths = [False] #[f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
 fraction = 1.
 device = torch.device('mps')
+
+### Metrics ###
+use_sisnr=     True
+use_dnsmos=    False
+use_mos_squim= False
+use_estoi=     False
+use_pesq=      False
+use_pred=      False
+###############
 
 
 def data_load():
@@ -72,35 +83,38 @@ def generator_scores(model_path):
         fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
 
     else:
-        fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled')) if file.endswith('.wav')]
-        fake_clean = [torchaudio.load(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled/', file))[0] for file in fake_clean_filenames]
-        real_clean = fake_clean
+        fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), fake_clean_path)) if file.endswith('.wav')]
+        fake_clean = [torchaudio.load(os.path.join(os.getcwd(), fake_clean_path, file))[0] for file in fake_clean_filenames]
+        real_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), clean_path)) if file.endswith('.wav')]
+        real_clean = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in real_clean_filenames]
 
-
-    clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/test_clean_sampled/')) if file.endswith('.wav')]
+    if use_mos_squim:
+        clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/test_clean_sampled/')) if file.endswith('.wav')]
     all_rows = []
     csv_name = model_path.split('/')[-1][:-5] if model_path else 'no_model'
-    with open(f'Scores_AudioSet_{csv_name}.csv', 'w', newline='') as file:
+    with open(f'sisnr_test_{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
         for i in tqdm(range(len(fake_clean))):
 
-            reference_index = random.choice(range(len(clean_reference_filenames)))
-            non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/test_clean_sampled/', clean_reference_filenames[reference_index]))[0]
-
+            if use_mos_squim:
+                reference_index = random.choice(range(len(clean_reference_filenames)))
+                non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/test_clean_sampled/', clean_reference_filenames[reference_index]))[0]
+            else: 
+                non_matching_reference_waveform = None
             sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
                                                                                                 real_clean[i], fake_clean[i], non_matching_reference_waveform, 
-                                         use_sisnr=     False, 
-                                         use_dnsmos=    True, 
-                                         use_mos_squim= True, 
-                                         use_estoi=     False,
-                                         use_pesq=      False, 
-                                         use_pred=      True)
+                                         use_sisnr=     use_sisnr, 
+                                         use_dnsmos=    use_dnsmos, 
+                                         use_mos_squim= use_mos_squim, 
+                                         use_estoi=     use_estoi,
+                                         use_pesq=      use_pesq, 
+                                         use_pred=      use_pred)
             
-            if not stoi_pred > 0:
-                print("pred is NaN. Skipping...")
-                print('{stoi_pred}')
-                continue
+            # if not stoi_pred > 0:
+            #     print("pred is NaN. Skipping...")
+            #     print('{stoi_pred}')
+            #     continue
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
 
         ## Means

@@ -14,8 +14,6 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         real_clean_waveform = real_clean_waveform.squeeze(0)
     if fake_clean_waveform.numpy().shape == (1, 32000):
         fake_clean_waveform = fake_clean_waveform.squeeze(0)
-    if len(non_matching_reference_waveform.numpy().shape) == 1:
-        non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
 
     sisnr_score = 0
     dnsmos_score = 0
@@ -43,6 +41,8 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
 
     ## MOS Squim
     if use_mos_squim:
+        if len(non_matching_reference_waveform.numpy().shape) == 1:
+            non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
         from torchaudio.pipelines import SQUIM_SUBJECTIVE
         subjective_model = SQUIM_SUBJECTIVE.get_model()
         mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform).item()
