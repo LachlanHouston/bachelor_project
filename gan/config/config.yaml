@@ -1,5 +1,5 @@
 hyperparameters:
-  batch_size: 4
+  batch_size: 16
   num_workers: 20
   num_gpus: 1
 
