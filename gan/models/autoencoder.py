@@ -202,6 +202,13 @@ class Autoencoder(L.LightningModule):
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
+        # Log the norms of the generator and discriminator weights
+        if self.current_epoch % 1 == 0:
+            generator_norm = torch.norm(torch.cat([p.view(-1) for p in self.generator.parameters()]))
+            discriminator_norm = torch.norm(torch.cat([p.view(-1) for p in self.discriminator.parameters()]))
+            self.log('Generator Norm', generator_norm, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('Discriminator Norm', discriminator_norm, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].to(self.device)
@@ -216,7 +223,7 @@ class Autoencoder(L.LightningModule):
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
-        if self.dataset == "VCTK":
+        if self.dataset == "VCTK" or "Speaker":
             ## Scale Invariant Signal-to-Noise Ratio
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)

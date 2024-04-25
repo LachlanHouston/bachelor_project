@@ -355,8 +355,8 @@ class speaker_split_dataset(Dataset):
             self.noisy_files = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
 
         num_files = int(fraction * len(self.clean_files))
-        self.clean_files = self.clean_files[:num_files]
-        self.noisy_files = self.noisy_files[:num_files]
+        self.clean_files = sorted(self.clean_files[:num_files])
+        self.noisy_files = sorted(self.noisy_files[:num_files])
 
     def __len__(self):
         return min(len(self.clean_files), len(self.noisy_files))
@@ -432,8 +432,19 @@ if __name__ == '__main__':
     # Files are names as 'p225_001.wav' where 'p225' is the speaker ID and '001' is the utterance ID
     # Find how many speakers are there in the dataset
     
-    num_speakers = 10
+    num_speakers = 1
     dataset = speaker_split_dataset(num_speakers, VCTK_clean_path, VCTK_noisy_path, fraction=1.)
     print(len(dataset))
     print(dataset[0][0].shape, dataset[0][1].shape)
+
+    data_module = SpeakerDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_clean_path, VCTK_noisy_path, batch_size=16, num_workers=8, fraction=1.0, num_speakers=num_speakers)
+    data_module.setup()
+    train_loader = data_module.train_dataloader()
+    val_loader = data_module.val_dataloader()
+    for batch in train_loader:
+        print(batch[0].shape, batch[1].shape)
+        break
+    for batch in val_loader:
+        print(batch[0].shape, batch[1].shape)
+        break
     
