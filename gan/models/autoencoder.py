@@ -14,6 +14,7 @@ torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 import torchaudio
+import os
 # from pesq import pesq
 
 # define the Autoencoder class containing the training setup
@@ -25,12 +26,10 @@ class Autoencoder(L.LightningModule):
         
         self.discriminator=Discriminator(use_bias=self.use_bias).to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
-        if (self.swa_start_epoch_g is not False):
-            self.swa_generator = AveragedModel(self.generator)
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
         self.automatic_optimization = False
-        self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
+        # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
@@ -118,8 +117,12 @@ class Autoencoder(L.LightningModule):
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
 
-        real_clean = batch[0].squeeze(1).to(self.device)
-        real_noisy = batch[1].squeeze(1).to(self.device)
+        real_clean = batch[0].to(self.device)
+        real_noisy = batch[1].to(self.device)
+        
+
+        if (self.swa_start_epoch_g is not False) and self.current_epoch == self.swa_start_epoch_g and batch_idx == 0:
+            self.swa_generator = AveragedModel(self.generator)
 
         if train_G:
             self.toggle_optimizer(g_opt)
@@ -133,8 +136,8 @@ class Autoencoder(L.LightningModule):
             g_opt.zero_grad()
             self.untoggle_optimizer(g_opt)
             
-            # Update SWA weights after certain steps
-            if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
+            # Update SWA weights
+            if (self.swa_start_epoch_g is not False) and (self.current_epoch >= self.swa_start_epoch_g) and (batch_idx == 0):
                 self.swa_generator.update_parameters(self.generator)
 
         self.toggle_optimizer(d_opt)
@@ -183,11 +186,28 @@ class Autoencoder(L.LightningModule):
         
         self.custom_global_step += 1
 
+
+    def on_train_epoch_end(self):
+        # Check if SWA is being used and if it's past the starting epoch
+        if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
+            # Update Batch Normalization statistics for the swa_generator
+            torch.optim.swa_utils.update_bn(self.trainer.train_dataloader, self.swa_generator)
+            # Now the swa_generator is ready to be used for validation
+          
+            # Save SWA generator checkpoint every 5 epochs
+            if (self.current_epoch+1) % 5 == 0:
+                # Create the directory if it doesn't exist
+                if not os.path.exists('models'):
+                    os.makedirs('models')
+                # Save the SWA generator checkpoint
+                torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
+
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
-        real_clean = batch[0].squeeze(1)
-        real_noisy = batch[1].squeeze(1)     
+        real_clean = batch[0].to(self.device)
+        real_noisy = batch[1].to(self.device)     
 
+        # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
             fake_clean, mask = self.swa_generator(real_noisy)
         else:

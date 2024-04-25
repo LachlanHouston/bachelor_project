@@ -14,16 +14,17 @@ import numpy as np
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/clean_sampled/'
-noisy_path = 'data/noisy_sampled/'
-model_paths = [f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
+clean_path = 'data/AudioSet/test_raw'
+noisy_path = 'data/AudioSet/test_raw'
+model_paths = [False] #[f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
 fraction = 1.
 device = torch.device('mps')
 
 
 def data_load():
-    dataset = PreMadeDataset(clean_path, noisy_path, fraction)
-    data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1 if torch.device == 'cpu' else 8, 
+    # dataset = PreMadeDataset(clean_path, noisy_path, fraction)
+    dataset = AudioDataset(clean_path, noisy_path, is_train=False, fraction=fraction, authentic=True)
+    data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1 if torch.device == 'cpu' else 5, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
     return data_loader
 
@@ -51,44 +52,55 @@ def discriminator_scores(model_path, device='cuda'):
             writer.writerow([D_clean.item(), D_noisy.item()])
 
 def generator_scores(model_path):
-    data_loader = data_load()
-    model, _, _ = model_load(model_path)
+    if model_path:
+        model, _, _ = model_load(model_path)
+        data_loader = data_load()
 
-    model.to(device)
-    model.eval()
+        model.to(device)
+        model.eval()
 
-    trainer = Trainer(accelerator='gpu' if device != torch.device('cpu') else 'cpu',
-                      check_val_every_n_epoch=1,
-                      deterministic=True)
-    predictions = trainer.predict(model, data_loader)
+        trainer = Trainer(accelerator='gpu' if device != torch.device('cpu') else 'cpu',
+                        check_val_every_n_epoch=1,
+                        deterministic=True)
+        predictions = trainer.predict(model, data_loader)
+        # extract real_clean
+        real_clean = [p[:][0][:][:][:][:] for p in predictions]
+        # extract fake_clean and remove mask
+        fake_clean = [p[:][1][0][:][:][:][:] for p in predictions]
+    
+        real_clean = [stft_to_waveform(stft, device = device) for stft in real_clean]
+        fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
 
-    # extract real_clean
-    real_clean = [p[:][0][:][:][:][:] for p in predictions]
-    # extract fake_clean and remove mask
-    fake_clean = [p[:][1][0][:][:][:][:] for p in predictions]
+    else:
+        fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled')) if file.endswith('.wav')]
+        fake_clean = [torchaudio.load(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled/', file))[0] for file in fake_clean_filenames]
+        real_clean = fake_clean
 
-    real_clean = [stft_to_waveform(stft, device = device) for stft in real_clean]
-    fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
 
-    clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/')) if file.endswith('.wav')]
+    clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/test_clean_sampled/')) if file.endswith('.wav')]
     all_rows = []
-    csv_name = model_path.split('/')[-1][:-5]
-    with open(f'MOS_train_{csv_name}.csv', 'w', newline='') as file:
+    csv_name = model_path.split('/')[-1][:-5] if model_path else 'no_model'
+    with open(f'Scores_AudioSet_{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
         for i in tqdm(range(len(fake_clean))):
 
             reference_index = random.choice(range(len(clean_reference_filenames)))
-            non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/wav/test_clean_wav/', clean_reference_filenames[reference_index]))[0]
+            non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/test_clean_sampled/', clean_reference_filenames[reference_index]))[0]
 
             sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
                                                                                                 real_clean[i], fake_clean[i], non_matching_reference_waveform, 
                                          use_sisnr=     False, 
-                                         use_dnsmos=    False, 
+                                         use_dnsmos=    True, 
                                          use_mos_squim= True, 
                                          use_estoi=     False,
                                          use_pesq=      False, 
-                                         use_pred=      False)
+                                         use_pred=      True)
+            
+            if not stoi_pred > 0:
+                print("pred is NaN. Skipping...")
+                print('{stoi_pred}')
+                continue
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
 
         ## Means
