@@ -337,6 +337,7 @@ class speaker_split_dataset(Dataset):
             for file in os.listdir(clean_path):
                 self.speakers.add(file.split('_')[0])
             self.speakers = list(self.speakers)
+            self.speakers = sorted(self.speakers)
             self.speakers = self.speakers[:num_speakers]
             print("Number of speakers:", len(self.speakers))
             print("Speakers:", self.speakers)
@@ -435,15 +436,4 @@ if __name__ == '__main__':
     dataset = speaker_split_dataset(num_speakers, VCTK_clean_path, VCTK_noisy_path, fraction=1.)
     print(len(dataset))
     print(dataset[0][0].shape, dataset[0][1].shape)
-
-    data_module = SpeakerDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_clean_path, VCTK_noisy_path, batch_size=4, num_workers=8, fraction=1., num_speakers=num_speakers)
-    data_module.setup()
-    train_loader = data_module.train_dataloader()
-    val_loader = data_module.val_dataloader()
-    for batch in train_loader:
-        print(batch[0].shape, batch[1].shape)
-        break
-    for batch in val_loader:
-        print(batch[0].shape, batch[1].shape)
-        break
     
