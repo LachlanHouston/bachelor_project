@@ -1,6 +1,6 @@
 hyperparameters:
   batch_size: 4
-  num_workers: 8
+  num_workers: 20
   num_gpus: 1
 
   max_epochs: 10000
@@ -22,10 +22,10 @@ hyperparameters:
   weight_clip: False
   weight_clip_value: 0.01
   dummy_mean_dif: 0
-  d_scheduler_step_size: 1000
-  d_scheduler_gamma: 1
-  g_scheduler_step_size: 1000
-  g_scheduler_gamma: 1
+  d_scheduler_step_size: 1
+  d_scheduler_gamma: 0.1
+  g_scheduler_step_size: 1
+  g_scheduler_gamma: 0.1
 
 system:
   checkpointing: True
