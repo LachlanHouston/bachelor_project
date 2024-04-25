@@ -106,19 +106,6 @@ class Autoencoder(L.LightningModule):
 
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss, None
     
-    
-    def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-
-        self.g_scheduler_step_size = 1
-        self.g_scheduler_gamma = 0.1
-        self.d_scheduler_step_size = 1
-        self.d_scheduler_gamma = 0.1
-        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
-        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
-        return [g_opt, d_opt], [g_lr_scheduler, d_lr_scheduler]
-    
 
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
@@ -208,9 +195,13 @@ class Autoencoder(L.LightningModule):
 
     def on_train_epoch_end(self):
         # Step the learning rate schedulers
+        old_lr = self.optimizers()[0].param_groups[0]['lr']
         self.lr_schedulers()[0].step()
         self.lr_schedulers()[1].step()
-        print('current_lr' ,self.optimizers()[0].param_groups[0]['lr'], self.optimizers()[1].param_groups[0]['lr'])
+        new_lr = self.optimizers()[0].param_groups[0]['lr']
+        if old_lr != new_lr:
+            print('G learning rate:', self.optimizers()[0].param_groups[0]['lr'], 
+                  '\n D learning rate:', self.optimizers()[1].param_groups[0]['lr'])
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
