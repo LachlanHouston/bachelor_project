@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
 # Import data
-from gan import AudioDataModule, DummyDataModule, MixDataModule
+from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule, AudioDataModule_train_split
 
 
 # main function using Hydra to organize configuration
@@ -44,12 +44,20 @@ def main(cfg):
         data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
     if cfg.hyperparameters.dataset == "VCTK":
         data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
+    if cfg.hyperparameters.dataset == "VCTK_split":
+        data_module = AudioDataModule_train_split(VCTK_clean_path, VCTK_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction)
     if cfg.hyperparameters.dataset == "FSD50K":
         # use FSD50K as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
     if cfg.hyperparameters.dataset == "AudioSet":
         # use AudioSet as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
+    if cfg.hyperparameters.dataset == "Speaker":
+        data_module = SpeakerDataModule(clean_path = VCTK_clean_path,
+                                        noisy_path = VCTK_noisy_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.hyperparameters.num_workers, fraction = cfg.hyperparameters.train_fraction, num_speakers=cfg.hyperparameters.num_speakers)      
     if cfg.hyperparameters.dataset == "Mix":
         data_module = MixDataModule(clean_path = VCTK_clean_path,
                                     noisy_path_authentic = AudioSet_noisy_path,
@@ -58,12 +66,15 @@ def main(cfg):
                                     test_noisy_path_authentic = AudioSet_test_noisy_path,
                                     test_noisy_path_paired = VCTK_test_noisy_path,
                                     batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.hyperparameters.num_workers, fraction = cfg.hyperparameters.train_fraction)
+    
         # define the autoencoder class containing the training setup
         print("Using a mixture of authentic and paired data")
         from gan import AutoencoderMix as Autoencoder
     else:
         print("Using a single dataset")
         from gan import Autoencoder
+        
+        
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
