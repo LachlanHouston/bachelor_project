@@ -115,9 +115,7 @@ class AudioDataset(Dataset):
         # Stack the real and imaginary parts of the STFT
         clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
         noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-            return clean_stft.squeeze().to(device), noisy_stft.squeeze().to(device)
+
         return clean_stft.squeeze(), noisy_stft.squeeze() #, self.clean_files[clean_idx], self.noisy_files[idx]
 
 

@@ -11,8 +11,9 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  sisnr_loss: 10    # False or integer alpha value
-  sisnr_loss_half_batch: True
+
+  sisnr_loss: False    # False or integer alpha value
+  sisnr_loss_half_batch: False
   supervised_fidelity: False
   swa_start_epoch_g: False   # False or integer value
 
