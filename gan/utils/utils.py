@@ -6,7 +6,7 @@ import librosa.display
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform,
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, fake_clean_filename, real_clean_filename,
                    use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
                    use_pesq=True, use_pred=True):
     
@@ -57,7 +57,10 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         from torchmetrics.audio import PerceptualEvaluationSpeechQuality
         from pesq import pesq
         ## PESQ Normal
-        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        try:
+            pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        except:
+            pesq_normal_score = "Error"
         ## PESQ Torch
         pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
         pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()

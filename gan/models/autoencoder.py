@@ -215,7 +215,7 @@ class Autoencoder(L.LightningModule):
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
             # Update Batch Normalization statistics for the swa_generator
-            torch.optim.swa_utils.update_bn(self.trainer.train_dataloader, self.swa_generator)
+            torch.optim.swa_utils.update_bn(self.trainer.train_dataloader, self.swa_generator, device=self.device)
             # Now the swa_generator is ready to be used for validation
           
             # Save SWA generator checkpoint every 5 epochs
