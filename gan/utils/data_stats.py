@@ -98,7 +98,7 @@ def create_csvs_rms():
 
         with open(f'rms{csv_filename}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Filename", "Zero-Crossing Rate"])
+            writer.writerow(["Filename", "Root Mean Square"])
             for filename in tqdm.tqdm(noisy_filenames):
                 wav = torchaudio.load(os.path.join(path, filename))[0].to(device)
                 # Compute the root mean square (RMS)
@@ -206,6 +206,8 @@ def plot_pitch():
     plt.savefig('pitches.png', dpi=300)
 
 def plot_zcr():
+    plt.figure(figsize=(8, 6))
+
     csvfile = open('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/zcr_AudioSet.csv', 'r')
     reader = csv.reader(csvfile)
     next(reader)
@@ -238,7 +240,36 @@ def plot_zcr():
     plt.title('Zero-Crossing Rate Distributions')
     plt.savefig('zcrs.png', dpi=300)
 
+def plot_rms(csv_filenames, labels):
+    # Set up the figure for plotting
+    plt.figure(figsize=(8, 6))
+    colors = ['red', 'blue']
+    # Process each CSV file
+    for csv_filename, label, color in zip(csv_filenames, labels, colors):
+        # Open and read the CSV file
+        with open(csv_filename, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)  # Skip the header
+            rms_values = [float(row[1]) for row in reader]  # Extract RMS values from each row
+
+        # Convert list to numpy array for better handling
+        rms_array = np.array(rms_values)
+
+        # Plot the histogram of RMS values
+        plt.hist(rms_array, bins=50, density=True, alpha=0.5, label=label, color=color)  # Remove '.csv' from label
+
+    # Adding legends, labels and title to the plot
+    plt.legend(title="Dataset")
+    plt.xlim(0, 0.5)
+    plt.xlabel('Root Mean Square Value')
+    plt.ylabel('Density')
+    plt.title('Root Mean Square Distributions')
+    plt.savefig('rms_distribution.png', dpi=300)  # Save the plot as a PNG file
+    # plt.show()
+
 def plot_mfcc():
+    plt.figure(figsize=(8, 6))
+
     # create scatterplots of the first two MFCCs
     csvAS = open('/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/reports/data_stats/mfcc_AudioSet.csv', 'r')
     readerAS = csv.reader(csvAS)
@@ -275,3 +306,8 @@ if __name__ == '__main__':
     # plot_zcr()
     # plot_pitch()
     plot_mfcc()
+
+    # filenames = ['/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/reports/data_stats/rms_AudioSet.csv', 
+    #              '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/reports/data_stats/rms_VCTKD.csv']
+    # labels = ['AudioSet', 'VCTKD']
+    # plot_rms(filenames, labels)
