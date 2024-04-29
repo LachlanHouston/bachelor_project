@@ -218,12 +218,18 @@ class Autoencoder(L.LightningModule):
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
-        # Log the norms of the generator and discriminator weights
+        # Log the norms of the generator and discriminator parameters
         if self.current_epoch % 1 == 0:
-            generator_norm = torch.norm(torch.cat([p.view(-1) for p in self.generator.parameters()]))
-            discriminator_norm = torch.norm(torch.cat([p.view(-1) for p in self.discriminator.parameters()]))
-            self.log('Generator Norm', generator_norm, on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log('Discriminator Norm', discriminator_norm, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            for name, param in self.generator.named_parameters():
+                self.log(f'Generator_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            for name, param in self.discriminator.named_parameters():
+                self.log(f'Discriminator_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            # Also log the overall norm of the generator and discriminator parameters
+            self.log('Generator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('Discriminator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
+
+            
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
@@ -258,7 +264,7 @@ class Autoencoder(L.LightningModule):
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if (self.log_all_scores or self.dataset != "VCTK") and batch_idx % 50 == 0:
+        if (self.log_all_scores and (self.dataset != "VCTK" or self.dataset != "Speaker" or self.dataset != "VCTK_split")) and batch_idx % 50 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)

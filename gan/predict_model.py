@@ -11,6 +11,7 @@ from tqdm import tqdm
 import csv
 import random
 import numpy as np
+import librosa.display
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
@@ -18,7 +19,7 @@ clean_path = 'data/test_clean_sampled'
 noisy_path = 'data/test_noisy_sampled'
 # use fake clean path if you want to use pre-generated samples or untouched noisy samples (no model)
 fake_clean_path = 'data/test_noisy_sampled'
-model_paths = [False] #[f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
+model_paths = 'models/standardmodel1000.ckpt'
 fraction = 1.
 device = torch.device('mps')
 
@@ -131,11 +132,58 @@ def generator_scores(model_path):
         for row in all_rows:
             writer.writerow(row)
 
+def visualize_feature_maps(model, input):
+    # Visualize the feature maps of the model
+    # Put input through the model and save every layer output
+    feature_maps = []
+    with torch.no_grad():
+        _, _, maps = model(input)
+        
+        # Take the mean of the channel dimension
+        for layer in maps:
+            layer = layer.squeeze(0)
+            feature_maps.append(layer.mean(dim=0))
+
+    return feature_maps
 
 if __name__ == '__main__':
-    for model_path in model_paths:
-        print(f"Starting with {model_path}")
-        generator_scores(model_path)# if torch.cuda.is_available() else 'cpu')
-        print(f"Done with {model_path}")
-    # discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
-    print("Done")
+    _, generator, _ = model_load(model_paths)
+    input_waveform, sr = torchaudio.load('data/test_noisy_sampled/p232_001.wav')
+    # Resample to 16kHz
+    input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
+
+    # Transform to STFT
+    input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+
+    input = torch.stack([input.real, input.imag], dim=1)
+
+
+    feature_maps = visualize_feature_maps(generator, input)
+    print("Feature map shapes:")
+    for i, feature_map in enumerate(feature_maps):
+        print(f"Layer {i}: {feature_map.shape}")
+
+    # Visualize the feature maps
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(1, len(feature_maps) + 2, figsize=(20, 5))
+    # Visualize the input spectrogram with librosa
+    input_waveform = input_waveform.numpy()
+    input_waveform = librosa.resample(input_waveform, sr, 16000)
+    input_spectrogram = librosa.feature.melspectrogram(input_waveform, sr=16000, n_fft=512, hop_length=100, n_mels=80)
+    input_spectrogram = librosa.power_to_db(input_spectrogram, ref=np.max)
+    librosa.display.specshow(input_spectrogram.squeeze(0), ax=axs[0], y_axis='mel', x_axis='time')
+    axs[0].set_title("Input")
+
+    for i, feature_map in enumerate(feature_maps):
+        ax = axs[i + 1]
+        ax.imshow(feature_map.cpu().numpy())
+        ax.set_title(f"Layer {i}")
+
+    # Visualize the output waveform
+    output_waveform = stft_to_waveform(generator(input)[0], device = 'cpu')
+    output_spectrogram = librosa.feature.melspectrogram(output_waveform.squeeze().numpy(), sr=16000, n_fft=512, hop_length=100, n_mels=80)
+    librosa.display.specshow(librosa.power_to_db(output_spectrogram, ref=np.max), ax=axs[-1], y_axis='mel', x_axis='time')
+    axs[-1].set_title("Output")
+
+        
+    plt.show()
