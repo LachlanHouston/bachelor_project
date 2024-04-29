@@ -121,7 +121,7 @@ def main(cfg):
     )
 
     # log gradients and model topology
-    wandb_logger.watch(model, log='all', log_freq=1)
+    wandb_logger.watch(model, log='gradients', log_freq=1)
 
     # define the trainer 
     trainer = Trainer(
