@@ -60,7 +60,10 @@ class Autoencoder(L.LightningModule):
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            if self.sisnr_loss_half_batch:
+                sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+            else:
+                sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
@@ -181,6 +184,11 @@ class Autoencoder(L.LightningModule):
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
             self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            if self.sisnr_loss_half_batch:
+                sisnr_score_supervised = sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+                self.log('SI-SNR supervised training', sisnr_score_supervised, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                sisnr_score_unsupervised = sisnr(preds=fake_clean_waveforms[self.batch_size//2:], target=real_clean_waveforms[self.batch_size//2:])
+                self.log('SI-SNR unsupervised training', sisnr_score_unsupervised, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.log_all_scores and self.custom_global_step % 50 == 0:
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()

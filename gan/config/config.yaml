@@ -11,7 +11,9 @@ hyperparameters:
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
+
   sisnr_loss: False    # False or integer alpha value
+  sisnr_loss_half_batch: False
   supervised_fidelity: False
   swa_start_epoch_g: False   # False or integer value
 
@@ -23,9 +25,9 @@ hyperparameters:
   weight_clip_value: 0.01
   dummy_mean_dif: 0
   d_scheduler_step_size: 1
-  d_scheduler_gamma: 0.1
+  d_scheduler_gamma: 1
   g_scheduler_step_size: 1
-  g_scheduler_gamma: 0.1
+  g_scheduler_gamma: 1
 
 system:
   checkpointing: True
