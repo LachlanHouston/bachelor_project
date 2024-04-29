@@ -78,7 +78,7 @@ class Generator(nn.Module):
     def forward(self, x):
         e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
         e_list = []
-        maps = []
+        # maps = []
         """Encoder"""
         for i, layer in enumerate(self.encoder):
             # apply convolutional layer
@@ -86,14 +86,14 @@ class Generator(nn.Module):
             # store the output for skip connection
             e_list.append(e)
             # store the feature maps for visualization
-            maps.append(e)
+            # maps.append(e)
         
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
-        maps.append(d)
+        # maps.append(d)
 
         """Decoder"""
         for i, layer in enumerate(self.decoder):
@@ -101,7 +101,7 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-            maps.append(d)
+            # maps.append(d)
 
         d = self.activation(d)
         mask = d
@@ -112,7 +112,7 @@ class Generator(nn.Module):
         # Perform hadamard product
         output = torch.mul(x, mask)
         
-        return output, mask, maps
+        return output, mask
     
 def visualize_feature_maps(model, input):
     # Visualize the feature maps of the model
