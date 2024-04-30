@@ -2,6 +2,11 @@ from gan.models.DPRNN import DPRNN
 import torch
 from torch import nn
 import torch.nn.functional as F
+import pytorch_lightning as L
+from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+from gan.utils.utils import stft_to_waveform, waveform_to_stft, perfect_shuffle
+import wandb
+from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
 
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
@@ -53,13 +58,14 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(nn.Module):
-    def __init__(self, param=None, in_channels=2, out_channels=2):
+    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])
         self.rnn_block = DPRNN(128, rnn_type='LSTM', hidden_size=128, output_size=128, num_layers=2, bidirectional=True)
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.visualize = visualize
 
         # Encoder
         self.encoder.append(ConvBlock(self.in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
@@ -78,7 +84,7 @@ class Generator(nn.Module):
     def forward(self, x):
         e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
         e_list = []
-        # maps = []
+        maps = []
         """Encoder"""
         for i, layer in enumerate(self.encoder):
             # apply convolutional layer
@@ -86,14 +92,14 @@ class Generator(nn.Module):
             # store the output for skip connection
             e_list.append(e)
             # store the feature maps for visualization
-            # maps.append(e)
+            maps.append(e)
         
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
-        # maps.append(d)
+        maps.append(d)
 
         """Decoder"""
         for i, layer in enumerate(self.decoder):
@@ -101,7 +107,7 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-            # maps.append(d)
+            maps.append(d)
 
         d = self.activation(d)
         mask = d
@@ -111,8 +117,78 @@ class Generator(nn.Module):
 
         # Perform hadamard product
         output = torch.mul(x, mask)
-        
+
         return output, mask
+    
+# Pytorch Lightning Module
+class pl_Generator(L.LightningModule):
+    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False, **kwargs):
+        super().__init__()
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        self.model = Generator(param, in_channels, out_channels, visualize)
+        
+    def forward(self, x):
+        return self.model(x)
+    
+    def training_step(self, batch, batch_idx):
+        real_clean = batch[0]
+        real_noisy = batch[1]
+
+        # Forward pass
+        fake_clean, mask = self.model(real_noisy)
+
+        fidelity = torch.norm(real_clean - fake_clean, p=1)
+
+        # Loss
+        loss = self.alpha_fidelity * fidelity
+
+        self.log('Fidelity Loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        return loss
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.g_learning_rate)
+        return optimizer
+
+    def validation_step(self, batch, batch_idx):
+        real_clean = batch[0]
+        real_noisy = batch[1]
+
+        # Forward pass
+        fake_clean, mask = self.model(real_noisy)
+
+        fidelity = torch.norm(real_clean - fake_clean, p=1)
+
+        # Loss
+        loss = self.alpha_fidelity * fidelity
+
+        self.log('Validation Fidelity Loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device)
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device)
+        real_noisy_waveforms = stft_to_waveform(real_noisy, device=self.device)
+
+        # Compute SI-SNR
+        sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+        sisnr_score = sisnr(fake_clean_waveforms, real_clean_waveforms)
+        self.log('Validation SI-SNR score', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        # Mean Opinion Score (SQUIM)
+        if self.current_epoch % 10 == 0 and batch_idx % 10 == 0:
+            reference_waveforms = perfect_shuffle(real_clean_waveforms)
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        if batch_idx == 0:
+            vis_idx = torch.randint(0, self.batch_size, (1,)).item()
+            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveforms[vis_idx], sample_rate=16000, caption="Generated Clean Audio")]})
+            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveforms[vis_idx], sample_rate=16000, caption="Real Clean Audio")]})
+            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveforms[vis_idx], sample_rate=16000, caption="Real Noisy Audio")]})
+
+        return loss
+
     
 def visualize_feature_maps(model, input):
     # Visualize the feature maps of the model
@@ -129,28 +205,52 @@ def visualize_feature_maps(model, input):
     return feature_maps
 
 if __name__ == '__main__':
-    input = torch.normal(0, 1, (1, 2, 257, 321))
+    print(torch.cuda.is_available())
 
-    # Initialize the autoencoder
-    model = Generator()
-    # model.eval()
-    # output, mask = model(input)
+    # Dummy train_loader
+    train_loader = torch.utils.data.DataLoader(
+        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
+        batch_size=4,
+        shuffle=True
+    )
 
-    # Visualize the feature maps
-    feature_maps = visualize_feature_maps(model, input)
-    print("Feature map shapes:")
-    for i, feature_map in enumerate(feature_maps):
-        print(f"Layer {i}: {feature_map.shape}")
+    val_loader = torch.utils.data.DataLoader(
+        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
+        batch_size=4,
+        shuffle=False
+    )
 
-    # Visualize the feature maps
-    import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(1, len(feature_maps), figsize=(20, 5))
-    for i, feature_map in enumerate(feature_maps):
-        ax = axs[i]
-        ax.imshow(feature_map.cpu().numpy())
-        ax.set_title(f"Layer {i}")
+    model = pl_Generator(batch_size=4, g_learning_rate=1e-4, 
+                             alpha_fidelity=10)
+    
+    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
+                        log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
+                        logger=False,
+                        fast_dev_run=False)
+    trainer.fit(model, train_loader, val_loader)
 
-    plt.show()
+    # input = torch.normal(0, 1, (1, 2, 257, 321))
+
+    # # Initialize the autoencoder
+    # model = Generator()
+    # # model.eval()
+    # # output, mask = model(input)
+
+    # # Visualize the feature maps
+    # feature_maps = visualize_feature_maps(model, input)
+    # print("Feature map shapes:")
+    # for i, feature_map in enumerate(feature_maps):
+    #     print(f"Layer {i}: {feature_map.shape}")
+
+    # # Visualize the feature maps
+    # import matplotlib.pyplot as plt
+    # fig, axs = plt.subplots(1, len(feature_maps), figsize=(20, 5))
+    # for i, feature_map in enumerate(feature_maps):
+    #     ax = axs[i]
+    #     ax.imshow(feature_map.cpu().numpy())
+    #     ax.set_title(f"Layer {i}")
+
+    # plt.show()
 
 
 

@@ -344,6 +344,7 @@ class GuidedBackprop:
 
 
 if __name__ == '__main__':
+    print("Visualizing")
 
     # model = Autoencoder.load_from_checkpoint('models/standardmodel1000.ckpt').generator
 
