@@ -135,6 +135,7 @@ def main(cfg):
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         deterministic=True,
         limit_val_batches=cfg.hyperparameters.val_fraction,
+        limit_train_batches=cfg.hyperparameters.train_fraction if cfg.hyperparameters.dataset == 'dummy' else 1.0,
     )
     
     # train the model. Continue training from the last checkpoint if specified in config
