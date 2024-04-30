@@ -6,7 +6,7 @@ import librosa.display
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, fake_clean_filename, real_clean_filename,
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, fake_clean_filename=None, real_clean_filename=None,
                    use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
                    use_pesq=True, use_pred=True):
     

@@ -112,7 +112,7 @@ class Generator(nn.Module):
         # Perform hadamard product
         output = torch.mul(x, mask)
         
-        return output, mask, maps
+        return output, mask
     
 def visualize_feature_maps(model, input):
     # Visualize the feature maps of the model
