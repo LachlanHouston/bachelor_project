@@ -15,14 +15,14 @@ import librosa.display
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/test_clean_sampled2'
-noisy_path = 'data/test_noisy_sampled2'
+clean_path = 'data/test_clean_sampled_wav'
+# noisy_path = 'data/test_noisy_sampled_stft'
 # use fake clean path if you want to use pre-generated samples or untouched noisy samples (no model)
-# fake_clean_path = 'data/fake_clean_test_1000e2'
+fake_clean_path = 'data/fake_clean_test_1000e_from_stft'
 # set model path to False if you don't want to generate new samples
-model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000.ckpt'
+model_path = False#'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000.ckpt'
 fraction = 1.
-csv_name = '1000e_results'
+csv_name = '1000e_results_less_conversion'
 device = torch.device('mps')
 
 ### Metrics ###
@@ -92,7 +92,8 @@ def generator_scores(model_path):
         real_clean = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in real_clean_filenames]
 
     if use_mos_squim:
-        clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/test_clean_sampled/')) if file.endswith('.wav')]
+        mos_reference_path = 'data/test_clean_sampled_others_for_MOS_reference'
+        clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), mos_reference_path)) if file.endswith('.wav')]
     all_rows = []
     with open(f'{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
@@ -101,12 +102,11 @@ def generator_scores(model_path):
 
             if use_mos_squim:
                 reference_index = random.choice(range(len(clean_reference_filenames)))
-                non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/test_clean_sampled/', clean_reference_filenames[reference_index]))[0]
+                non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), mos_reference_path, clean_reference_filenames[reference_index]))[0]
             else: 
                 non_matching_reference_waveform = None
             sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
                                                                                                 real_clean[i], fake_clean[i], non_matching_reference_waveform,
-                                                                                                 fake_clean_filenames[i], real_clean_filenames[i],
                                          use_sisnr=     use_sisnr, 
                                          use_dnsmos=    use_dnsmos, 
                                          use_mos_squim= use_mos_squim, 
@@ -175,27 +175,33 @@ def visualize_feature_maps(model, input):
     return feature_maps
 
 def generate_fake_clean(model_path):
+    # # from Waveform files
+    # autoencoder, generator, discriminator = model_load(model_path)
+    # noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
+    # noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
+    # for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
+    #     noisy_waveform = noisy_file
+    #     # Compute the STFT of the audio
+    #     noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+    #     # Stack the real and imaginary parts of the STFT
+    #     noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
+    #     fake_clean = generator(noisy_file)
+    #     fake_clean = stft_to_waveform(fake_clean[0], device = device)
+    #     torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e_from_stft/{noisy_filenames[i]}', fake_clean, 16000)
+
+    # from STFT files
     autoencoder, generator, discriminator = model_load(model_path)
-
-    noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
-    noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
-
+    noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.pt')]
+    noisy_files = [torch.load(os.path.join(os.getcwd(), noisy_path, file)) for file in noisy_filenames]
     for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
-        noisy_waveform = noisy_file
-        # Compute the STFT of the audio
-        noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-        # Stack the real and imaginary parts of the STFT
-        noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
-
         fake_clean = generator(noisy_file)
         fake_clean = stft_to_waveform(fake_clean[0], device = device)
-        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e2/{noisy_filenames[i]}', fake_clean, 16000)
-
+        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e_from_stft/{noisy_filenames[i][:-7]}.wav', fake_clean, 16000)
 
 
 if __name__ == '__main__':
-    # generator_scores(model_path)
-    generate_fake_clean(model_path)
+    # generate_fake_clean(model_path)
+    generator_scores(model_path)
 
 
 
