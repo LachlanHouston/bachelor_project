@@ -86,6 +86,7 @@ def main(cfg):
                         g_scheduler_step_size = cfg.hyperparameters.g_scheduler_step_size,
                         g_scheduler_gamma =     cfg.hyperparameters.g_scheduler_gamma,
                         linear_lr_scheduling =  cfg.hyperparameters.linear_lr_scheduling,
+                        load_generator_only =   cfg.hyperparameters.load_generator_only,
 
                         log_all_scores =        cfg.wandb.log_all_scores,
                         batch_size =            cfg.hyperparameters.batch_size,

@@ -31,6 +31,18 @@ class Autoencoder(L.LightningModule):
         self.automatic_optimization = False
         # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
+    def on_load_checkpoint(self, checkpoint):
+        if self.load_generator_only:
+            # Filter out keys that start with 'generator' and adjust them
+            generator_state_dict = {k[len('generator.'):]: v for k, v in checkpoint['state_dict'].items() if k.startswith('generator')}
+            if generator_state_dict:
+                self.generator.load_state_dict(generator_state_dict)
+            else:
+                raise KeyError("Generator parameters not found in checkpoint")
+        else:
+            # Load the entire checkpoint as usual
+            super().on_load_checkpoint(checkpoint)
+
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
             batch = real_noisy
