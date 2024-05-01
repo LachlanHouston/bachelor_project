@@ -79,7 +79,6 @@ def main(cfg):
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
                         n_critic =              cfg.hyperparameters.n_critic,
-                        use_bias =              cfg.hyperparameters.use_bias,
                         
                         d_learning_rate =       cfg.hyperparameters.d_learning_rate,
                         d_scheduler_step_size = cfg.hyperparameters.d_scheduler_step_size,
@@ -89,17 +88,10 @@ def main(cfg):
                         g_scheduler_step_size = cfg.hyperparameters.g_scheduler_step_size,
                         g_scheduler_gamma =     cfg.hyperparameters.g_scheduler_gamma,
 
-                        weight_clip =           cfg.hyperparameters.weight_clip,
-                        weight_clip_value =     cfg.hyperparameters.weight_clip_value,
-
-                        visualize =             True,
-                        logging_freq =          cfg.wandb.logging_freq,
                         log_all_scores =        cfg.wandb.log_all_scores,
                         batch_size =            cfg.hyperparameters.batch_size,
-                        L2_reg =                cfg.hyperparameters.L2_reg,
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         sisnr_loss_half_batch = cfg.hyperparameters.sisnr_loss_half_batch,
-                        supervised_fidelity =   cfg.hyperparameters.supervised_fidelity,
                         swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset,

@@ -3,16 +3,15 @@ import torch
 import pytorch_lightning as L
 
 class Conv2DBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0), use_bias=True):
+    def __init__(self, in_channels, out_channels, kernel_size=(3, 2), stride=(2, 1), padding=(0, 0)):
         super().__init__()
         norm_f = nn.utils.spectral_norm
-        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=use_bias))
+        self.conv = norm_f(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding))
         self.activation = nn.LeakyReLU(0.1)
         
         nn.init.xavier_uniform_(self.conv.weight)
         # nn.init.kaiming_uniform_(self.conv.weight, a=0.1, mode='fan_in', nonlinearity='leaky_relu')
-        if use_bias:
-            nn.init.zeros_(self.conv.bias)
+        nn.init.zeros_(self.conv.bias)
 
     def forward(self, x) -> torch.Tensor:
         x = self.conv(x)
@@ -20,7 +19,7 @@ class Conv2DBlock(nn.Module):
         return x
     
 class Discriminator(nn.Module):
-    def __init__(self, input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128], use_bias=True):
+    def __init__(self, input_sizes=[2, 8, 16, 32, 64, 128], output_sizes=[8, 16, 32, 64, 128, 128]):
         super(Discriminator, self).__init__()
         self.conv_layers = nn.ModuleList()
         self.input_sizes = input_sizes
@@ -30,12 +29,12 @@ class Discriminator(nn.Module):
         assert len(self.input_sizes) == len(self.output_sizes), "Input and output sizes must be the same length"
 
         for i in range(len(self.input_sizes)):
-            self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2), use_bias=use_bias))
+            self.conv_layers.append(Conv2DBlock(self.input_sizes[i], self.output_sizes[i], kernel_size=(5, 5), stride=(2, 2)))
 
         self.activation = nn.LeakyReLU(0.1)    
 
-        self.fc_layers1  = norm_f(nn.Linear(256, 64, bias=use_bias))
-        self.fc_layers2 = norm_f(nn.Linear(64, 1, bias=use_bias))
+        self.fc_layers1  = norm_f(nn.Linear(256, 64))
+        self.fc_layers2 = norm_f(nn.Linear(64, 1))
 
     def forward(self, x) -> torch.Tensor:
         for layer in self.conv_layers:
@@ -56,7 +55,7 @@ class pl_Discriminator(L.LightningModule):
             print(key, value)
             setattr(self, key, value)
 
-        self.discriminator=Discriminator(use_bias=self.use_bias).to(self.device)
+        self.discriminator=Discriminator().to(self.device)
 
         # save hyperparameters to Weights and Biases
         self.save_hyperparameters(kwargs)
@@ -152,7 +151,7 @@ if __name__ == '__main__':
         shuffle=False
     )
 
-    model = pl_Discriminator(batch_size=4, d_learning_rate=1e-4, alpha_penalty=10, use_bias=True)
+    model = pl_Discriminator(batch_size=4, d_learning_rate=1e-4, alpha_penalty=10)
     
     trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=1,
                         log_every_n_steps=1, limit_train_batches=1, limit_val_batches=1,
