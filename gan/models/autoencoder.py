@@ -94,8 +94,8 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=1., end_factor=0.01, total_iters=500)
-        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=1., end_factor=0.01, total_iters=500)
+        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
+        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
         if self.swa_start_epoch_g is not False:
             self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
 
