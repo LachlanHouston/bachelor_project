@@ -94,28 +94,30 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        g_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(g_opt, T_max=1000, verbose=True)
-        d_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(d_opt, T_max=1000, verbose=True)
+        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=1., end_factor=0.01, total_iters=500)
+        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=1., end_factor=0.01, total_iters=500)
         if self.swa_start_epoch_g is not False:
             self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
 
         # g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
         # d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
-        return (
-            {"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
-            {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler},
-        )
+        if self.linear_lr_scheduling:
+            return (
+                {"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
+                {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler},
+            )
+        return g_opt, d_opt
 
 
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
-        self.g_lr_scheduler, self.d_lr_scheduler = self.lr_schedulers()
+        if self.linear_lr_scheduling:
+            self.g_lr_scheduler, self.d_lr_scheduler = self.lr_schedulers()
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
 
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-        
 
         if (self.swa_start_epoch_g is not False) and self.current_epoch == self.swa_start_epoch_g and batch_idx == 0:
             self.swa_generator = AveragedModel(self.generator)
@@ -203,7 +205,7 @@ class Autoencoder(L.LightningModule):
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
-        else:
+        elif self.linear_lr_scheduling:
             # Step the learning rate schedulers
             old_lr = self.optimizers()[0].param_groups[0]['lr']
             self.lr_schedulers()[0].step()
@@ -256,7 +258,7 @@ class Autoencoder(L.LightningModule):
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if (self.log_all_scores or (self.dataset not in ["VCTK", "Speaker", "VCTK_split"])) and batch_idx % 10 == 0:
+        if (self.log_all_scores or (self.dataset not in ["VCTK", "Speaker"])) and batch_idx % 10 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)

@@ -16,31 +16,32 @@ torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/AudioSet/test_sampled'
+noisy_path = 'data/test_noisy_sampled_x'
 
 # fake_clean_path = 'data/test_noisy_sampled_x'
-# fake_clean_path = 'data/fake_clean_test_800e_y' # if you want to use pre-generated samples or untouched noisy samples (no model)
+fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
 
 
 # set model path to False if you don't want to generate new samples
-model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000.ckpt'
+model_path = False#'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000_30_april.ckpt'
 fraction = 1.
-csv_name = 'standardmodel_AudioSet'
+csv_name = 'standardmodel_1000e_30_april'
 device = torch.device('mps')
+authentic = False
 
 ### Metrics ###
-use_sisnr=     False
+use_sisnr=     True
 use_dnsmos=    True
 use_mos_squim= True
-use_estoi=     False
-use_pesq=      False
+use_estoi=     True
+use_pesq=      True
 use_pred=      True
 ###############
 
 
 def data_load():
     # dataset = PreMadeDataset(clean_path, noisy_path, fraction)
-    dataset = AudioDataset(clean_path, noisy_path, is_train=False, fraction=fraction, authentic=True)
+    dataset = AudioDataset(clean_path, noisy_path, is_train=False, fraction=fraction, authentic=authentic)
     data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1 if torch.device == 'cpu' else 5, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
     return data_loader
@@ -190,7 +191,7 @@ def generate_fake_clean(model_path):
         noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
         fake_clean = generator(noisy_file)
         fake_clean = stft_to_waveform(fake_clean[0], device = device)
-        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/AudioSet/fake_clean_test_1000eVCTKD/{noisy_filenames[i]}', fake_clean, 16000)
+        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e_30_april/{noisy_filenames[i]}', fake_clean, 16000)
 
     # #### from STFT files ####
     # autoencoder, generator, discriminator = model_load(model_path)
@@ -203,8 +204,8 @@ def generate_fake_clean(model_path):
 
 
 if __name__ == '__main__':
-    generate_fake_clean(model_path)
-    # generator_scores(model_path)
+    # generate_fake_clean(model_path)
+    generator_scores(model_path)
 
 
 
