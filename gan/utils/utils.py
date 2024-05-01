@@ -6,7 +6,7 @@ import librosa.display
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform,
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, fake_clean_filename=None, real_clean_filename=None,
                    use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
                    use_pesq=True, use_pred=True):
     
@@ -14,8 +14,6 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         real_clean_waveform = real_clean_waveform.squeeze(0)
     if fake_clean_waveform.numpy().shape == (1, 32000):
         fake_clean_waveform = fake_clean_waveform.squeeze(0)
-    if len(non_matching_reference_waveform.numpy().shape) == 1:
-        non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
 
     sisnr_score = 0
     dnsmos_score = 0
@@ -43,6 +41,8 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
 
     ## MOS Squim
     if use_mos_squim:
+        if len(non_matching_reference_waveform.numpy().shape) == 1:
+            non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
         from torchaudio.pipelines import SQUIM_SUBJECTIVE
         subjective_model = SQUIM_SUBJECTIVE.get_model()
         mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform).item()
@@ -57,7 +57,10 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         from torchmetrics.audio import PerceptualEvaluationSpeechQuality
         from pesq import pesq
         ## PESQ Normal
-        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        try:
+            pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        except:
+            pesq_normal_score = "Error"
         ## PESQ Torch
         pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
         pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()

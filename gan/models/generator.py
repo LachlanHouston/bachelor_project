@@ -76,26 +76,34 @@ class Generator(nn.Module):
         self.activation = nn.Tanh()
 
     def forward(self, x):
+        if (isinstance(x, tuple) or isinstance(x, list)) and len(x[0].shape) == 4:
+            x = torch.stack(x, dim=0).squeeze()
         e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
         e_list = []
+        maps = []
         """Encoder"""
         for i, layer in enumerate(self.encoder):
             # apply convolutional layer
             e = layer(e)
             # store the output for skip connection
             e_list.append(e)
+            # store the feature maps for visualization
+            maps.append(e)
         
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
+        maps.append(d)
 
         """Decoder"""
         for i, layer in enumerate(self.decoder):
             idx = idx - 1
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
+            # store the feature maps for visualization
+            maps.append(d)
 
         d = self.activation(d)
         mask = d
@@ -107,17 +115,44 @@ class Generator(nn.Module):
         output = torch.mul(x, mask)
         
         return output, mask
+    
+def visualize_feature_maps(model, input):
+    # Visualize the feature maps of the model
+    # Put input through the model and save every layer output
+    feature_maps = []
+    with torch.no_grad():
+        _, _, maps = model(input)
+        
+        # Take the mean of the channel dimension
+        for layer in maps:
+            layer = layer.squeeze(0)
+            feature_maps.append(layer.mean(dim=0))
+
+    return feature_maps
 
 if __name__ == '__main__':
-    input = torch.normal(0, 1, (4, 2, 257, 321))
+    input = torch.normal(0, 1, (1, 2, 257, 321))
 
-    # Initialize the generator
-    generator = Generator(in_channels=2, out_channels=2)
+    # Initialize the autoencoder
+    model = Generator()
+    # model.eval()
+    # output, mask = model(input)
 
-    # Get the output from the generator
-    output, mask = generator(input)
-    print("Output shape:", output.shape)
-    print("Mask shape:", mask.shape)
+    # Visualize the feature maps
+    feature_maps = visualize_feature_maps(model, input)
+    print("Feature map shapes:")
+    for i, feature_map in enumerate(feature_maps):
+        print(f"Layer {i}: {feature_map.shape}")
+
+    # Visualize the feature maps
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(1, len(feature_maps), figsize=(20, 5))
+    for i, feature_map in enumerate(feature_maps):
+        ax = axs[i]
+        ax.imshow(feature_map.cpu().numpy())
+        ax.set_title(f"Layer {i}")
+
+    plt.show()
 
 
 

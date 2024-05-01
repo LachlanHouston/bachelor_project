@@ -7,23 +7,41 @@ from utils.utils import stft_to_waveform, compute_scores
 from pytorch_lightning import Trainer
 import os
 import numpy as np
-from tqdm import tqdm
+import tqdm
 import csv
 import random
 import numpy as np
+import librosa.display
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/AudioSet/test_raw'
-noisy_path = 'data/AudioSet/test_raw'
-model_paths = [False] #[f"models/learning_curve_500epochs/{pct}p.ckpt" for pct in [90,100]]
+clean_path = 'data/test_clean_sampled_x'
+noisy_path = 'data/test_noisy_sampled_x'
+
+# fake_clean_path = 'data/test_noisy_sampled_x'
+fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
+
+
+# set model path to False if you don't want to generate new samples
+model_path = False#'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000_30_april.ckpt'
 fraction = 1.
+csv_name = 'standardmodel_1000e_30_april'
 device = torch.device('mps')
+authentic = False
+
+### Metrics ###
+use_sisnr=     True
+use_dnsmos=    True
+use_mos_squim= True
+use_estoi=     True
+use_pesq=      True
+use_pred=      True
+###############
 
 
 def data_load():
     # dataset = PreMadeDataset(clean_path, noisy_path, fraction)
-    dataset = AudioDataset(clean_path, noisy_path, is_train=False, fraction=fraction, authentic=True)
+    dataset = AudioDataset(clean_path, noisy_path, is_train=False, fraction=fraction, authentic=authentic)
     data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1 if torch.device == 'cpu' else 5, 
                             persistent_workers=True, pin_memory=True, drop_last=True)
     return data_loader
@@ -44,7 +62,7 @@ def discriminator_scores(model_path, device='cuda'):
     with open('discriminator_scores.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["D_Real", "D_Fake"])
-        for batch in tqdm(data_loader):
+        for batch in tqdm.tqdm(data_loader):
             real_clean = batch[0].squeeze(1).to(device)
             real_noisy = batch[1].squeeze(1).to(device)
             D_clean = model(real_clean)
@@ -72,56 +90,163 @@ def generator_scores(model_path):
         fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
 
     else:
-        fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled')) if file.endswith('.wav')]
-        fake_clean = [torchaudio.load(os.path.join(os.getcwd(), 'data/AudioSet/test_sampled/', file))[0] for file in fake_clean_filenames]
-        real_clean = fake_clean
+        fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), fake_clean_path)) if file.endswith('.wav')]
+        fake_clean = [torchaudio.load(os.path.join(os.getcwd(), fake_clean_path, file))[0] for file in fake_clean_filenames]
+        real_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), clean_path)) if file.endswith('.wav')]
+        real_clean = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in real_clean_filenames]
 
-
-    clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), 'data/test_clean_sampled/')) if file.endswith('.wav')]
+    if use_mos_squim:
+        mos_reference_path = clean_path
+        clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), mos_reference_path)) if file.endswith('.wav')]
     all_rows = []
-    csv_name = model_path.split('/')[-1][:-5] if model_path else 'no_model'
-    with open(f'Scores_AudioSet_{csv_name}.csv', 'w', newline='') as file:
+    with open(f'{csv_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
-        for i in tqdm(range(len(fake_clean))):
+        for i in tqdm.tqdm(range(len(fake_clean))):
 
-            reference_index = random.choice(range(len(clean_reference_filenames)))
-            non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), 'data/test_clean_sampled/', clean_reference_filenames[reference_index]))[0]
-
+            if use_mos_squim:
+                reference_index = random.choice(range(len(clean_reference_filenames)))
+                non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), mos_reference_path, clean_reference_filenames[reference_index]))[0]
+            else: 
+                non_matching_reference_waveform = None
             sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
-                                                                                                real_clean[i], fake_clean[i], non_matching_reference_waveform, 
-                                         use_sisnr=     False, 
-                                         use_dnsmos=    True, 
-                                         use_mos_squim= True, 
-                                         use_estoi=     False,
-                                         use_pesq=      False, 
-                                         use_pred=      True)
+                                                                                                real_clean[i], fake_clean[i], non_matching_reference_waveform,
+                                         use_sisnr=     use_sisnr, 
+                                         use_dnsmos=    use_dnsmos, 
+                                         use_mos_squim= use_mos_squim, 
+                                         use_estoi=     use_estoi,
+                                         use_pesq=      use_pesq, 
+                                         use_pred=      use_pred)
             
-            if not stoi_pred > 0:
-                print("pred is NaN. Skipping...")
-                print('{stoi_pred}')
-                continue
+            # if use_pred and not stoi_pred > 0:
+            #     print("pred is NaN. Skipping...")
+            #     print('{stoi_pred}')
+            #     continue
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
 
+        sisnr_scores, dnsmos_scores, mos_squim_scores, estoi_scores, pesq_normal_scores, pesq_torch_scores, stoi_preds, pesq_preds, si_sdr_preds = zip(*all_rows)
+        pesq_normal_scores = [score for score in pesq_normal_scores if score != "Error"]
+        
         ## Means
         writer.writerow(["Mean scores"])
-        writer.writerow(np.mean(all_rows, axis=0))
+        sisnr_mean = np.mean(sisnr_scores)
+        dnsmos_mean = np.mean(dnsmos_scores)
+        mos_squim_mean = np.mean(mos_squim_scores)
+        estoi_mean = np.mean(estoi_scores)
+        pesq_normal_mean = np.mean(pesq_normal_scores)
+        pesq_torch_mean = np.mean(pesq_torch_scores)
+        stoi_pred_mean = np.mean(stoi_preds)
+        pesq_pred_mean = np.mean(pesq_preds)
+        si_sdr_pred_mean = np.mean(si_sdr_preds)
+
+        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean]
+        writer.writerow(mean_scores)
 
         ## Standard errors of the means
-        writer.writerow(["SE of the means" ])
-        se_values = np.std(all_rows, axis=0) / np.sqrt(len(all_rows))
-        writer.writerow(se_values)
+        writer.writerow(["Standard errors of the means"])
+        sisnr_sem = np.std(sisnr_scores) / np.sqrt(len(sisnr_scores))
+        dnsmos_sem = np.std(dnsmos_scores) / np.sqrt(len(dnsmos_scores))
+        mos_squim_sem = np.std(mos_squim_scores) / np.sqrt(len(mos_squim_scores))
+        estoi_sem = np.std(estoi_scores) / np.sqrt(len(estoi_scores))
+        pesq_normal_sem = np.std(pesq_normal_scores) / np.sqrt(len(pesq_normal_scores))
+        pesq_torch_sem = np.std(pesq_torch_scores) / np.sqrt(len(pesq_torch_scores))
+        stoi_pred_sem = np.std(stoi_preds) / np.sqrt(len(stoi_preds))
+        pesq_pred_sem = np.std(pesq_preds) / np.sqrt(len(pesq_preds))
+        si_sdr_pred_sem = np.std(si_sdr_preds) / np.sqrt(len(si_sdr_preds))
+
+        sem_scores = [sisnr_sem, dnsmos_sem, mos_squim_sem, estoi_sem, pesq_normal_sem, pesq_torch_sem, stoi_pred_sem, pesq_pred_sem, si_sdr_pred_sem]
+        writer.writerow(sem_scores)
+
+
         
         ## All scores
         writer.writerow(["All Scores"])
         for row in all_rows:
             writer.writerow(row)
 
+def visualize_feature_maps(model, input):
+    # Visualize the feature maps of the model
+    # Put input through the model and save every layer output
+    feature_maps = []
+    with torch.no_grad():
+        _, _, maps = model(input)
+        
+        # Take the mean of the channel dimension
+        for layer in maps:
+            layer = layer.squeeze(0)
+            feature_maps.append(layer.mean(dim=0))
+
+    return feature_maps
+
+def generate_fake_clean(model_path):
+    #### from Waveform files ####
+    autoencoder, generator, discriminator = model_load(model_path)
+    noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
+    noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
+    for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
+        noisy_waveform = noisy_file
+        # Compute the STFT of the audio
+        noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        # Stack the real and imaginary parts of the STFT
+        noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
+        fake_clean = generator(noisy_file)
+        fake_clean = stft_to_waveform(fake_clean[0], device = device)
+        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e_30_april/{noisy_filenames[i]}', fake_clean, 16000)
+
+    # #### from STFT files ####
+    # autoencoder, generator, discriminator = model_load(model_path)
+    # noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.pt')]
+    # noisy_files = [torch.load(os.path.join(os.getcwd(), noisy_path, file)) for file in noisy_filenames]
+    # for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
+    #     fake_clean = generator(noisy_file)
+    #     fake_clean = stft_to_waveform(fake_clean[0], device = device)
+    #     torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_800e_y/{noisy_filenames[i][:-7]}.wav', fake_clean, 16000)
+
 
 if __name__ == '__main__':
-    for model_path in model_paths:
-        print(f"Starting with {model_path}")
-        generator_scores(model_path)# if torch.cuda.is_available() else 'cpu')
-        print(f"Done with {model_path}")
-    # discriminator_scores(model_path, device='cuda' if torch.cuda.is_available() else 'cpu')
-    print("Done")
+    # generate_fake_clean(model_path)
+    generator_scores(model_path)
+
+
+
+
+    # _, generator, _ = model_load(model_paths)
+    # input_waveform, sr = torchaudio.load('data/test_noisy_sampled/p232_001.wav')
+    # # Resample to 16kHz
+    # input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
+
+    # # Transform to STFT
+    # input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+
+    # input = torch.stack([input.real, input.imag], dim=1)
+
+
+    # feature_maps = visualize_feature_maps(generator, input)
+    # print("Feature map shapes:")
+    # for i, feature_map in enumerate(feature_maps):
+    #     print(f"Layer {i}: {feature_map.shape}")
+
+    # # Visualize the feature maps
+    # import matplotlib.pyplot as plt
+    # fig, axs = plt.subplots(1, len(feature_maps) + 2, figsize=(20, 5))
+    # # Visualize the input spectrogram with librosa
+    # input_waveform = input_waveform.numpy()
+    # input_waveform = librosa.resample(input_waveform, sr, 16000)
+    # input_spectrogram = librosa.feature.melspectrogram(input_waveform, sr=16000, n_fft=512, hop_length=100, n_mels=80)
+    # input_spectrogram = librosa.power_to_db(input_spectrogram, ref=np.max)
+    # librosa.display.specshow(input_spectrogram.squeeze(0), ax=axs[0], y_axis='mel', x_axis='time')
+    # axs[0].set_title("Input")
+
+    # for i, feature_map in enumerate(feature_maps):
+    #     ax = axs[i + 1]
+    #     ax.imshow(feature_map.cpu().numpy())
+    #     ax.set_title(f"Layer {i}")
+
+    # # Visualize the output waveform
+    # output_waveform = stft_to_waveform(generator(input)[0], device = 'cpu')
+    # output_spectrogram = librosa.feature.melspectrogram(output_waveform.squeeze().numpy(), sr=16000, n_fft=512, hop_length=100, n_mels=80)
+    # librosa.display.specshow(librosa.power_to_db(output_spectrogram, ref=np.max), ax=axs[-1], y_axis='mel', x_axis='time')
+    # axs[-1].set_title("Output")
+
+        
+    # plt.show()

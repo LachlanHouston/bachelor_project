@@ -152,6 +152,8 @@ def discriminator_plot_loss(d_losses, titles, save_name):
             ax[i // 2, i % 2].set_ylabel('Output')
         else:
             ax[i // 2, i % 2].set_ylabel('Loss')
+
+    plt.savefig('reports/figures/' + save_name + '_discriminator_loss.png')
     plt.show()
 
 
