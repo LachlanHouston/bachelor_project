@@ -32,7 +32,7 @@ hyperparameters:
 system:
   checkpointing: True
   continue_training: False
-  ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none
+  ckpt_path: "models/standardmodel1000.ckpt" # Or none
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:

@@ -113,8 +113,13 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
-        d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
+        g_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(g_opt, T_max=1000, verbose=True)
+        d_lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(d_opt, T_max=1000, verbose=True)
+        if self.swa_start_epoch_g is not False:
+            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
+
+        # g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
+        # d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
         return (
             {"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
             {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler},
@@ -145,10 +150,6 @@ class Autoencoder(L.LightningModule):
             g_opt.step()
             g_opt.zero_grad()
             self.untoggle_optimizer(g_opt)
-            
-            # Update SWA weights
-            if (self.swa_start_epoch_g is not False) and (self.current_epoch >= self.swa_start_epoch_g) and (batch_idx == 0):
-                self.swa_generator.update_parameters(self.generator)
 
         self.toggle_optimizer(d_opt)
         fake_clean_no_grad = self.generator(real_noisy)[0].detach()
@@ -164,7 +165,7 @@ class Autoencoder(L.LightningModule):
 
         D_fake = D_fake_no_grad
         # log discriminator losses
-        self.log('D_Loss', D_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('D_Loss', D_loss,        on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Real', D_real.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Fake', D_fake.mean(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('D_Penalty', D_gp_alpha, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -203,19 +204,15 @@ class Autoencoder(L.LightningModule):
 
 
     def on_train_epoch_end(self):
-        # Step the learning rate schedulers
-        old_lr = self.optimizers()[0].param_groups[0]['lr']
-        self.lr_schedulers()[0].step()
-        self.lr_schedulers()[1].step()
-        new_lr = self.optimizers()[0].param_groups[0]['lr']
-        if old_lr != new_lr:
-            print('G learning rate:', self.optimizers()[0].param_groups[0]['lr'], 
-                  '\n D learning rate:', self.optimizers()[1].param_groups[0]['lr'])
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
+            # Update SWA weights
+            self.swa_generator.update_parameters(self.generator)
+            self.swa_scheduler.step()
+            
             # Update Batch Normalization statistics for the swa_generator
-            torch.optim.swa_utils.update_bn(self.trainer.train_dataloader, self.swa_generator, device=self.device)
+            torch.optim.swa_utils.update_bn(self.trainer.val_dataloader, self.swa_generator, device=self.device)
             # Now the swa_generator is ready to be used for validation
           
             # Save SWA generator checkpoint every 5 epochs
@@ -225,6 +222,16 @@ class Autoencoder(L.LightningModule):
                     os.makedirs('models')
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
+
+        else:
+            # Step the learning rate schedulers
+            old_lr = self.optimizers()[0].param_groups[0]['lr']
+            self.lr_schedulers()[0].step()
+            self.lr_schedulers()[1].step()
+            new_lr = self.optimizers()[0].param_groups[0]['lr']
+            if old_lr != new_lr:
+                print('G learning rate:', self.optimizers()[0].param_groups[0]['lr'], 
+                    '\n D learning rate:', self.optimizers()[1].param_groups[0]['lr'])
 
         # Log the norms of the generator and discriminator parameters
         if self.current_epoch % 1 == 0:
@@ -236,8 +243,6 @@ class Autoencoder(L.LightningModule):
             self.log('Generator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
             self.log('Discriminator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
-
-            
 
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
@@ -283,9 +288,9 @@ class Autoencoder(L.LightningModule):
 
         # visualize the spectrogram and waveforms every first batch of every self.logging_freq epochs
         if batch_idx == 0:
-            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // self.batch_size, (1,)).item()
+            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
         if batch_idx == self.vis_batch_idx and self.current_epoch % self.logging_freq == 0:
-            vis_idx = torch.randint(0, self.batch_size, (1,)).item()
+            vis_idx = torch.randint(0, self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
             # log waveforms
             fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
             mask_waveform = stft_to_waveform(mask[vis_idx], device=self.device).cpu().numpy().squeeze()

@@ -310,12 +310,11 @@ class DummyDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers if torch.cuda.is_available() else 1
         self.mean_dif = mean_dif
+        self.dummy_val = DummyDataset(mean_dif=self.mean_dif, mode='val')
         self.save_hyperparameters()
 
     def setup(self, stage=None):
-        if stage == 'fit' or stage is None:
-            self.dummy_train = DummyDataset(mean_dif=self.mean_dif, mode='train')
-            self.dummy_val = DummyDataset(mean_dif=self.mean_dif, mode='val')
+        self.dummy_train = DummyDataset(mean_dif=self.mean_dif, mode='train')
 
     def train_dataloader(self):
         return DataLoader(self.dummy_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, drop_last=True)

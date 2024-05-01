@@ -82,6 +82,8 @@ class Generator(nn.Module):
         self.activation = nn.Tanh()
 
     def forward(self, x):
+        if (isinstance(x, tuple) or isinstance(x, list)) and len(x[0].shape) == 4:
+            x = torch.stack(x, dim=0).squeeze()
         e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
         e_list = []
         maps = []
