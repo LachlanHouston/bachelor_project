@@ -106,26 +106,23 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
+
+        if self.swa_start_epoch_g is not False:
+            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
+
         if not self.linear_lr_scheduling:
             return g_opt, d_opt
         
-        # start_lr = 1e-4*start_factor
         start_lr, end_lr, total_iters = self.linear_lr_scheduling
         start_factor_g, start_factor_d = start_lr / self.g_learning_rate,   start_lr / self.d_learning_rate
         end_factor_g, end_factor_d =     end_lr / self.g_learning_rate,     end_lr / self.d_learning_rate
         g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=start_factor_g, end_factor=end_factor_g, total_iters=total_iters, verbose=True)
         d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=start_factor_d, end_factor=end_factor_d, total_iters=total_iters, verbose=True)
-        if self.swa_start_epoch_g is not False:
-            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
 
         # g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
         # d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
-        if self.linear_lr_scheduling:
-            return (
-                {"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
-                {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler},
-            )
-        return g_opt, d_opt
+        return ({"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
+                {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler})
 
 
     def training_step(self, batch, batch_idx):
