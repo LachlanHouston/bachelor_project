@@ -31,17 +31,17 @@ class Autoencoder(L.LightningModule):
         self.automatic_optimization = False
         # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
-    def on_load_checkpoint(self, checkpoint):
-        if self.load_generator_only:
-            # Filter out keys that start with 'generator' and adjust them
-            generator_state_dict = {k[len('generator.'):]: v for k, v in checkpoint['state_dict'].items() if k.startswith('generator')}
-            if generator_state_dict:
-                self.generator.load_state_dict(generator_state_dict)
-            else:
-                raise KeyError("Generator parameters not found in checkpoint")
-        else:
-            # Load the entire checkpoint as usual
-            super().on_load_checkpoint(checkpoint)
+    # def on_load_checkpoint(self, checkpoint):
+    #     if self.load_generator_only:
+    #         # Filter out keys that start with 'generator' and adjust them
+    #         generator_state_dict = {k[len('generator.'):]: v for k, v in checkpoint['state_dict'].items() if k.startswith('generator')}
+    #         if generator_state_dict:
+    #             self.generator.load_state_dict(generator_state_dict)
+    #         else:
+    #             raise KeyError("Generator parameters not found in checkpoint")
+    #     else:
+    #         # Load the entire checkpoint as usual
+    #         super().on_load_checkpoint(checkpoint)
 
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
@@ -106,8 +106,15 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
-        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
+        if not self.linear_lr_scheduling:
+            return g_opt, d_opt
+        
+        # start_lr = 1e-4*start_factor
+        start_lr, end_lr, total_iters = self.linear_lr_scheduling
+        start_factor_g, start_factor_d = start_lr / self.g_learning_rate,   start_lr / self.d_learning_rate
+        end_factor_g, end_factor_d =     end_lr / self.g_learning_rate,     end_lr / self.d_learning_rate
+        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=start_factor_g, end_factor=end_factor_g, total_iters=total_iters, verbose=True)
+        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=start_factor_d, end_factor=end_factor_d, total_iters=total_iters, verbose=True)
         if self.swa_start_epoch_g is not False:
             self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
 

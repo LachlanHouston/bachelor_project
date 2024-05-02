@@ -16,7 +16,7 @@ from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModu
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
     # Print GPU information
-    print(torch.cuda.is_available())
+    print('CUDA available:', torch.cuda.is_available())
 
     L.seed_everything(100, workers=True)
     # configure wandb

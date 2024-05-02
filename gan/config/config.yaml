@@ -13,7 +13,7 @@ hyperparameters:
 
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  linear_lr_scheduling: False
+  linear_lr_scheduling: [3.9412e-05, 1e-6, 194]    # [start_lr, end_lr, total_iters]
   d_scheduler_step_size: 1
   d_scheduler_gamma: 1
   g_scheduler_step_size: 1
@@ -27,8 +27,8 @@ hyperparameters:
 
 system:
   checkpointing: True
-  continue_training: False
-  ckpt_path: "models/pretrain_G/epoch=99.ckpt" # Or none
+  continue_training: True
+  ckpt_path: "models/linearLRdecayepoch=304.ckpt" # Or none
   num_workers: 20
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
