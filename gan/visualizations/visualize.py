@@ -287,45 +287,65 @@ class GuidedBackprop:
     def __init__(self, model_path):
         self.generator = Autoencoder.load_from_checkpoint(model_path).generator
         self.discriminator = Autoencoder.load_from_checkpoint(model_path).discriminator
-        self.prelu_weights = []
-        for name, module in self.generator.named_modules():
-            if isinstance(module, nn.PReLU):
-                self.prelu_weights.append(module.weight)
-
         self.hooks = []
         self._register_hooks()
-        self.i = 0
 
     def _register_hooks(self):
         def backward_hook(module, grad_in, grad_out):
             # Clamp the gradient of the output to follow a PRELU activation function
             if isinstance(grad_in[0], torch.Tensor):
-                new_grad_in = F.prelu(grad_in[0], self.prelu_weights[self.i])
-                self.i += 1
+                new_grad_in = torch.clamp(grad_in[0], min=0.0)
                 return (new_grad_in,) + grad_in[1:]
 
         for module in self.generator.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d) or isinstance(module, nn.Linear) or isinstance(module, nn.LeakyReLU) or isinstance(module, nn.LSTM) or isinstance(module, nn.GroupNorm) or isinstance(module, nn.PReLU):
                 self.hooks.append(module.register_backward_hook(backward_hook))
+
+    def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
+        # Create interpolated samples
+        alpha = torch.rand(1, 1, 1, 1, device='cpu') # B x 1 x 1 x 1
+        # alpha = alpha.expand(real_clean.size()) # B x C x H x W
+        differences = fake_clean - real_clean # B x C x H x W
+        interpolates = real_clean + (alpha * differences) # B x C x H x W
+        interpolates.requires_grad_(True)
+
+        # Calculate the output of the discriminator for the interpolated samples and compute the gradients
+        D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
+        ones = torch.ones(D_interpolates.size(), device='cpu') # B x 1
+        gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
+                                        create_graph=True, retain_graph=True)[0] # B x C x H x W
+        
+        # Calculate the gradient penalty
+        gradients = gradients.view(1, -1) # B x (C*H*W)
+        grad_norms = gradients.norm(2, dim=1) # B
+        gradient_penalty = ((grad_norms - 1) ** 2).mean()
+
+        # Adversarial loss
+        D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
+
+        # Total discriminator loss
+        D_loss = 10 * gradient_penalty + D_adv_loss
+
+        return D_loss, 10 * gradient_penalty, D_adv_loss, None
     
     def visualize(self, input_tensor, target_tensor, discriminator):
         # Ensure input_tensor requires gradients
         input_tensor.requires_grad_(True)
 
         # Forward pass
-        output = self.generator(input_tensor)[0]
+        fake_clean = self.generator(input_tensor)[0]
+
+        # Fidelity loss
+        fidelity = torch.norm(fake_clean - input_tensor, p=1) * 10
 
         # Discriminator output
-        discriminator_output = self.discriminator(output)
+        discriminator_output = self.discriminator(fake_clean)
         #discriminator_target = discriminator(target_tensor)
 
-        loss_adv = -discriminator_output.mean()
-        
-        # Compute the loss as the mean squared error between the output and the target
-        fidelity = torch.norm(output - input_tensor, p=1) / (target_tensor.size(1) * target_tensor.size(2) * target_tensor.size(3))
+        #D_loss, penalty, D_adv_loss, L2_penalty = self._get_discriminator_loss(target_tensor, fake_clean, discriminator_target, discriminator_output)
 
         # Total loss
-        loss = loss_adv + 10*fidelity
+        loss = fidelity + (-discriminator_output.mean())
         
         # Zero gradients
         self.generator.zero_grad()
@@ -365,79 +385,81 @@ if __name__ == '__main__':
     # discriminator_plot_loss([d_fake_loss, d_real_loss, d_penalty_loss, d_loss], ['Discriminator Output (fake)', 'Discriminator Output (real)', 'Penalty Loss', 'Total Discriminator Loss'], 'discriminator')
 
     # Visualize the feature maps
-    # model_path = 'models/standardmodel1000.ckpt'
-    # input_path = 'data/test_noisy_sampled/p232_012.wav'
-    # target_path = 'data/test_clean_sampled/p232_012.wav'
+    model_path = 'models/standardmodel1000.ckpt'
+    input_path = 'data/only_noise/p232_012.wav'
+    target_path = 'data/test_clean_sampled/p232_012.wav'
 
-    # input_waveform, sr = torchaudio.load(input_path)
-    # target_waveform, _ = torchaudio.load(target_path)
-
-    # # Resample to 16kHz
-    # input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
-    # target = torchaudio.transforms.Resample(sr, 16000)(target_waveform)
-
-    # # Transform to STFT
-    # input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-    # input = torch.stack([input.real, input.imag], dim=1)
-
-    # target = torch.stft(target, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-    # target = torch.stack([target.real, target.imag], dim=1)
-
-    # generator = Autoencoder.load_from_checkpoint(model_path).generator
-    # discriminator = Autoencoder.load_from_checkpoint(model_path).discriminator
-
-    # # input = torch.normal(0, 1, (1, 2, 257, 321))
-    # # target = torch.normal(0, 1, (1, 2, 257, 321))
+    input_waveform, sr = torchaudio.load(input_path)
+    target_waveform, _ = torchaudio.load(target_path)
     
-    # guided_bp = GuidedBackprop(model_path)
-    # result = guided_bp.visualize(input, target, discriminator)
-    # result = result.squeeze(0).squeeze(0).detach().cpu()
 
-    # # Transform to waveform
-    # real = result[0, :, :]
-    # imag = result[1, :, :]
-    # complex_result = torch.complex(real, imag)
-    # result = torch.istft(complex_result, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+    # Resample to 16kHz
+    input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
+    target = torchaudio.transforms.Resample(sr, 16000)(target_waveform)
+    # input_waveform = input_waveform - target_waveform
 
-    # fake_clean = generator(input)[0]
-    # fake_clean = fake_clean.squeeze(0).squeeze(0).detach().cpu()
-    # real = fake_clean[0, :, :]
-    # imag = fake_clean[1, :, :]
-    # complex_result = torch.complex(real, imag)
-    # fake_clean = torch.istft(complex_result, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+    # Transform to STFT
+    input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+    input = torch.stack([input.real, input.imag], dim=1)
 
-    # plt.figure(figsize=(15, 5))
+    target = torch.stft(target, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+    target = torch.stack([target.real, target.imag], dim=1)
 
-    # plt.subplot(1, 3, 1)
-    # mel_spec_input = librosa.feature.melspectrogram(y=input_waveform.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
-    # mel_spec_db_input = librosa.power_to_db(mel_spec_input[0, :, :], ref=np.max)
-    # librosa.display.specshow(mel_spec_db_input, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
-    # plt.colorbar(format='%+2.0f dB')
-    # plt.title('Input spectrogram')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('Frequency (Hz)')
+    generator = Autoencoder.load_from_checkpoint(model_path).generator
+    discriminator = Autoencoder.load_from_checkpoint(model_path).discriminator
 
-    # plt.subplot(1, 3, 2)
-    # mel_spect_rc = librosa.feature.melspectrogram(y=result.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
-    # mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
-    # librosa.display.specshow(mel_spect_db_rc, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
-    # plt.colorbar(format='%+2.0f dB')
-    # plt.title('GDP Result')
-    # plt.xlabel('Time (s)')
-    # # Hide y-axis
-    # plt.gca().axes.get_yaxis().set_visible(False)
+    # input = torch.normal(0, 1, (1, 2, 257, 321))
+    # target = torch.normal(0, 1, (1, 2, 257, 321))
+    
+    guided_bp = GuidedBackprop(model_path)
+    result = guided_bp.visualize(input, target, discriminator)
+    result = result.squeeze(0).squeeze(0).detach().cpu()
 
-    # plt.subplot(1, 3, 3)
-    # mel_spec_target = librosa.feature.melspectrogram(y=fake_clean.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
-    # mel_spec_db_target = librosa.power_to_db(mel_spec_target, ref=np.max)
-    # librosa.display.specshow(mel_spec_db_target, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
-    # plt.colorbar(format='%+2.0f dB')
-    # plt.title('Generator Result')
-    # plt.xlabel('Time (s)')
-    # # Hide y-axis
-    # plt.gca().axes.get_yaxis().set_visible(False)
+    # Transform to waveform
+    real = result[0, :, :]
+    imag = result[1, :, :]
+    complex_result = torch.complex(real, imag)
+    result = torch.istft(complex_result, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
 
-    # plt.savefig('reports/figures/guided_backpropagation.png')
-    # plt.show()
+    fake_clean = generator(input)[0]
+    fake_clean = fake_clean.squeeze(0).squeeze(0).detach().cpu()
+    real = fake_clean[0, :, :]
+    imag = fake_clean[1, :, :]
+    complex_result = torch.complex(real, imag)
+    fake_clean = torch.istft(complex_result, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+
+    plt.figure(figsize=(15, 5))
+
+    plt.subplot(1, 3, 1)
+    mel_spec_input = librosa.feature.melspectrogram(y=input_waveform.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spec_db_input = librosa.power_to_db(mel_spec_input[0, :, :], ref=np.max)
+    librosa.display.specshow(mel_spec_db_input, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Input spectrogram')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Frequency (Hz)')
+
+    plt.subplot(1, 3, 2)
+    mel_spect_rc = librosa.feature.melspectrogram(y=result.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
+    librosa.display.specshow(mel_spect_db_rc, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('GDP Result')
+    plt.xlabel('Time (s)')
+    # Hide y-axis
+    plt.gca().axes.get_yaxis().set_visible(False)
+
+    plt.subplot(1, 3, 3)
+    mel_spec_target = librosa.feature.melspectrogram(y=fake_clean.numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
+    mel_spec_db_target = librosa.power_to_db(mel_spec_target, ref=np.max)
+    librosa.display.specshow(mel_spec_db_target, y_axis='mel', x_axis='time', hop_length=100, sr=16000)
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Generator Result')
+    plt.xlabel('Time (s)')
+    # Hide y-axis
+    plt.gca().axes.get_yaxis().set_visible(False)
+
+    plt.savefig('reports/figures/generator3_guided_backpropagation.png')
+    plt.show()
 
 
