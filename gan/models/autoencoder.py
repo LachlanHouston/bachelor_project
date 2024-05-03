@@ -26,22 +26,39 @@ class Autoencoder(L.LightningModule):
         
         self.discriminator=Discriminator().to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        if self.load_generator_only:
+            cwd = '/'.join(os.getcwd().split('/')[:-3])
+            print('cwd:', cwd)
+            print('path:', os.path.join(cwd, self.ckpt_path))
+            checkpoint = torch.load(os.path.join(cwd, self.ckpt_path), map_location=self.device)
+            generator_keys = {k.replace('model.', ''): v 
+                for k, v in checkpoint['state_dict'].items() 
+                if k.startswith('model.')}
+            self.generator.load_state_dict(generator_keys, strict=False)
+            print("Generator loaded from checkpoint")
+
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
         self.automatic_optimization = False
         # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
+
     # def on_load_checkpoint(self, checkpoint):
     #     if self.load_generator_only:
-    #         # Filter out keys that start with 'generator' and adjust them
-    #         generator_state_dict = {k[len('generator.'):]: v for k, v in checkpoint['state_dict'].items() if k.startswith('generator')}
-    #         if generator_state_dict:
-    #             self.generator.load_state_dict(generator_state_dict)
+    #         # Filter and adjust the generator state dict keys
+    #         generator_keys = {k.replace('model.', ''): v 
+    #                         for k, v in checkpoint['state_dict'].items() 
+    #                         if k.startswith('model.')}
+
+    #         if generator_keys:
+    #             self.generator.load_state_dict(generator_keys, strict=False)
+    #             checkpoint['state_dict'] = {}
     #         else:
     #             raise KeyError("Generator parameters not found in checkpoint")
     #     else:
     #         # Load the entire checkpoint as usual
     #         super().on_load_checkpoint(checkpoint)
+
 
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
