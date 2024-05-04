@@ -87,7 +87,6 @@ class Autoencoder(L.LightningModule):
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
                 sisnr_loss = - si_sdr_pred.mean()
-                print('yay')
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
                 if self.sisnr_loss_half_batch:
