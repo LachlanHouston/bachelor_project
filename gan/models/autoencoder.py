@@ -26,7 +26,9 @@ class Autoencoder(L.LightningModule):
         
         self.discriminator=Discriminator().to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        print('load generator?:', self.load_generator_only)
         if self.load_generator_only:
+            print('Loading generator from checkpoint')
             cwd = '/'.join(os.getcwd().split('/')[:-3])
             print('cwd:', cwd)
             print('path:', os.path.join(cwd, self.ckpt_path))
@@ -81,11 +83,17 @@ class Autoencoder(L.LightningModule):
         if self.sisnr_loss:
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            if self.sisnr_loss_half_batch:
-                sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+            if self.dataset == 'AudioSet':
+                objective_model = SQUIM_OBJECTIVE.get_model()
+                _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
+                sisnr_loss = - si_sdr_pred.mean()
+                print('yay')
             else:
-                sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+                sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+                if self.sisnr_loss_half_batch:
+                    sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+                else:
+                    sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss

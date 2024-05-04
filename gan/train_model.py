@@ -103,7 +103,7 @@ def main(cfg):
         save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=5,  # how often to save a model checkpoint
+        every_n_epochs=25,  # how often to save a model checkpoint
     )
 
     # define Weights and Biases logger
