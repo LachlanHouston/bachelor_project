@@ -1,4 +1,5 @@
 import torch
+import torchaudio
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
@@ -116,6 +117,17 @@ def stft_to_waveform(stft, device=torch.device('cuda')):
     waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
     return waveform
 
+def clean_and_count_audio(audio):
+    audio = np.array(audio)
+    nan_count = np.sum(np.isnan(audio))
+    inf_count = np.sum(np.isinf(audio))
+    
+    if nan_count > 0 or inf_count > 0:
+        print(f"Detected {nan_count} NaN values and {inf_count} infinite values in audio data. Replacing with 0.")
+        audio = np.nan_to_num(audio)  # Replace NaN and Inf with 0
+        torchaudio.save("fake_audio.wav", torch.tensor(audio).unsqueeze(0), 16000)
+
+
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     """
     Visualizes a STFT-transformed files as mel spectrograms and returns the plot as an image object
@@ -126,6 +138,7 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     mel_spect_rc = librosa.feature.melspectrogram(y=np.array(real_clean), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
     # Spectrogram of fake clean
+    clean_and_count_audio(fake_clean)
     mel_spect_fc = librosa.feature.melspectrogram(y=np.array(fake_clean), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
     # Spectrogram of real noisy
