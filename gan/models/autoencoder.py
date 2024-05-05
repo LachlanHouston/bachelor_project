@@ -132,7 +132,7 @@ class Autoencoder(L.LightningModule):
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
         if self.swa_start_epoch_g is not False:
-            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
+            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-4)
 
         if not self.linear_lr_scheduling:
             return g_opt, d_opt
@@ -238,7 +238,7 @@ class Autoencoder(L.LightningModule):
             # Now the swa_generator is ready to be used for validation
           
             # Save SWA generator checkpoint every 5 epochs
-            if (self.current_epoch+1) % 5 == 0:
+            if (self.current_epoch+1) % 10 == 0:
                 # Create the directory if it doesn't exist
                 if not os.path.exists('models'):
                     os.makedirs('models')
