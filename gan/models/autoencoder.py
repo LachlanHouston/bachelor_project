@@ -269,7 +269,9 @@ class Autoencoder(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].to(self.device)
-        real_noisy = batch[1].to(self.device)     
+        real_noisy = batch[1].to(self.device)
+        real_clean_name = batch[2]
+        real_noisy_name = batch[3]     
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
@@ -323,7 +325,17 @@ class Autoencoder(L.LightningModule):
             self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
             # log spectrograms
-            plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            try:
+                plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            except:
+                print("Error in visualizing spectrograms")
+                print('real_clean:', real_clean_name[vis_idx])
+                print('real_noisy:', real_noisy_name[vis_idx])
+                self.logger.experiment.log({"Problematic_fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption=f"{real_clean_name[vis_idx]}")]})
+                self.logger.experiment.log({"Problematic_real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption=f"{real_noisy_name[vis_idx]}" )]})
+                self.logger.experiment.log({"Problematic_real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption=f"{real_clean_name[vis_idx]}")]})
+
+
             self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
             plt.close()
             plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))
