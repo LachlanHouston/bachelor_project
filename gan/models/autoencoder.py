@@ -26,22 +26,40 @@ class Autoencoder(L.LightningModule):
         
         self.discriminator=Discriminator().to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        if self.load_generator_only:
+            print('Loading only the generator from checkpoint')
+            cwd = '/'.join(os.getcwd().split('/')[:-3])
+            print('cwd:', cwd)
+            print('path:', os.path.join(cwd, self.ckpt_path))
+            checkpoint = torch.load(os.path.join(cwd, self.ckpt_path), map_location=self.device)
+            generator_keys = {k.replace('model.', ''): v 
+                for k, v in checkpoint['state_dict'].items() 
+                if k.startswith('model.')}
+            self.generator.load_state_dict(generator_keys, strict=False)
+            print("Generator loaded from checkpoint")
+
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
         self.automatic_optimization = False
         # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
-    def on_load_checkpoint(self, checkpoint):
-        if self.load_generator_only:
-            # Filter out keys that start with 'generator' and adjust them
-            generator_state_dict = {k[len('generator.'):]: v for k, v in checkpoint['state_dict'].items() if k.startswith('generator')}
-            if generator_state_dict:
-                self.generator.load_state_dict(generator_state_dict)
-            else:
-                raise KeyError("Generator parameters not found in checkpoint")
-        else:
-            # Load the entire checkpoint as usual
-            super().on_load_checkpoint(checkpoint)
+
+    # def on_load_checkpoint(self, checkpoint):
+    #     if self.load_generator_only:
+    #         # Filter and adjust the generator state dict keys
+    #         generator_keys = {k.replace('model.', ''): v 
+    #                         for k, v in checkpoint['state_dict'].items() 
+    #                         if k.startswith('model.')}
+
+    #         if generator_keys:
+    #             self.generator.load_state_dict(generator_keys, strict=False)
+    #             checkpoint['state_dict'] = {}
+    #         else:
+    #             raise KeyError("Generator parameters not found in checkpoint")
+    #     else:
+    #         # Load the entire checkpoint as usual
+    #         super().on_load_checkpoint(checkpoint)
+
 
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
@@ -64,11 +82,17 @@ class Autoencoder(L.LightningModule):
         if self.sisnr_loss:
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            if self.sisnr_loss_half_batch:
-                sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+            if self.dataset == 'AudioSet':
+                objective_model = SQUIM_OBJECTIVE.get_model()
+                _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
+                sisnr_loss = - si_sdr_pred.mean() if torch.isnan(si_sdr_pred).any() else 0
             else:
-                sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+                sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+                if self.sisnr_loss_half_batch:
+                    sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
+                else:
+                    sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            # Multiply the sisnr loss by a scaling factor
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
@@ -106,19 +130,24 @@ class Autoencoder(L.LightningModule):
     def configure_optimizers(self):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
-        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=1., end_factor=0.01, total_iters=500, verbose=True)
-        if self.swa_start_epoch_g is not False:
-            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-5)
 
-        # g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
-        # d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
-        if self.linear_lr_scheduling:
-            return (
-                {"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
-                {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler},
-            )
-        return g_opt, d_opt
+        if self.swa_start_epoch_g is not False:
+            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-4)
+
+        if not self.linear_lr_scheduling:
+            g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
+            d_lr_scheduler = torch.optim.lr_scheduler.StepLR(d_opt, step_size=self.d_scheduler_step_size, gamma=self.d_scheduler_gamma)
+            return ({"optimizer": g_opt, "lr_scheduler": g_lr_scheduler},
+                    {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler})
+        
+        start_lr, end_lr, total_iters = self.linear_lr_scheduling
+        start_factor_g, start_factor_d = start_lr / self.g_learning_rate,   start_lr / self.d_learning_rate
+        end_factor_g, end_factor_d =     end_lr / self.g_learning_rate,     end_lr / self.d_learning_rate
+        g_lr_scheduler = torch.optim.lr_scheduler.LinearLR(g_opt, start_factor=start_factor_g, end_factor=end_factor_g, total_iters=total_iters, verbose=True)
+        d_lr_scheduler = torch.optim.lr_scheduler.LinearLR(d_opt, start_factor=start_factor_d, end_factor=end_factor_d, total_iters=total_iters, verbose=True)
+        torch.optim.lr_scheduler.ExponentialLR()
+        return ({"optimizer": g_opt,"lr_scheduler": g_lr_scheduler},
+                {"optimizer": d_opt, "lr_scheduler": d_lr_scheduler})
 
 
     def training_step(self, batch, batch_idx):
@@ -204,20 +233,20 @@ class Autoencoder(L.LightningModule):
             # Update SWA weights
             self.swa_generator.update_parameters(self.generator)
             self.swa_scheduler.step()
-            
+            print("Updating SWA BN")
             # Update Batch Normalization statistics for the swa_generator
-            torch.optim.swa_utils.update_bn(self.trainer.val_dataloader, self.swa_generator, device=self.device)
+            torch.optim.swa_utils.update_bn(self.trainer.val_dataloaders, self.swa_generator, device=self.device)
             # Now the swa_generator is ready to be used for validation
-          
+            print("SWA BN done")
             # Save SWA generator checkpoint every 5 epochs
-            if (self.current_epoch+1) % 5 == 0:
+            if (self.current_epoch+1) % 10 == 0:
                 # Create the directory if it doesn't exist
                 if not os.path.exists('models'):
                     os.makedirs('models')
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
-        elif self.linear_lr_scheduling:
+        else:
             # Step the learning rate schedulers
             old_lr = self.optimizers()[0].param_groups[0]['lr']
             self.lr_schedulers()[0].step()
@@ -241,13 +270,26 @@ class Autoencoder(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Remove tuples and convert to tensors
         real_clean = batch[0].to(self.device)
-        real_noisy = batch[1].to(self.device)     
+        real_noisy = batch[1].to(self.device)
+        real_clean_name = batch[2]
+        real_noisy_name = batch[3]
+
+        nan_count_clean = torch.isnan(real_clean).sum().item()
+        if nan_count_clean > 0:
+            raise ValueError(f"Detected {nan_count_clean} NaN values in real_clean data")
+        nan_count_noisy = torch.isnan(real_noisy).sum().item()
+        if nan_count_noisy > 0:
+            raise ValueError(f"Detected {nan_count_noisy} NaN values in real_noisy data")
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
             fake_clean, mask = self.swa_generator(real_noisy)
         else:
             fake_clean, mask = self.generator(real_noisy)
+
+        nan_count_fake = torch.isnan(fake_clean).sum().item()
+        if nan_count_fake > 0:
+            raise ValueError(f"Detected {nan_count_fake} NaN values in fake_clean data")
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
@@ -295,7 +337,17 @@ class Autoencoder(L.LightningModule):
             self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
 
             # log spectrograms
-            plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            try:
+                plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            except:
+                print("Error in visualizing spectrograms")
+                print('real_clean:', real_clean_name[vis_idx])
+                print('real_noisy:', real_noisy_name[vis_idx])
+                self.logger.experiment.log({"Problematic_fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption=f"{real_clean_name[vis_idx]}")]})
+                self.logger.experiment.log({"Problematic_real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption=f"{real_noisy_name[vis_idx]}" )]})
+                self.logger.experiment.log({"Problematic_real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption=f"{real_clean_name[vis_idx]}")]})
+
+
             self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
             plt.close()
             plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))

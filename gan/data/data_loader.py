@@ -116,7 +116,7 @@ class AudioDataset(Dataset):
         clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
         noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
 
-        return clean_stft.squeeze(), noisy_stft.squeeze() #, self.clean_files[clean_idx], self.noisy_files[idx]
+        return clean_stft.squeeze(), noisy_stft.squeeze(), self.clean_files[clean_idx], self.noisy_files[idx]
 
 
 # Lightning DataModule
