@@ -16,7 +16,7 @@ from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModu
 @hydra.main(config_name="config.yaml", config_path="config")
 def main(cfg):
     # Print GPU information
-    print(torch.cuda.is_available())
+    print('CUDA available:', torch.cuda.is_available())
 
     L.seed_everything(100, workers=True)
     # configure wandb
@@ -95,6 +95,7 @@ def main(cfg):
                         swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset,
+                        ckpt_path =             cfg.system.ckpt_path,
                         )
     
     # define saving of checkpoints
@@ -102,7 +103,7 @@ def main(cfg):
         save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=5,  # how often to save a model checkpoint
+        every_n_epochs=25,  # how often to save a model checkpoint
     )
 
     # define Weights and Biases logger
@@ -131,7 +132,7 @@ def main(cfg):
     )
     
     # train the model. Continue training from the last checkpoint if specified in config
-    if cfg.system.continue_training:
+    if cfg.system.continue_training and not cfg.hyperparameters.load_generator_only:
         print("Continuing training from checkpoint")
         trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
     

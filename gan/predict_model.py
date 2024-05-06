@@ -16,25 +16,25 @@ torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/test_noisy_sampled_x'
+noisy_path = 'data/AudioSet/test_sampled'
 
-# fake_clean_path = 'data/test_noisy_sampled_x'
-fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
+# fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
+# fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
 
 
 # set model path to False if you don't want to generate new samples
-model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000.ckpt'
+model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/AudioSet_300e.ckpt'
 fraction = 1.
-csv_name = 'standardmodel_1000e_30_april'
+csv_name = 'AudioSet_300e'
 device = torch.device('mps')
-authentic = False
+authentic = True
 
 ### Metrics ###
-use_sisnr=     True
+use_sisnr=     False
 use_dnsmos=    True
 use_mos_squim= True
-use_estoi=     True
-use_pesq=      True
+use_estoi=     False
+use_pesq=      False
 use_pred=      True
 ###############
 
@@ -118,14 +118,13 @@ def generator_scores(model_path):
                                          use_pesq=      use_pesq, 
                                          use_pred=      use_pred)
             
-            # if use_pred and not stoi_pred > 0:
-            #     print("pred is NaN. Skipping...")
-            #     print('{stoi_pred}')
-            #     continue
             all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
 
         sisnr_scores, dnsmos_scores, mos_squim_scores, estoi_scores, pesq_normal_scores, pesq_torch_scores, stoi_preds, pesq_preds, si_sdr_preds = zip(*all_rows)
         pesq_normal_scores = [score for score in pesq_normal_scores if score != "Error"]
+        stoi_preds = [score for score in stoi_preds if score > 0]
+        pesq_preds = [score for score in pesq_preds if score > 0]
+        si_sdr_preds = [score for score in si_sdr_preds if score > 0]
         
         ## Means
         writer.writerow(["Mean scores"])
@@ -158,6 +157,93 @@ def generator_scores(model_path):
         writer.writerow(sem_scores)
 
 
+        
+        ## All scores
+        writer.writerow(["All Scores"])
+        for row in all_rows:
+            writer.writerow(row)
+
+
+def generator_scores_model_sampled_clean_noisy(model_path):
+    autoencoder, generator, discriminator = model_load(model_path)
+    generator.to(device)
+    generator.eval()
+
+    noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
+    noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
+    real_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), clean_path)) if file.endswith('.wav')]
+    clean_files = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in real_clean_filenames]
+
+    if use_mos_squim:
+        mos_reference_path = clean_path
+        clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), mos_reference_path)) if file.endswith('.wav')]
+    all_rows = []
+    with open(f'{csv_name}.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
+
+        for i in tqdm.tqdm(range(len(noisy_files))):
+            noisy_waveform = noisy_files[i]
+            # Compute the STFT of the audio
+            noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+            # Stack the real and imaginary parts of the STFT
+            noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1).to(device)
+            fake_clean = generator(noisy_file)
+            fake_clean = stft_to_waveform(fake_clean[0].to(torch.device('cpu')), device = 'cpu')
+
+
+            if use_mos_squim:
+                reference_index = random.choice(range(len(clean_reference_filenames)))
+                non_matching_reference_waveform = torchaudio.load(os.path.join(os.getcwd(), mos_reference_path, clean_reference_filenames[reference_index]))[0]
+            else: 
+                non_matching_reference_waveform = None
+
+            sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred = compute_scores(
+                                                                                                clean_files[i], fake_clean, non_matching_reference_waveform,
+                                            use_sisnr=     use_sisnr, 
+                                            use_dnsmos=    use_dnsmos, 
+                                            use_mos_squim= use_mos_squim, 
+                                            use_estoi=     use_estoi,
+                                            use_pesq=      use_pesq, 
+                                            use_pred=      use_pred)
+            
+            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
+
+        sisnr_scores, dnsmos_scores, mos_squim_scores, estoi_scores, pesq_normal_scores, pesq_torch_scores, stoi_preds, pesq_preds, si_sdr_preds = zip(*all_rows)
+        pesq_normal_scores = [score for score in pesq_normal_scores if score != "Error"]
+        stoi_preds = [score for score in stoi_preds if score > 0]
+        pesq_preds = [score for score in pesq_preds if score > 0]
+        si_sdr_preds = [score for score in si_sdr_preds if score > 0]
+        
+        ## Means
+        writer.writerow(["Mean scores"])
+        sisnr_mean = np.mean(sisnr_scores)
+        dnsmos_mean = np.mean(dnsmos_scores)
+        mos_squim_mean = np.mean(mos_squim_scores)
+        estoi_mean = np.mean(estoi_scores)
+        pesq_normal_mean = np.mean(pesq_normal_scores)
+        pesq_torch_mean = np.mean(pesq_torch_scores)
+        stoi_pred_mean = np.mean(stoi_preds)
+        pesq_pred_mean = np.mean(pesq_preds)
+        si_sdr_pred_mean = np.mean(si_sdr_preds)
+
+        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean]
+        writer.writerow(mean_scores)
+
+        ## Standard errors of the means
+        writer.writerow(["Standard errors of the means"])
+        sisnr_sem = np.std(sisnr_scores) / np.sqrt(len(sisnr_scores))
+        dnsmos_sem = np.std(dnsmos_scores) / np.sqrt(len(dnsmos_scores))
+        mos_squim_sem = np.std(mos_squim_scores) / np.sqrt(len(mos_squim_scores))
+        estoi_sem = np.std(estoi_scores) / np.sqrt(len(estoi_scores))
+        pesq_normal_sem = np.std(pesq_normal_scores) / np.sqrt(len(pesq_normal_scores))
+        pesq_torch_sem = np.std(pesq_torch_scores) / np.sqrt(len(pesq_torch_scores))
+        stoi_pred_sem = np.std(stoi_preds) / np.sqrt(len(stoi_preds))
+        pesq_pred_sem = np.std(pesq_preds) / np.sqrt(len(pesq_preds))
+        si_sdr_pred_sem = np.std(si_sdr_preds) / np.sqrt(len(si_sdr_preds))
+
+        sem_scores = [sisnr_sem, dnsmos_sem, mos_squim_sem, estoi_sem, pesq_normal_sem, pesq_torch_sem, stoi_pred_sem, pesq_pred_sem, si_sdr_pred_sem]
+        writer.writerow(sem_scores)
         
         ## All scores
         writer.writerow(["All Scores"])
@@ -202,7 +288,7 @@ def generate_fake_clean(model_path):
 
         fake_clean = generator(input_file)
         fake_clean = stft_to_waveform(fake_clean[0], device = device)
-        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_1000e_30_april/{noisy_filenames[i]}', fake_clean, 16000)
+        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/AudioSet/fake_clean_triple_train/{noisy_filenames[i]}', fake_clean, 16000)
 
     # #### from STFT files ####
     # autoencoder, generator, discriminator = model_load(model_path)
@@ -215,8 +301,9 @@ def generate_fake_clean(model_path):
 
 
 if __name__ == '__main__':
+    # generator_scores(model_path)
     # generate_fake_clean(model_path)
-    generator_scores(model_path)
+    generator_scores_model_sampled_clean_noisy(model_path)
 
 
 
