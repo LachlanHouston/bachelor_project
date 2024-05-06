@@ -1,6 +1,7 @@
 import torch
 import torchaudio
 from models.autoencoder import Autoencoder
+from gan.models.discriminator import pl_Discriminator
 from data.data_loader import AudioDataset, PreMadeDataset
 from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
@@ -15,15 +16,15 @@ import librosa.display
 torch.set_grad_enabled(False)
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
-clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/test_noisy_sampled_x'
+clean_path = 'data/test_noisy_sampled/'
+noisy_path = 'data/test_raw/'
 
 # fake_clean_path = 'data/test_noisy_sampled_x'
 fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
 
 
 # set model path to False if you don't want to generate new samples
-model_path = False#'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000_30_april.ckpt'
+model_path = 'models/discriminator_only.ckpt'
 fraction = 1.
 csv_name = 'standardmodel_1000e_30_april'
 device = torch.device('mps')
@@ -54,20 +55,30 @@ def model_load(model_path):
 
 def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
-    _, _, model = model_load(model_path)
+    #_, _, model = model_load(model_path)
+
+    model = pl_Discriminator.load_from_checkpoint(model_path)
+    
+    # Get the standardmodel generator
+    autoencoder = Autoencoder.load_from_checkpoint('models/standardmodel1000.ckpt')
+    generator = autoencoder.generator
 
     model.to(device)
     model.eval()
 
-    with open('discriminator_scores.csv', 'w', newline='') as file:
+    with open('discriminator_scores_authentic.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["D_Real", "D_Fake"])
+        writer.writerow(["D_clean", "D_fake", "D_noisy"])
         for batch in tqdm.tqdm(data_loader):
-            real_clean = batch[0].squeeze(1).to(device)
-            real_noisy = batch[1].squeeze(1).to(device)
+            real_clean = batch[0].to(device)
+            real_noisy = batch[1].to(device)
+            fake_clean = generator(real_noisy)[0]
+
             D_clean = model(real_clean)
             D_noisy = model(real_noisy)
-            writer.writerow([D_clean.item(), D_noisy.item()])
+            D_fake = model(fake_clean)
+
+            writer.writerow([D_clean.item(), D_fake.item(), D_noisy.item()])
 
 def generator_scores(model_path):
     if model_path:
@@ -205,48 +216,5 @@ def generate_fake_clean(model_path):
 
 if __name__ == '__main__':
     # generate_fake_clean(model_path)
-    generator_scores(model_path)
-
-
-
-
-    # _, generator, _ = model_load(model_paths)
-    # input_waveform, sr = torchaudio.load('data/test_noisy_sampled/p232_001.wav')
-    # # Resample to 16kHz
-    # input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
-
-    # # Transform to STFT
-    # input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-
-    # input = torch.stack([input.real, input.imag], dim=1)
-
-
-    # feature_maps = visualize_feature_maps(generator, input)
-    # print("Feature map shapes:")
-    # for i, feature_map in enumerate(feature_maps):
-    #     print(f"Layer {i}: {feature_map.shape}")
-
-    # # Visualize the feature maps
-    # import matplotlib.pyplot as plt
-    # fig, axs = plt.subplots(1, len(feature_maps) + 2, figsize=(20, 5))
-    # # Visualize the input spectrogram with librosa
-    # input_waveform = input_waveform.numpy()
-    # input_waveform = librosa.resample(input_waveform, sr, 16000)
-    # input_spectrogram = librosa.feature.melspectrogram(input_waveform, sr=16000, n_fft=512, hop_length=100, n_mels=80)
-    # input_spectrogram = librosa.power_to_db(input_spectrogram, ref=np.max)
-    # librosa.display.specshow(input_spectrogram.squeeze(0), ax=axs[0], y_axis='mel', x_axis='time')
-    # axs[0].set_title("Input")
-
-    # for i, feature_map in enumerate(feature_maps):
-    #     ax = axs[i + 1]
-    #     ax.imshow(feature_map.cpu().numpy())
-    #     ax.set_title(f"Layer {i}")
-
-    # # Visualize the output waveform
-    # output_waveform = stft_to_waveform(generator(input)[0], device = 'cpu')
-    # output_spectrogram = librosa.feature.melspectrogram(output_waveform.squeeze().numpy(), sr=16000, n_fft=512, hop_length=100, n_mels=80)
-    # librosa.display.specshow(librosa.power_to_db(output_spectrogram, ref=np.max), ax=axs[-1], y_axis='mel', x_axis='time')
-    # axs[-1].set_title("Output")
-
-        
-    # plt.show()
+    # generator_scores(model_path)
+    discriminator_scores(model_path)
