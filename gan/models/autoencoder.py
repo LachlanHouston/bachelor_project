@@ -85,13 +85,14 @@ class Autoencoder(L.LightningModule):
             if self.dataset == 'AudioSet':
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-                sisnr_loss = - si_sdr_pred.mean()
+                sisnr_loss = - si_sdr_pred.mean() if torch.isnan(si_sdr_pred).any() else 0
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
                 if self.sisnr_loss_half_batch:
                     sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
                 else:
                     sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            # Multiply the sisnr loss by a scaling factor
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
