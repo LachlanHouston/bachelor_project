@@ -129,6 +129,7 @@ def main(cfg):
         deterministic=True,
         limit_val_batches=cfg.hyperparameters.val_fraction,
         limit_train_batches=cfg.hyperparameters.train_fraction if cfg.hyperparameters.dataset == 'dummy' else 1.0,
+        num_sanity_val_steps=2,
     )
     
     # train the model. Continue training from the last checkpoint if specified in config
