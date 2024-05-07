@@ -8,6 +8,13 @@ from gan.utils.utils import stft_to_waveform, waveform_to_stft, perfect_shuffle
 import wandb
 from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
 
+def return_waveform(x):
+    x_real = x[:, 0, :, :]
+    x_img  = x[:, 1, :, :]
+    x_complex = torch.complex(x_real, x_img)
+    x_waveform = torch.istft(x_complex, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400))
+    return x_waveform
+
 def _padded_cat(x, y, dim=1):
     # Pad x to have same size with y, and cat them
     # x dim: N, C, T, F
@@ -58,7 +65,7 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(nn.Module):
-    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False):
+    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False, return_waveform=True):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])
@@ -66,6 +73,7 @@ class Generator(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.visualize = visualize
+        self.return_waveform = return_waveform
 
         # Encoder
         self.encoder.append(ConvBlock(self.in_channels, 32, kernel_size=(5, 2), stride=(2, 1), padding=(2, 1)))
@@ -84,9 +92,9 @@ class Generator(nn.Module):
     def forward(self, x):
         if (isinstance(x, tuple) or isinstance(x, list)) and len(x[0].shape) == 4:
             x = torch.stack(x, dim=0).squeeze()
-        e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
+            print("True")
+        e = x
         e_list = []
-        maps = []
         """Encoder"""
         for i, layer in enumerate(self.encoder):
             # apply convolutional layer
@@ -94,14 +102,12 @@ class Generator(nn.Module):
             # store the output for skip connection
             e_list.append(e)
             # store the feature maps for visualization
-            maps.append(e)
         
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
-        maps.append(d)
 
         """Decoder"""
         for i, layer in enumerate(self.decoder):
@@ -109,16 +115,16 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-            maps.append(d)
 
         d = self.activation(d)
-        mask = d
-        if mask.shape[1] != x.shape[1]:
-            # Add mask to first channel of x (concat 0 to the channel dimension)
-            mask = torch.cat((mask, torch.zeros((mask.shape[0], 1, mask.shape[2], mask.shape[3]), device=mask.device)), dim=1)
-
+        
         # Perform hadamard product
+        mask = d
         output = torch.mul(x, mask)
+
+        if self.return_waveform:
+            output = return_waveform(output).detach().cpu().numpy()
+            mask = return_waveform(mask).detach().cpu().numpy()
 
         return output, mask
     
@@ -207,7 +213,7 @@ def visualize_feature_maps(model, input):
     return feature_maps
 
 if __name__ == '__main__':
-    print(torch.cuda.is_available())
+    # print(torch.cuda.is_available())
 
     # Dummy train_loader
     train_loader = torch.utils.data.DataLoader(
@@ -222,39 +228,24 @@ if __name__ == '__main__':
         shuffle=False
     )
 
-    model = pl_Generator(batch_size=4, g_learning_rate=1e-4, 
-                             alpha_fidelity=10)
+    # model = pl_Generator(batch_size=4, g_learning_rate=1e-4, 
+    #                          alpha_fidelity=10)
     
-    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
-                        logger=False,
-                        fast_dev_run=False)
-    trainer.fit(model, train_loader, val_loader)
+    # trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
+    #                     log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
+    #                     logger=False,
+    #                     fast_dev_run=False)
+    # trainer.fit(model, train_loader, val_loader)
 
-    # input = torch.normal(0, 1, (1, 2, 257, 321))
+    model = Generator()
 
-    # # Initialize the autoencoder
-    # model = Generator()
-    # # model.eval()
-    # # output, mask = model(input)
-
-    # # Visualize the feature maps
-    # feature_maps = visualize_feature_maps(model, input)
-    # print("Feature map shapes:")
-    # for i, feature_map in enumerate(feature_maps):
-    #     print(f"Layer {i}: {feature_map.shape}")
-
-    # # Visualize the feature maps
-    # import matplotlib.pyplot as plt
-    # fig, axs = plt.subplots(1, len(feature_maps), figsize=(20, 5))
-    # for i, feature_map in enumerate(feature_maps):
-    #     ax = axs[i]
-    #     ax.imshow(feature_map.cpu().numpy())
-    #     ax.set_title(f"Layer {i}")
-
-    # plt.show()
-
-
-
+    # Get one batch and put through the model
+    for batch in train_loader:
+        print(batch[0].shape, batch[1].shape)
+        real_clean = batch[0]
+        real_noisy = batch[1]
+        output, mask = model(real_noisy)
+        print(output.shape)
+        break
 
 
