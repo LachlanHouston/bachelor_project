@@ -43,24 +43,6 @@ class Autoencoder(L.LightningModule):
         self.automatic_optimization = False
         # self.example_input_array = torch.randn(self.batch_size, 2, 257, 321)
 
-
-    # def on_load_checkpoint(self, checkpoint):
-    #     if self.load_generator_only:
-    #         # Filter and adjust the generator state dict keys
-    #         generator_keys = {k.replace('model.', ''): v 
-    #                         for k, v in checkpoint['state_dict'].items() 
-    #                         if k.startswith('model.')}
-
-    #         if generator_keys:
-    #             self.generator.load_state_dict(generator_keys, strict=False)
-    #             checkpoint['state_dict'] = {}
-    #         else:
-    #             raise KeyError("Generator parameters not found in checkpoint")
-    #     else:
-    #         # Load the entire checkpoint as usual
-    #         super().on_load_checkpoint(checkpoint)
-
-
     def forward(self, real_noisy):
         if len(real_noisy[0].shape) == 5:
             batch = real_noisy
@@ -85,7 +67,11 @@ class Autoencoder(L.LightningModule):
             if self.dataset == 'AudioSet':
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-                sisnr_loss = - si_sdr_pred.mean() if torch.isnan(si_sdr_pred).any() else 0
+                for i in range(len(si_sdr_pred)):
+                    if torch.isnan(torch.tensor([si_sdr_pred[i]])).any():
+                        print(f"si_sdr_pred contains NaN values.")
+                    
+                sisnr_loss = - si_sdr_pred.mean()
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
                 if self.sisnr_loss_half_batch:
@@ -132,7 +118,7 @@ class Autoencoder(L.LightningModule):
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
         if self.swa_start_epoch_g is not False:
-            self.swa_scheduler = SWALR(g_opt, anneal_strategy='linear', anneal_epochs=100, swa_lr=1e-4)
+            self.swa_scheduler = SWALR(g_opt, swa_lr=1e-4)
 
         if not self.linear_lr_scheduling:
             g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
@@ -159,14 +145,14 @@ class Autoencoder(L.LightningModule):
 
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-
-        if (self.swa_start_epoch_g is not False) and self.current_epoch == self.swa_start_epoch_g and batch_idx == 0:
-            self.swa_generator = AveragedModel(self.generator)
+        noisy_name = batch[3]
 
         if train_G:
             self.toggle_optimizer(g_opt)
             # Generate fake clean
             fake_clean, mask = self.generator(real_noisy)
+            if torch.isnan(fake_clean).any():
+                print(f"Output of generator contains NaN values. Noisy input: {noisy_name}")
             D_fake = self.discriminator(fake_clean)
             G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
             # Compute generator gradients
@@ -177,6 +163,8 @@ class Autoencoder(L.LightningModule):
 
         self.toggle_optimizer(d_opt)
         fake_clean_no_grad = self.generator(real_noisy)[0].detach()
+        if torch.isnan(fake_clean_no_grad).any():
+            print(f"Output of generator contains NaN values. Noisy input: {noisy_name}")
         D_fake_no_grad = self.discriminator(fake_clean_no_grad)
         D_real = self.discriminator(real_clean)
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean_no_grad, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
@@ -223,6 +211,8 @@ class Autoencoder(L.LightningModule):
             self.log('STOI pred Training', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('PESQ pred Training', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
+        if (self.swa_start_epoch_g is not False) and (not hasattr(self, 'swa_generator')):
+            self.swa_generator = AveragedModel(self.generator)
         self.custom_global_step += 1
 
 
@@ -232,6 +222,7 @@ class Autoencoder(L.LightningModule):
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
             # Update SWA weights
             self.swa_generator.update_parameters(self.generator)
+
             self.swa_scheduler.step()
             print("Updating SWA BN")
             # Update Batch Normalization statistics for the swa_generator

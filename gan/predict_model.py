@@ -1,6 +1,7 @@
 import torch
 import torchaudio
 from models.autoencoder import Autoencoder
+from models.generator import Generator
 from data.data_loader import AudioDataset, PreMadeDataset
 from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
@@ -13,28 +14,30 @@ import random
 import numpy as np
 import librosa.display
 torch.set_grad_enabled(False)
+from collections import OrderedDict
 PYTORCH_ENABLE_MPS_FALLBACK=1
+PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT=10
 
 clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/AudioSet/test_sampled'
+noisy_path = 'data/test_noisy_sampled_x'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
 
 
 # set model path to False if you don't want to generate new samples
-model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/AudioSet_300e.ckpt'
+model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/swa_generator_epoch_129.ckpt'
 fraction = 1.
 csv_name = 'AudioSet_300e'
 device = torch.device('mps')
 authentic = True
 
 ### Metrics ###
-use_sisnr=     False
+use_sisnr=     True
 use_dnsmos=    True
 use_mos_squim= True
-use_estoi=     False
-use_pesq=      False
+use_estoi=     True
+use_pesq=      True
 use_pred=      True
 ###############
 
@@ -47,10 +50,23 @@ def data_load():
     return data_loader
 
 def model_load(model_path):
-    autoencoder = Autoencoder.load_from_checkpoint(model_path)
-    generator = autoencoder.generator
-    discriminator = autoencoder.discriminator
-    return autoencoder, generator, discriminator
+    try:
+        autoencoder = Autoencoder.load_from_checkpoint(model_path, map_location=device)
+        generator = autoencoder.generator
+        discriminator = autoencoder.discriminator
+        return autoencoder, generator, discriminator
+    except:
+        print("Could not load autoencoder, trying to load generator only")
+        generator = Generator()
+        checkpoint = torch.load(model_path, map_location=device)
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint.items():
+            name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix if present
+            if k != 'n_averaged':
+                new_state_dict[name] = v
+        generator.load_state_dict(new_state_dict)
+        print("Generator loaded from checkpoint")
+        return None, generator, None
 
 def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
@@ -166,7 +182,7 @@ def generator_scores(model_path):
 
 def generator_scores_model_sampled_clean_noisy(model_path):
     autoencoder, generator, discriminator = model_load(model_path)
-    generator.to(device)
+    generator
     generator.eval()
 
     noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
