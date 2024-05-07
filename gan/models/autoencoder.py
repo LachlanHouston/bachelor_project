@@ -26,9 +26,8 @@ class Autoencoder(L.LightningModule):
         
         self.discriminator=Discriminator().to(self.device)
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
-        print('load generator?:', self.load_generator_only)
         if self.load_generator_only:
-            print('Loading generator from checkpoint')
+            print('Loading only the generator from checkpoint')
             cwd = '/'.join(os.getcwd().split('/')[:-3])
             print('cwd:', cwd)
             print('path:', os.path.join(cwd, self.ckpt_path))
@@ -86,13 +85,14 @@ class Autoencoder(L.LightningModule):
             if self.dataset == 'AudioSet':
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-                sisnr_loss = - si_sdr_pred.mean()
+                sisnr_loss = - si_sdr_pred.mean() if torch.isnan(si_sdr_pred).any() else 0
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
                 if self.sisnr_loss_half_batch:
                     sisnr_loss = - sisnr(preds=fake_clean_waveforms[:self.batch_size//2], target=real_clean_waveforms[:self.batch_size//2])
                 else:
                     sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            # Multiply the sisnr loss by a scaling factor
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
@@ -233,11 +233,11 @@ class Autoencoder(L.LightningModule):
             # Update SWA weights
             self.swa_generator.update_parameters(self.generator)
             self.swa_scheduler.step()
-            
+            print("Updating SWA BN")
             # Update Batch Normalization statistics for the swa_generator
-            torch.optim.swa_utils.update_bn(self.trainer.val_dataloader, self.swa_generator, device=self.device)
+            torch.optim.swa_utils.update_bn(self.trainer.val_dataloaders, self.swa_generator, device=self.device)
             # Now the swa_generator is ready to be used for validation
-          
+            print("SWA BN done")
             # Save SWA generator checkpoint every 5 epochs
             if (self.current_epoch+1) % 10 == 0:
                 # Create the directory if it doesn't exist
@@ -272,13 +272,24 @@ class Autoencoder(L.LightningModule):
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
         real_clean_name = batch[2]
-        real_noisy_name = batch[3]     
+        real_noisy_name = batch[3]
+
+        nan_count_clean = torch.isnan(real_clean).sum().item()
+        if nan_count_clean > 0:
+            raise ValueError(f"Detected {nan_count_clean} NaN values in real_clean data")
+        nan_count_noisy = torch.isnan(real_noisy).sum().item()
+        if nan_count_noisy > 0:
+            raise ValueError(f"Detected {nan_count_noisy} NaN values in real_noisy data")
 
         # Check if SWA is being used and if it's past the starting epoch
         if (self.swa_start_epoch_g is not False) and self.current_epoch >= self.swa_start_epoch_g:
             fake_clean, mask = self.swa_generator(real_noisy)
         else:
             fake_clean, mask = self.generator(real_noisy)
+
+        nan_count_fake = torch.isnan(fake_clean).sum().item()
+        if nan_count_fake > 0:
+            raise ValueError(f"Detected {nan_count_fake} NaN values in fake_clean data")
 
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
