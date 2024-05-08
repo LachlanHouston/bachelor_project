@@ -118,7 +118,7 @@ class Autoencoder(L.LightningModule):
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
 
         if self.swa_start_epoch_g is not False:
-            self.swa_scheduler = SWALR(g_opt, swa_lr=1e-4)
+            self.swa_scheduler = SWALR(g_opt, swa_lr=self.swa_lr)
 
         if not self.linear_lr_scheduling:
             g_lr_scheduler = torch.optim.lr_scheduler.StepLR(g_opt, step_size=self.g_scheduler_step_size, gamma=self.g_scheduler_gamma)
@@ -237,8 +237,8 @@ class Autoencoder(L.LightningModule):
                 # Save the SWA generator checkpoint
                 torch.save(self.swa_generator.state_dict(), 'models/swa_generator_epoch_{}.ckpt'.format(self.current_epoch))
 
+        # Otherwise, step the learning rate schedulers normally
         else:
-            # Step the learning rate schedulers
             old_lr = self.optimizers()[0].param_groups[0]['lr']
             self.lr_schedulers()[0].step()
             self.lr_schedulers()[1].step()
