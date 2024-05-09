@@ -88,8 +88,10 @@ class AudioDataset(Dataset):
 
         # Sample 2 seconds of audio randomly
         if self.authentic:
-            noisy_start_frame = random.randint(0, noisy_num_frames-2*noisy_sample_rate)
-            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=noisy_start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
+            noisy_waveform = torch.tensor(0.0)
+            while torch.max(abs(noisy_waveform)) == 0.0:
+                noisy_start_frame = random.randint(0, noisy_num_frames-2*noisy_sample_rate)
+                noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=noisy_start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
             clean_start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
             clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[clean_idx]), frame_offset=clean_start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
         else:

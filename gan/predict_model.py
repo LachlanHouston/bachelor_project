@@ -1,6 +1,7 @@
 import torch
 import torchaudio
 from models.autoencoder import Autoencoder
+from models.generator import Generator
 from gan.models.discriminator import pl_Discriminator
 from data.data_loader import AudioDataset, PreMadeDataset
 from torch.utils.data import DataLoader
@@ -14,7 +15,9 @@ import random
 import numpy as np
 import librosa.display
 torch.set_grad_enabled(False)
+from collections import OrderedDict
 PYTORCH_ENABLE_MPS_FALLBACK=1
+PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT=10
 
 clean_path = 'data/test_noisy_sampled/'
 noisy_path = 'data/test_raw/'
@@ -31,11 +34,11 @@ device = torch.device('mps')
 authentic = True
 
 ### Metrics ###
-use_sisnr=     False
+use_sisnr=     True
 use_dnsmos=    True
 use_mos_squim= True
-use_estoi=     False
-use_pesq=      False
+use_estoi=     True
+use_pesq=      True
 use_pred=      True
 ###############
 
@@ -48,10 +51,23 @@ def data_load():
     return data_loader
 
 def model_load(model_path):
-    autoencoder = Autoencoder.load_from_checkpoint(model_path)
-    generator = autoencoder.generator
-    discriminator = autoencoder.discriminator
-    return autoencoder, generator, discriminator
+    try:
+        autoencoder = Autoencoder.load_from_checkpoint(model_path, map_location=device)
+        generator = autoencoder.generator
+        discriminator = autoencoder.discriminator
+        return autoencoder, generator, discriminator
+    except:
+        print("Could not load autoencoder, trying to load generator only")
+        generator = Generator()
+        checkpoint = torch.load(model_path, map_location=device)
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint.items():
+            name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix if present
+            if k != 'n_averaged':
+                new_state_dict[name] = v
+        generator.load_state_dict(new_state_dict)
+        print("Generator loaded from checkpoint")
+        return None, generator, None
 
 def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
@@ -177,7 +193,7 @@ def generator_scores(model_path):
 
 def generator_scores_model_sampled_clean_noisy(model_path):
     autoencoder, generator, discriminator = model_load(model_path)
-    generator.to(device)
+    generator
     generator.eval()
 
     noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]

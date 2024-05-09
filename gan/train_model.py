@@ -93,6 +93,7 @@ def main(cfg):
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         sisnr_loss_half_batch = cfg.hyperparameters.sisnr_loss_half_batch,
                         swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
+                        swa_lr =                cfg.hyperparameters.swa_lr,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset,
                         ckpt_path =             cfg.system.ckpt_path,
