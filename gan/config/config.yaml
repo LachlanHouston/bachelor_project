@@ -4,7 +4,7 @@ hyperparameters:
   max_epochs: 10000
 
   dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
-  num_speakers: 1         # Must specify if dataset is "Speaker" or "FineTune"
+  num_speakers: 14         # Must specify if dataset is "Speaker" or "FineTune"
   train_fraction: 1.     # Note if you use VCTK_split, you must have fraction < 1
   val_fraction: 1.
   alpha_penalty: 10    # 10 used in UnSE paper
@@ -20,7 +20,7 @@ hyperparameters:
   g_scheduler_gamma: 1
   load_generator_only: False
 
-  sisnr_loss: False    # False or integer alpha value
+  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is Finetune)
   sisnr_loss_half_batch: False
   swa_start_epoch_g: False   # False or integer value
   dummy_mean_dif: 0

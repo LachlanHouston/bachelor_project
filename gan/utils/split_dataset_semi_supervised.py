@@ -55,7 +55,7 @@ def flatten_folder_structure(base_folder):
             os.rmdir(item_path)
 
 # Usage example:
-folder_x = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/clean_raw_speakers/unsuper50p'
+folder_x = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/noisy_raw_speakers/super50p'
 flatten_folder_structure(folder_x)
 
 

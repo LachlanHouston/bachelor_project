@@ -61,7 +61,9 @@ class Autoencoder(L.LightningModule):
         # Compute the total generator loss
         G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
 
-        if self.sisnr_loss:
+        if self.sisnr_loss or self.dataset == 'Finetune':
+            if self.sisnr_loss is False:
+                self.sisnr_loss = 10
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
             if self.dataset == 'AudioSet':
@@ -145,7 +147,7 @@ class Autoencoder(L.LightningModule):
 
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-        noisy_name = batch[3]
+        # noisy_name = batch[3]
 
         if train_G:
             self.toggle_optimizer(g_opt)

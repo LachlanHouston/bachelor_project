@@ -158,16 +158,19 @@ class FinetuneDataset(Dataset):
             self.num_speakers = num_speakers
             self.clean_files = []
             self.noisy_files = []
-            self.speakers = ['p250f', 'p270m', 'p267f', 'p273m', 'p268f', 'p274m', 'p269f', 'p278m', 'p276f', 'p279m', 'p277f', 'p286m', 'p282f', 'p287m']
+            self.speakers = ['p250', 'p270', 'p267', 'p273', 'p268', 'p274', 'p269', 'p278', 'p276', 'p279', 'p277', 'p286', 'p282', 'p287']
+
             self.speakers = self.speakers[:num_speakers]
             print("Number of speakers:", len(self.speakers))
             print("Speakers:", self.speakers)
 
             for speaker in self.speakers:
-                for file in os.listdir(os.path.join(clean_path, speaker)):
-                    self.clean_files.append(file)
-                for file in os.listdir(os.path.join(noisy_path, speaker)):
-                    self.noisy_files.append(file)
+                for file in os.listdir(clean_path):
+                    if file.startswith(speaker):
+                        self.clean_files.append(file)
+                for file in os.listdir(noisy_path):
+                    if file.startswith(speaker):
+                        self.noisy_files.append(file)
 
         else:
             self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
@@ -193,11 +196,11 @@ class FinetuneDataset(Dataset):
         # Sample 2 seconds of audio randomly
         start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
         try:
-            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='ffmpeg')
+            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
         except:
             print("Error in loading clean file:", self.clean_files[idx])
         try:
-            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='ffmpeg')
+            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
         except:
             print("Error in loading noisy file:", self.noisy_files[idx])
 
