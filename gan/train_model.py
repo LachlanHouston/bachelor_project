@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
 # Import data
-from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule
+from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule, FinetuneDataModule
 
 
 # main function using Hydra to organize configuration
@@ -34,6 +34,11 @@ def main(cfg):
     VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
     VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_raw/')
     VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
+    VCTK_unsuper50p_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/unsuper50p/')
+    VCTK_unsuper50p_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/unsuper50p/')
+    VCTK_clean_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/')
+    VCTK_noisy_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/')
+
     FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
     FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
     AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_raw/')
@@ -56,6 +61,19 @@ def main(cfg):
                                         test_clean_path = VCTK_test_clean_path,
                                         test_noisy_path = VCTK_test_noisy_path,
                                         batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction, num_speakers=cfg.hyperparameters.num_speakers)      
+    if cfg.hyperparameters.dataset == "Finetune":
+        data_module = FinetuneDataModule(clean_path = VCTK_clean_finetune_path,
+                                        noisy_path = VCTK_noisy_finetune_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, num_speakers=cfg.hyperparameters.num_speakers)
+    if cfg.hyperparameters.dataset == "Unsuper50p":
+        data_module = AudioDataModule(clean_path = VCTK_unsuper50p_clean_path,
+                                        noisy_path = VCTK_unsuper50p_noisy_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction)
+
     if cfg.hyperparameters.dataset == "Mix":
         data_module = MixDataModule(clean_path = VCTK_clean_path,
                                     noisy_path_authentic = AudioSet_noisy_path,
@@ -69,7 +87,6 @@ def main(cfg):
         print("Using a mixture of authentic and paired data")
         from gan import AutoencoderMix as Autoencoder
     else:
-        print("Using a single dataset")
         from gan import Autoencoder
         
         
@@ -93,7 +110,7 @@ def main(cfg):
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
                         sisnr_loss_half_batch = cfg.hyperparameters.sisnr_loss_half_batch,
                         swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
-                        swa_lr =                cfg.hyperparameters.swa_lr,
+                        swa_lr =                1e-5,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset,
                         ckpt_path =             cfg.system.ckpt_path,
@@ -104,7 +121,7 @@ def main(cfg):
         save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=25,  # how often to save a model checkpoint
+        every_n_epochs=5,  # how often to save a model checkpoint
     )
 
     # define Weights and Biases logger

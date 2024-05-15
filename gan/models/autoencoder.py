@@ -262,8 +262,8 @@ class Autoencoder(L.LightningModule):
         # Remove tuples and convert to tensors
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-        real_clean_name = batch[2]
-        real_noisy_name = batch[3]
+        # real_clean_name = batch[2]
+        # real_noisy_name = batch[3]
 
         nan_count_clean = torch.isnan(real_clean).sum().item()
         if nan_count_clean > 0:
