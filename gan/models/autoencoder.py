@@ -251,13 +251,9 @@ if __name__ == "__main__":
                         generator=Generator(),
                         alpha_penalty=10,
                         alpha_fidelity=10,
-
                         n_critic=1,
-                        
                         d_learning_rate=1e-4,
-
                         g_learning_rate=1e-4,
-
                         batch_size=4,
                         log_all_scores=True,
                         val_fraction = 1.)
