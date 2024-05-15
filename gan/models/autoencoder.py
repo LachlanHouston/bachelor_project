@@ -1,4 +1,3 @@
-from pytorch_lightning.utilities.types import STEP_OUTPUT, TRAIN_DATALOADERS
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
@@ -12,9 +11,6 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
-import torchaudio
-import os
-# from pesq import pesq
 
 # define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
@@ -211,7 +207,6 @@ class Autoencoder(L.LightningModule):
             self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
 
         # visualize the waveforms and spectrograms
         if batch_idx == 0:
