@@ -115,7 +115,6 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-            maps.append(d)
 
         d = self.activation(d)
         
@@ -123,9 +122,9 @@ class Generator(nn.Module):
         mask = d
         output = torch.mul(x, mask)
 
-        if self.return_waveform:
-            output = return_waveform(output).detach().cpu().numpy()
-            mask = return_waveform(mask).detach().cpu().numpy()
+        # if self.return_waveform:
+        #     output = return_waveform(output).detach().cpu().numpy()
+        #     mask = return_waveform(mask).detach().cpu().numpy()
 
         return output, mask
     

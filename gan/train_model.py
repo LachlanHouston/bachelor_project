@@ -21,15 +21,6 @@ def main(cfg):
     print('MPS available:', torch.backends.mps.is_available())
     L.seed_everything(100, workers=True)
 
-    # configure wandb
-    if cfg.wandb.use_wandb:
-        wandb_api_key = os.environ.get("WANDB_API_KEY")
-        wandb.login(key=wandb_api_key)
-        # define Weights and Biases logger
-        wandb_logger = WandbLogger(project=cfg.wandb.project, name=cfg.wandb.name, entity=cfg.wandb.entity)
-        # log gradients and model topology
-        wandb_logger.watch(model, log='gradients', log_freq=1)
-
     # define paths
     VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw/')
     VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
@@ -106,6 +97,15 @@ def main(cfg):
         filename="{epoch}",  # the name of the checkpoint files
         every_n_epochs=5,  # how often to save a model checkpoint
     )
+
+    # configure wandb
+    if cfg.wandb.use_wandb:
+        wandb_api_key = os.environ.get("WANDB_API_KEY")
+        wandb.login(key=wandb_api_key)
+        # define Weights and Biases logger
+        wandb_logger = WandbLogger(project=cfg.wandb.project, name=cfg.wandb.name, entity=cfg.wandb.entity)
+        # log gradients and model topology
+        wandb_logger.watch(model, log='gradients', log_freq=1)
 
     # define the trainer 
     trainer = Trainer(
