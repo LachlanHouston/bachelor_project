@@ -115,7 +115,6 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-            maps.append(d)
 
         d = self.activation(d)
         
