@@ -1,41 +1,30 @@
 hyperparameters:
   batch_size: 16
-  num_workers: 20
   num_gpus: 1
-
   max_epochs: 10000
-  dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", "Mix", or "dummy"
-  train_fraction: 1.
-  val_fraction: 1.
+  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
+  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
-  sisnr_loss: False    # False or integer alpha value
-  supervised_fidelity: False
 
-  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  L2_reg: False             # False or integer alpha value
-  use_bias: True
-  weight_clip: False
-  weight_clip_value: 0.01
-  dummy_mean_dif: 0
-  d_scheduler_step_size: 1000
-  d_scheduler_gamma: 1
-  g_scheduler_step_size: 1000
-  g_scheduler_gamma: 1
+  dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
+  num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
+  train_fraction: 1.
+  val_fraction: 1.
+  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
 
 system:
   checkpointing: True
   continue_training: False
-  ckpt_path: "outputs/2024-02-20/16-55-01/models/epoch=654.ckpt" # Or none
+  ckpt_path: "models/test_unsuper50p_epoch=84.ckpt" # Or none
+  num_workers: 20
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not VCTK
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
   use_wandb: True
-  logging_freq: 1
   entity: turtle_team
   project: bachelor2
   

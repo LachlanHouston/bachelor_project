@@ -1,38 +1,82 @@
 import torch
+import torchaudio
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
-from torchmetrics.audio import ShortTimeObjectiveIntelligibility
-from torchaudio.pipelines import SQUIM_SUBJECTIVE, SQUIM_OBJECTIVE
-from speechmos import dnsmos
 
 
-def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, use_pesq=True):
-
+def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_reference_waveform, fake_clean_filename=None, real_clean_filename=None,
+                   use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
+                   use_pesq=True, use_pred=True):
+    
     if real_clean_waveform.numpy().shape == (1, 32000):
         real_clean_waveform = real_clean_waveform.squeeze(0)
     if fake_clean_waveform.numpy().shape == (1, 32000):
         fake_clean_waveform = fake_clean_waveform.squeeze(0)
-    if len(non_matching_reference_waveform.numpy().shape) == 1:
-        non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
+
+    sisnr_score = 0
+    dnsmos_score = 0
+    mos_squim_score = 0
+    estoi_score = 0
+    pesq_normal_score = 0
+    pesq_torch_score = 0
+    stoi_pred = 0
+    pesq_pred = 0
+    si_sdr_pred = 0
 
     ## SI-SNR
-    sisnr = ScaleInvariantSignalNoiseRatio()
-    sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform)
+    if use_sisnr:
+        from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+        sisnr = ScaleInvariantSignalNoiseRatio()
+        sisnr_score = sisnr(preds=fake_clean_waveform, target=real_clean_waveform).item()
+
+    ## DNSMOS
+    if use_dnsmos:
+        from speechmos import dnsmos
+        fake_clean = fake_clean_waveform.numpy()
+        if np.max(abs(fake_clean)) > 1:
+            fake_clean = fake_clean / np.max(abs(fake_clean))
+        dnsmos_score = dnsmos.run(fake_clean, 16000)['ovrl_mos']
+
+    ## MOS Squim
+    if use_mos_squim:
+        if len(non_matching_reference_waveform.numpy().shape) == 1:
+            non_matching_reference_waveform = non_matching_reference_waveform.unsqueeze(0)
+        from torchaudio.pipelines import SQUIM_SUBJECTIVE
+        subjective_model = SQUIM_SUBJECTIVE.get_model()
+        mos_squim_score = subjective_model(fake_clean_waveform.unsqueeze(0), non_matching_reference_waveform).item()
+
+    ## eSTOI
+    if use_estoi:
+        from torchmetrics.audio import ShortTimeObjectiveIntelligibility
+        estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
+        estoi_score = estoi(preds=fake_clean_waveform, target=real_clean_waveform).item()
 
     if use_pesq:
+        from torchmetrics.audio import PerceptualEvaluationSpeechQuality
         from pesq import pesq
         ## PESQ Normal
-        pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
-
+        try:
+            pesq_normal_score = pesq(fs=16000, ref=real_clean_waveform.numpy(), deg=fake_clean_waveform.numpy(), mode='wb')
+        except:
+            pesq_normal_score = "Error"
         ## PESQ Torch
-        from torchmetrics.audio import PerceptualEvaluationSpeechQuality
         pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform)
+        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()
 
-    return sisnr_score.item()
+    ## Predicted objective metrics: STOI, PESQ, and SI-SDR
+    if use_pred:
+        from torchaudio.pipelines import SQUIM_OBJECTIVE
+        objective_model = SQUIM_OBJECTIVE.get_model()
+        stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveform.unsqueeze(0))
+        stoi_pred = stoi_pred.item()
+        pesq_pred = pesq_pred.item()
+        si_sdr_pred = si_sdr_pred.item()
+
+    return (sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, 
+            pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred)
+
 
 def perfect_shuffle(tensor):
     # Ensure the tensor is at least 2D
@@ -59,16 +103,33 @@ def waveform_to_stft(waveform, device=torch.device('cuda')):
     return stft
 
 def stft_to_waveform(stft, device=torch.device('cuda')):
+    if device == torch.device('mps'):
+        device = torch.device('cpu')
     if len(stft.shape) == 3:
         stft = stft.unsqueeze(0)
     # Separate the real and imaginary components
     stft_real = stft[:, 0, :, :]
     stft_imag = stft[:, 1, :, :]
     # Combine the real and imaginary components to form the complex-valued spectrogram
-    stft = torch.complex(stft_real, stft_imag)
+    stft = torch.complex(stft_real, stft_imag).to(device)
     # Perform inverse STFT to obtain the waveform
-    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(device))
+    window = torch.hann_window(400).to(device)
+    if torch.backends.mps.is_available():
+        stft = stft.cpu()
+        window = window.cpu()
+    waveform = torch.istft(stft, n_fft=512, hop_length=100, win_length=400, window=window)
     return waveform
+
+def clean_and_count_audio(audio):
+    audio = np.array(audio)
+    nan_count = np.sum(np.isnan(audio))
+    inf_count = np.sum(np.isinf(audio))
+    
+    if nan_count > 0 or inf_count > 0:
+        print(f"Detected {nan_count} NaN values and {inf_count} infinite values in audio data. Replacing with 0.")
+        audio = np.nan_to_num(audio)  # Replace NaN and Inf with 0
+        torchaudio.save("fake_audio.wav", torch.tensor(audio).unsqueeze(0), 16000)
+
 
 def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     """
@@ -80,6 +141,7 @@ def visualize_stft_spectrogram(real_clean, fake_clean, real_noisy):
     mel_spect_rc = librosa.feature.melspectrogram(y=np.array(real_clean), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_rc = librosa.power_to_db(mel_spect_rc, ref=np.max)
     # Spectrogram of fake clean
+    clean_and_count_audio(fake_clean)
     mel_spect_fc = librosa.feature.melspectrogram(y=np.array(fake_clean), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64)
     mel_spect_db_fc = librosa.power_to_db(mel_spect_fc, ref=np.max)
     # Spectrogram of real noisy
