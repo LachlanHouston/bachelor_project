@@ -65,7 +65,7 @@ class TransConvBlock(nn.Module):
     
     
 class Generator(nn.Module):
-    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False, return_waveform=True):
+    def __init__(self, param=None, in_channels=2, out_channels=2, visualize=False, return_waveform=False):
         super().__init__()
         self.encoder = nn.ModuleList([])
         self.decoder = nn.ModuleList([])

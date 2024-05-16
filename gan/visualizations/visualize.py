@@ -291,6 +291,7 @@ class GuidedBackprop:
 
         # Forward pass
         fake_clean = self.generator(input_tensor)[0]
+        fake_clean = torch.tensor(fake_clean, requires_grad=True)
 
         # Fidelity loss
         fidelity = torch.norm(fake_clean - input_tensor, p=1) * 10
@@ -313,10 +314,10 @@ class GuidedBackprop:
         # Gradient with respect to input
         return input_tensor.grad
 
-    def __del__(self):
-        # Remove all hooks during cleanup
-        for hook in self.hooks:
-            hook.remove()
+    # def __del__(self):
+    #     # Remove all hooks during cleanup
+    #     for hook in self.hooks:
+    #         hook.remove()
 
 def plot_mask(filename, savename):
     # Load data and model
@@ -360,10 +361,43 @@ def plot_mask(filename, savename):
     plt.savefig('reports/figures/' + savename + '_mask.png')
     plt.show()
 
+def plot_validation_score(data, score_name, title, savename):
+    score = data[score_name]
+    epochs = data['epoch']
+    # Plots the validation score
+    plt.figure(figsize=(10, 5))
+    plt.plot(epochs, score)
+    plt.title(title)
+    plt.xlabel('Epoch')
+    plt.ylabel('Score')
+    plt.savefig('reports/figures/' + savename + '_validation_score.png')
+    plt.show()
+
 if __name__ == '__main__':
     print("Visualizing")
 
-    # Plot mask
-    plot_mask('p232_006.wav', 'standardmodel1000')
+    # Create a GuidedBackprop object
+    guided_backprop = GuidedBackprop('models/epoch=944.ckpt')
+
+    # Load the input waveform
+    input_waveform, sr = torchaudio.load('data/test_noisy_sampled/p232_012.wav')
+
+    # Resample to 16kHz
+    input = torchaudio.transforms.Resample(sr, 16000)(input_waveform)
+
+    # Transform to STFT
+    input = torch.stft(input, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+    input = torch.stack([input.real, input.imag], dim=1)
+
+    # Visualize the guided backpropagation
+    guided_backprop.visualize(input, None, None)
+
+    # Plot the guided backpropagation as a spectrogram
+    plt.figure(figsize=(10, 5))
+    librosa.display.specshow(guided_backprop.visualize(input, None, None).squeeze(0).detach().cpu().numpy(), y_axis='mel', x_axis='time', hop_length=100, sr=16000)
+    plt.colorbar()
+    plt.title('Guided Backpropagation')
+    plt.savefig('reports/figures/guided_backpropagation.png')
+    plt.show()
 
 
