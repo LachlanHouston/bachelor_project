@@ -26,11 +26,11 @@ noisy_path = 'data/test_noisy_sampled_x'
 
 
 # set model path to False if you don't want to generate new samples
-model_path = '/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/swa_generator_epoch_129.ckpt'
+model_path = '/Users/fredmac/Downloads/bachelor_project/models/new_standard_model945.ckpt'
 fraction = 1.
-csv_name = 'AudioSet_300e'
+csv_name = 'new_Standard_945e'
 device = torch.device('mps')
-authentic = True
+authentic = False
 
 ### Metrics ###
 use_sisnr=     True
@@ -182,7 +182,6 @@ def generator_scores(model_path):
 
 def generator_scores_model_sampled_clean_noisy(model_path):
     autoencoder, generator, discriminator = model_load(model_path)
-    generator
     generator.eval()
 
     noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]

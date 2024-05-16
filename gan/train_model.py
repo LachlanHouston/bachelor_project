@@ -1,6 +1,7 @@
+import os
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import torch
 import hydra
-import os
 import wandb
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
@@ -17,6 +18,7 @@ from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModu
 def main(cfg):
     # Print GPU information
     print('CUDA available:', torch.cuda.is_available())
+    print('MPS available:', torch.backends.mps.is_available())
 
     L.seed_everything(100, workers=True)
     # configure wandb
@@ -61,7 +63,7 @@ def main(cfg):
                                         noisy_path = VCTK_noisy_finetune_path,
                                         test_clean_path = VCTK_test_clean_path,
                                         test_noisy_path = VCTK_test_noisy_path,
-                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, num_speakers=cfg.hyperparameters.num_speakers)
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, num_speakers=cfg.hyperparameters.num_speakers, fraction = cfg.hyperparameters.train_fraction)
     if cfg.hyperparameters.dataset == "Unsuper50p":
         data_module = AudioDataModule(clean_path = VCTK_unsuper50p_clean_path,
                                         noisy_path = VCTK_unsuper50p_noisy_path,
@@ -118,7 +120,7 @@ def main(cfg):
 
     # define the trainer 
     trainer = Trainer(
-        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        accelerator='gpu',# if torch.cuda.is_available() else 'cpu',
         devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         max_epochs=cfg.hyperparameters.max_epochs,
@@ -133,7 +135,7 @@ def main(cfg):
     )
     
     # train the model. Continue training from the last checkpoint if specified in config
-    if cfg.system.continue_training and not cfg.hyperparameters.load_generator_only:
+    if cfg.system.continue_training:
         print("Continuing training from checkpoint")
         trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
     

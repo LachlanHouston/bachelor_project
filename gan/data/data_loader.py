@@ -150,7 +150,7 @@ class AudioDataModule(L.LightningDataModule):
 
 
 class FinetuneDataset(Dataset):
-    def __init__(self, clean_path, noisy_path, is_train, num_speakers=None):
+    def __init__(self, clean_path, noisy_path, is_train, num_speakers=None, fraction=1.0):
         self.clean_path = clean_path
         self.noisy_path = noisy_path
 
@@ -171,6 +171,13 @@ class FinetuneDataset(Dataset):
                 for file in os.listdir(noisy_path):
                     if file.startswith(speaker):
                         self.noisy_files.append(file)
+            if fraction < 1.0:
+                num_files = int(fraction * len(self.clean_files))
+                self.clean_files = sorted(self.clean_files[:num_files])
+                self.noisy_files = sorted(self.noisy_files[:num_files])
+            else:
+                self.clean_files = sorted(self.clean_files)
+                self.noisy_files = sorted(self.noisy_files)
 
         else:
             self.clean_files = sorted([file for file in os.listdir(clean_path) if file.endswith('.wav')])
@@ -222,12 +229,12 @@ class FinetuneDataset(Dataset):
         clean_stft = torch.stack((clean_stft.real, clean_stft.imag), dim=1)
         noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1)
 
-        return clean_stft.squeeze(), noisy_stft.squeeze()#, self.clean_files[idx], self.noisy_files[idx]
+        return clean_stft.squeeze(), noisy_stft.squeeze(), self.clean_files[idx], self.noisy_files[idx]
 
 
 # Lightning DataModule
 class FinetuneDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, num_speakers=1):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, num_speakers=1, fraction=1.0):
         super(FinetuneDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
@@ -236,10 +243,11 @@ class FinetuneDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers if torch.cuda.is_available() else 1
         self.num_speakers = num_speakers
+        self.fraction = fraction
         self.save_hyperparameters()
 
     def setup(self, stage=None):
-        self.train_dataset = FinetuneDataset(self.clean_path, self.noisy_path, is_train=True, num_speakers=self.num_speakers)
+        self.train_dataset = FinetuneDataset(self.clean_path, self.noisy_path, is_train=True, num_speakers=self.num_speakers, fraction=self.fraction)
         self.val_dataset = FinetuneDataset(self.test_clean_path, self.test_noisy_path, is_train=False)
 
     def train_dataloader(self):
