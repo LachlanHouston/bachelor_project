@@ -19,17 +19,16 @@ def main(cfg):
     # Print GPU information
     print('CUDA available:', torch.cuda.is_available())
     print('MPS available:', torch.backends.mps.is_available())
-
     L.seed_everything(100, workers=True)
-    # configure wandb
-    wandb_api_key = os.environ.get("WANDB_API_KEY")
-    wandb.login(key=wandb_api_key)
 
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity, 
-    )
+    # configure wandb
+    if cfg.wandb.use_wandb:
+        wandb_api_key = os.environ.get("WANDB_API_KEY")
+        wandb.login(key=wandb_api_key)
+        # define Weights and Biases logger
+        wandb_logger = WandbLogger(project=cfg.wandb.project, name=cfg.wandb.name, entity=cfg.wandb.entity)
+        # log gradients and model topology
+        wandb_logger.watch(model, log='gradients', log_freq=1)
 
     # define paths
     VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw/')
@@ -108,24 +107,14 @@ def main(cfg):
         every_n_epochs=5,  # how often to save a model checkpoint
     )
 
-    # define Weights and Biases logger
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity, 
-    )
-
-    # log gradients and model topology
-    wandb_logger.watch(model, log='gradients', log_freq=1)
-
     # define the trainer 
     trainer = Trainer(
-        accelerator='gpu',# if torch.cuda.is_available() else 'cpu',
+        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=wandb_logger,
+        logger=wandb_logger if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         deterministic=True,

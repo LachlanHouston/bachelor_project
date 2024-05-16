@@ -202,14 +202,8 @@ class FinetuneDataset(Dataset):
 
         # Sample 2 seconds of audio randomly
         start_frame = random.randint(0, clean_num_frames-2*clean_sample_rate)
-        try:
-            clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
-        except:
-            print("Error in loading clean file:", self.clean_files[idx])
-        try:
-            noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
-        except:
-            print("Error in loading noisy file:", self.noisy_files[idx])
+        clean_waveform, _ = torchaudio.load(os.path.join(self.clean_path, self.clean_files[idx]), frame_offset=start_frame, num_frames=2*clean_sample_rate, backend='soundfile')
+        noisy_waveform, _ = torchaudio.load(os.path.join(self.noisy_path, self.noisy_files[idx]), frame_offset=start_frame, num_frames=2*noisy_sample_rate, backend='soundfile')
 
         # Downsample the audio to 16kHz
         clean_waveform = torchaudio.transforms.Resample(orig_freq=clean_sample_rate, new_freq=new_sample_rate)(clean_waveform)

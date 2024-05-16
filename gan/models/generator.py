@@ -81,9 +81,7 @@ class Generator(nn.Module):
         e = x[:, :self.in_channels, :, :] # Include phase or only magnitude
         e_list = []
         maps = []
-        # Check if input contains any NaN values
-        if torch.isnan(e).any():
-            print(f"Input: {name} contains NaN values")
+
         """Encoder"""
         for i, layer in enumerate(self.encoder):
             # apply convolutional layer
@@ -93,18 +91,12 @@ class Generator(nn.Module):
             # store the feature maps for visualization
             maps.append(e)
         
-        # Check if input contains any NaN values
-        if torch.isnan(e).any():
-            print(f"Output of encoder contains NaN values. Input: {name}")
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
         idx = len(e_list)
         d = rnn_out
         maps.append(d)
-        # Check if input contains any NaN values
-        if torch.isnan(d).any():
-            print(f"Output of DPRNN contains NaN values. Input: {name}")
 
         """Decoder"""
         for i, layer in enumerate(self.decoder):
@@ -114,25 +106,14 @@ class Generator(nn.Module):
             # store the feature maps for visualization
             maps.append(d)
 
-        # Check if input contains any NaN values
-        if torch.isnan(d).any():
-            print(f"Output of decoder contains NaN values. Input: {name}")
-
         d = self.activation(d)
         mask = d
-        # Check if input contains any NaN values
-        if torch.isnan(mask).any():
-            print(f"Output of activation contains NaN values. Input: {name}")
         if mask.shape[1] != x.shape[1]:
             # Add mask to first channel of x (concat 0 to the channel dimension)
             mask = torch.cat((mask, torch.zeros((mask.shape[0], 1, mask.shape[2], mask.shape[3]), device=mask.device)), dim=1)
 
         # Perform hadamard product
-        output = torch.mul(x, mask)
-        # Check if input contains any NaN values
-        if torch.isnan(output).any():
-            print(f"Output contains NaN values. Input: {name}")
-        
+        output = torch.mul(x, mask)        
         return output, mask
     
 def visualize_feature_maps(model, input):
