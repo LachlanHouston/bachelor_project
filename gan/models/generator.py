@@ -89,7 +89,7 @@ class Generator(nn.Module):
 
         self.activation = nn.Tanh()
 
-    def forward(self, x):
+    def forward(self, x, name=None):
         if (isinstance(x, tuple) or isinstance(x, list)) and len(x[0].shape) == 4:
             x = torch.stack(x, dim=0).squeeze()
             print("True")
@@ -105,7 +105,7 @@ class Generator(nn.Module):
         
         # Check if input contains any NaN values
         if torch.isnan(e).any():
-            print("Output of encoder contains NaN values")
+            print(f"Output of encoder contains NaN values. Input: {name}")
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
@@ -121,7 +121,7 @@ class Generator(nn.Module):
 
         # Check if input contains any NaN values
         if torch.isnan(d).any():
-            print("Output of decoder contains NaN values")
+            print(f"Output of decoder contains NaN values. Input: {name}")
 
         d = self.activation(d)
         
