@@ -165,12 +165,12 @@ class Autoencoder(L.LightningModule):
         # Log the norms of the generator and discriminator parameters
         if self.current_epoch % 1 == 0:
             for name, param in self.generator.named_parameters():
-                self.log(f'Generator_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+                self.log(f'Weight Norms/Gen_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
             for name, param in self.discriminator.named_parameters():
-                self.log(f'Discriminator_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+                self.log(f'Weight Norms/Disc_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
             # Also log the overall norm of the generator and discriminator parameters
-            self.log('Generator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log('Discriminator_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('Weight Norms/Gen_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('Weight Norms/Disc_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
 
     def validation_step(self, batch, batch_idx):
