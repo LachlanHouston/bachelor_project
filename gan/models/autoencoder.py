@@ -1,5 +1,3 @@
-import os
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
