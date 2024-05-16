@@ -9,22 +9,21 @@ hyperparameters:
   n_critic: 10         # 10 used in UnSE paper
 
   dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
-  num_speakers: 14         # Must specify if dataset is "Speaker" or "FineTune"
-  train_fraction: 1.     # Note if you use VCTK_split, you must have fraction < 1
+  num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
+  train_fraction: 1.
   val_fraction: 1.
-
-  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is Finetune)
+  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
 
 system:
   checkpointing: True
   continue_training: False
-  ckpt_path: "models/epoch=19_pretrain_G_alone.ckpt" # Or none
+  ckpt_path: "models/test_unsuper50p_epoch=84.ckpt" # Or none
   num_workers: 20
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not VCTK
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
   use_wandb: True
   entity: turtle_team
   project: bachelor2

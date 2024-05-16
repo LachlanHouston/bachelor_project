@@ -103,9 +103,6 @@ class Generator(nn.Module):
             e_list.append(e)
             # store the feature maps for visualization
         
-        # Check if input contains any NaN values
-        if torch.isnan(e).any():
-            print(f"Output of encoder contains NaN values. Input: {name}")
         """Dual-Path RNN"""
         rnn_out = self.rnn_block(e) # [32, 128, 32, 321]
         # store length to go through the list backwards
@@ -118,10 +115,7 @@ class Generator(nn.Module):
             # concatenate d with the skip connection and put though layer
             d = layer(_padded_cat(d, e_list[idx]))
             # store the feature maps for visualization
-
-        # Check if input contains any NaN values
-        if torch.isnan(d).any():
-            print(f"Output of decoder contains NaN values. Input: {name}")
+            maps.append(d)
 
         d = self.activation(d)
         

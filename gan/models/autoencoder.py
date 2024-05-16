@@ -57,8 +57,6 @@ class Autoencoder(L.LightningModule):
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
                 sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-                if torch.isnan(sisnr).any():
-                    print(f"SI-SNR loss contains NaN values. Input: {self.noisy_name}")
             # Multiply the sisnr loss by a scaling factor
             sisnr_loss *= self.sisnr_loss
             G_loss += sisnr_loss
@@ -105,15 +103,12 @@ class Autoencoder(L.LightningModule):
         # Unpack batched data
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-        clean_name = batch[2]
-        noisy_name = batch[3]
-        self.noisy_name = noisy_name
 
         train_G = (self.custom_global_step + 1) % self.n_critic == 0
         if train_G:
             self.toggle_optimizer(g_opt)
             # Generate fake clean
-            fake_clean, mask = self.generator(real_noisy, noisy_name)
+            fake_clean, mask = self.generator(real_noisy)
             D_fake = self.discriminator(fake_clean)
             G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
             # Compute generator gradients
@@ -123,7 +118,7 @@ class Autoencoder(L.LightningModule):
             self.untoggle_optimizer(g_opt)
 
         self.toggle_optimizer(d_opt)
-        fake_clean_no_grad = self.generator(real_noisy, noisy_name)[0].detach()
+        fake_clean_no_grad = self.generator(real_noisy)[0].detach()
         D_fake_no_grad = self.discriminator(fake_clean_no_grad)
         D_real = self.discriminator(real_clean)
         D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean_no_grad, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
