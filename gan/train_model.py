@@ -75,7 +75,8 @@ def main(cfg):
                 every_n_epochs=1,  # how often to save a model checkpoint
                 monitor='SI-SNR',  # quantity to monitor
                 mode='max',  # mode to monitor
-                filename="{epoch}-{cfg.hyperparameters.num_speakers}",  # name of the checkpoint file
+                filename=cfg.wandb.name + f"_{cfg.hyperparameters.num_speakers}_speakers",  # name of the checkpoint file
+                save_last=True
                 )
             
             # log gradients and model topology
