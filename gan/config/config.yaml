@@ -1,6 +1,6 @@
 hyperparameters:
   batch_size: 4
-  num_gpus: 1
+  num_gpus: 2
   max_epochs: 10
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
@@ -22,7 +22,7 @@ system:
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
-  name: ${now:%d/%m %H:%M:%S}
+  name: ${now:%d/%m %H:%M:%S} Finetune
   log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
   use_wandb: True
   entity: turtle_team
