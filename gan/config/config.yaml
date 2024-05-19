@@ -1,15 +1,15 @@
 hyperparameters:
   batch_size: 16
   num_gpus: 1
-  max_epochs: 10000
+  max_epochs: 501
   d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
 
-  dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
-  num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
+  dataset: "Speaker"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
+  num_speakers: x         # Used if dataset is "Speaker" or "FineTune"
   train_fraction: 1.
   val_fraction: 1.
   sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
@@ -22,7 +22,7 @@ system:
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
-  name: ${now:%d/%m %H:%M:%S}
+  name: ${now:%d/%m %H:%M:%S} lc
   log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
   use_wandb: True
   entity: turtle_team

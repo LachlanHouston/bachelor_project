@@ -347,7 +347,7 @@ class DummyDataModule(L.LightningDataModule):
         return DataLoader(self.dummy_val, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, persistent_workers=True, drop_last=True)
     
 class speaker_split_dataset(Dataset):
-    def __init__(self, num_speakers, clean_path, noisy_path, fraction=1.0, is_train=True):
+    def __init__(self, num_speakers, clean_path, noisy_path, fraction=1.0, is_train=True, speaker_order=1):
         self.clean_path = clean_path
         self.noisy_path = noisy_path
         self.fraction = fraction
@@ -361,8 +361,17 @@ class speaker_split_dataset(Dataset):
                 self.speakers.add(file.split('_')[0])
             self.speakers = list(self.speakers)
             self.speakers = sorted(self.speakers)
+            if speaker_order == 1:
+                indices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+            elif speaker_order == 2:
+                indices = [28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+            elif speaker_order == 3:
+                indices = [7, 19, 21, 25, 12, 28, 1, 16, 3, 8, 26, 4, 23, 9, 15, 6, 14, 2, 27, 11, 20, 5, 18, 24, 10, 13, 22, 17]
+            self.speakers = [self.speakers[i-1] for i in indices]
+
             self.speakers = self.speakers[:num_speakers]
             print("Number of speakers:", len(self.speakers))
+            print("Speaker order:", speaker_order)
             print("Speakers:", self.speakers)
 
             for speaker in self.speakers:
@@ -424,7 +433,7 @@ class speaker_split_dataset(Dataset):
         return clean_stft.squeeze(), noisy_stft.squeeze()
     
 class SpeakerDataModule(L.LightningDataModule):
-    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0, num_speakers=10):
+    def __init__(self, clean_path, noisy_path, test_clean_path, test_noisy_path, batch_size=16, num_workers=16, fraction=1.0, num_speakers=10, speaker_order=1):
         super(SpeakerDataModule, self).__init__()
         self.clean_path = clean_path
         self.noisy_path = noisy_path
@@ -434,12 +443,13 @@ class SpeakerDataModule(L.LightningDataModule):
         self.num_workers = num_workers
         self.fraction = fraction
         self.num_speakers = num_speakers
+        self.speaker_order = speaker_order
         self.save_hyperparameters()
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.train_dataset = speaker_split_dataset(self.num_speakers, self.clean_path, self.noisy_path, fraction=self.fraction, is_train=True)
-            self.val_dataset = speaker_split_dataset(self.num_speakers, self.test_clean_path, self.test_noisy_path, fraction=self.fraction, is_train=False)
+            self.train_dataset = speaker_split_dataset(self.num_speakers, self.clean_path, self.noisy_path, fraction=self.fraction, is_train=True, speaker_order=self.speaker_order)
+            self.val_dataset = speaker_split_dataset(self.num_speakers, self.test_clean_path, self.test_noisy_path, fraction=1., is_train=False)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True, pin_memory=True, drop_last=True)
