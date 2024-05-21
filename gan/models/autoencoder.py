@@ -201,7 +201,7 @@ class Autoencoder(L.LightningModule):
             mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
             self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if (self.log_all_scores or (self.dataset not in ["VCTK", "Speaker"])) and batch_idx % 10 == 0:
+        if (self.log_all_scores or self.dataset == "AudioSet") and batch_idx % 10 == 0:
             ## Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)

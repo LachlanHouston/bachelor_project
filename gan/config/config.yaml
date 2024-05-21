@@ -23,7 +23,7 @@ system:
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is "AudioSet"
   use_wandb: True
   entity: turtle_team
   project: bachelor2
