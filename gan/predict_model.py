@@ -27,11 +27,11 @@ noisy_path = 'data/test_raw/'
 
 
 # set model path to False if you don't want to generate new samples
-model_path = False#'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/models/standardmodel1000_30_april.ckpt'
+model_path = '/Users/fredmac/Downloads/bachelor_project/models/new_standard_model945.ckpt'
 fraction = 1.
-csv_name = 'AudioSet_300e'
+csv_name = 'new_Standard_945e'
 device = torch.device('mps')
-authentic = True
+authentic = False
 
 ### Metrics ###
 use_sisnr=     True
@@ -193,7 +193,6 @@ def generator_scores(model_path):
 
 def generator_scores_model_sampled_clean_noisy(model_path):
     autoencoder, generator, discriminator = model_load(model_path)
-    generator
     generator.eval()
 
     noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
@@ -294,15 +293,26 @@ def visualize_feature_maps(model, input):
 def generate_fake_clean(model_path):
     #### from Waveform files ####
     autoencoder, generator, discriminator = model_load(model_path)
-    noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')]
+    noisy_filenames = sorted([file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')])
     noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
+
+    clean_filenames = sorted([file for file in os.listdir(os.path.join(os.getcwd(), clean_path)) if file.endswith('.wav')])
+    clean_files = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in clean_filenames]
+
     for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
         noisy_waveform = noisy_file
+        clean_waveform = clean_files[i]
         # Compute the STFT of the audio
         noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        clean_file = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+
         # Stack the real and imaginary parts of the STFT
         noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
-        fake_clean = generator(noisy_file)
+        clean_file = torch.stack((clean_file.real, clean_file.imag), dim=1)
+
+        input_file = noisy_file - clean_file
+
+        fake_clean = generator(input_file)
         fake_clean = stft_to_waveform(fake_clean[0], device = device)
         torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/AudioSet/fake_clean_triple_train/{noisy_filenames[i]}', fake_clean, 16000)
 

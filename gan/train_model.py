@@ -1,6 +1,7 @@
+import os
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import torch
 import hydra
-import os
 import wandb
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
@@ -9,7 +10,7 @@ from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
 # Import data
-from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule
+from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule, FinetuneDataModule
 
 
 # main function using Hydra to organize configuration
@@ -17,36 +18,27 @@ from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModu
 def main(cfg):
     # Print GPU information
     print('CUDA available:', torch.cuda.is_available())
-
+    print('MPS available:', torch.backends.mps.is_available())
     L.seed_everything(100, workers=True)
-    # configure wandb
-    wandb_api_key = os.environ.get("WANDB_API_KEY")
-    wandb.login(key=wandb_api_key)
-
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity, 
-    )
 
     # define paths
     VCTK_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw/')
     VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
     VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_raw/')
     VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
-    FSD50K_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/train_stft/')
-    FSD50K_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/FSD50K/test_stft/')
+    VCTK_unsuper50p_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/unsuper50p/')
+    VCTK_unsuper50p_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/unsuper50p/')
+    VCTK_clean_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/super50p/')
+    VCTK_noisy_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/super50p/')
+
     AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_raw/')
     AudioSet_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/test_raw/')
 
     # load the data loaders
     if cfg.hyperparameters.dataset == "dummy":
-        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, mean_dif=cfg.hyperparameters.dummy_mean_dif)
+        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers)
     if cfg.hyperparameters.dataset == "VCTK":
         data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
-    if cfg.hyperparameters.dataset == "FSD50K":
-        # use FSD50K as noisy data and VCTK as clean data
-        data_module = AudioDataModule(VCTK_clean_path, FSD50K_noisy_path, VCTK_test_clean_path, FSD50K_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
     if cfg.hyperparameters.dataset == "AudioSet":
         # use AudioSet as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
@@ -56,6 +48,19 @@ def main(cfg):
                                         test_clean_path = VCTK_test_clean_path,
                                         test_noisy_path = VCTK_test_noisy_path,
                                         batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction, num_speakers=cfg.hyperparameters.num_speakers)      
+    if cfg.hyperparameters.dataset == "Finetune":
+        data_module = FinetuneDataModule(clean_path = VCTK_clean_finetune_path,
+                                        noisy_path = VCTK_noisy_finetune_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, num_speakers=cfg.hyperparameters.num_speakers, fraction = cfg.hyperparameters.train_fraction)
+    if cfg.hyperparameters.dataset == "Unsuper50p":
+        data_module = AudioDataModule(clean_path = VCTK_unsuper50p_clean_path,
+                                        noisy_path = VCTK_unsuper50p_noisy_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction)
+
     if cfg.hyperparameters.dataset == "Mix":
         data_module = MixDataModule(clean_path = VCTK_clean_path,
                                     noisy_path_authentic = AudioSet_noisy_path,
@@ -69,31 +74,17 @@ def main(cfg):
         print("Using a mixture of authentic and paired data")
         from gan import AutoencoderMix as Autoencoder
     else:
-        print("Using a single dataset")
         from gan import Autoencoder
         
         
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,
                         alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
-
                         n_critic =              cfg.hyperparameters.n_critic,
-                        
                         d_learning_rate =       cfg.hyperparameters.d_learning_rate,
-                        d_scheduler_step_size = cfg.hyperparameters.d_scheduler_step_size,
-                        d_scheduler_gamma =     cfg.hyperparameters.d_scheduler_gamma,
-
                         g_learning_rate =       cfg.hyperparameters.g_learning_rate,
-                        g_scheduler_step_size = cfg.hyperparameters.g_scheduler_step_size,
-                        g_scheduler_gamma =     cfg.hyperparameters.g_scheduler_gamma,
-                        linear_lr_scheduling =  cfg.hyperparameters.linear_lr_scheduling,
-                        load_generator_only =   cfg.hyperparameters.load_generator_only,
-
                         log_all_scores =        cfg.wandb.log_all_scores,
                         batch_size =            cfg.hyperparameters.batch_size,
                         sisnr_loss =            cfg.hyperparameters.sisnr_loss,
-                        sisnr_loss_half_batch = cfg.hyperparameters.sisnr_loss_half_batch,
-                        swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
-                        swa_lr =                cfg.hyperparameters.swa_lr,
                         val_fraction =          cfg.hyperparameters.val_fraction,
                         dataset =               cfg.hyperparameters.dataset,
                         ckpt_path =             cfg.system.ckpt_path,
@@ -104,18 +95,17 @@ def main(cfg):
         save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=25,  # how often to save a model checkpoint
+        every_n_epochs=5,  # how often to save a model checkpoint
     )
 
-    # define Weights and Biases logger
-    wandb_logger = WandbLogger(
-        project=cfg.wandb.project,
-        name=cfg.wandb.name,
-        entity=cfg.wandb.entity, 
-    )
-
-    # log gradients and model topology
-    wandb_logger.watch(model, log='gradients', log_freq=1)
+    # configure wandb
+    if cfg.wandb.use_wandb:
+        wandb_api_key = os.environ.get("WANDB_API_KEY")
+        wandb.login(key=wandb_api_key)
+        # define Weights and Biases logger
+        wandb_logger = WandbLogger(project=cfg.wandb.project, name=cfg.wandb.name, entity=cfg.wandb.entity)
+        # log gradients and model topology
+        wandb_logger.watch(model, log='gradients', log_freq=1)
 
     # define the trainer 
     trainer = Trainer(
@@ -124,7 +114,7 @@ def main(cfg):
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         max_epochs=cfg.hyperparameters.max_epochs,
         check_val_every_n_epoch=1,
-        logger=wandb_logger,
+        logger=wandb_logger if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         profiler=cfg.system.profiler if cfg.system.profiler else None,
         deterministic=True,
@@ -134,7 +124,7 @@ def main(cfg):
     )
     
     # train the model. Continue training from the last checkpoint if specified in config
-    if cfg.system.continue_training and not cfg.hyperparameters.load_generator_only:
+    if cfg.system.continue_training:
         print("Continuing training from checkpoint")
         trainer.fit(model, data_module, ckpt_path=os.path.join(hydra.utils.get_original_cwd(), cfg.system.ckpt_path))
     

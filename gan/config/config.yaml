@@ -2,39 +2,28 @@ hyperparameters:
   batch_size: 16
   num_gpus: 1
   max_epochs: 10000
-
-  dataset: "VCTK"   # "VCTK", "FSD50K", "AudioSet", "Mix", "Speaker" or "dummy" 
-  num_speakers: 4         # Must specify if dataset is "Speaker"
-  train_fraction: 1.     # Note if you use VCTK_split, you must have fraction < 1
-  val_fraction: 1.
+  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
+  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
 
-  d_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
-  linear_lr_scheduling: False # [1e-4, 1e-6, 500]    # False or [start_lr, end_lr, total_iters]
-  d_scheduler_step_size: 1
-  d_scheduler_gamma: 1
-  g_scheduler_step_size: 1
-  g_scheduler_gamma: 1
-  load_generator_only: False
-
-  sisnr_loss: False    # False or integer alpha value
-  sisnr_loss_half_batch: False
-  swa_start_epoch_g: False   # False or integer value
-  dummy_mean_dif: 0
+  dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
+  num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
+  train_fraction: 1.
+  val_fraction: 1.
+  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
 
 system:
   checkpointing: True
   continue_training: False
-  ckpt_path: "models/epoch=19_pretrain_G_alone.ckpt" # Or none
+  ckpt_path: "models/test_unsuper50p_epoch=84.ckpt" # Or none
   num_workers: 20
   profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not VCTK
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is "AudioSet"
   use_wandb: True
   entity: turtle_team
   project: bachelor2
