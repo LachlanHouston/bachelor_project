@@ -37,7 +37,7 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         fake_clean = fake_clean_waveform.numpy()
         if np.max(abs(fake_clean)) > 1:
             fake_clean = fake_clean / np.max(abs(fake_clean))
-        dnsmos_score = dnsmos.run(fake_clean, 16000)['ovrl_mos']
+        dnsmos_score = dnsmos.run(fake_clean, 16000)['p808_mos']
 
     ## MOS Squim
     if use_mos_squim:
@@ -62,8 +62,9 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         except:
             pesq_normal_score = "Error"
         ## PESQ Torch
-        pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
-        pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()
+        # pesq_torch = PerceptualEvaluationSpeechQuality(fs=16000, mode='wb')
+        # pesq_torch_score = pesq_torch(real_clean_waveform, fake_clean_waveform).item()
+        pesq_torch_score = 0
 
     ## Predicted objective metrics: STOI, PESQ, and SI-SDR
     if use_pred:
