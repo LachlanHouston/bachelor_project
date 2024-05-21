@@ -2,7 +2,8 @@ import torch
 import torchaudio
 from models.autoencoder import Autoencoder
 from models.generator import Generator
-from data.data_loader import AudioDataset
+from gan.models.discriminator import pl_Discriminator
+from data.data_loader import AudioDataset, PreMadeDataset
 from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
 from pytorch_lightning import Trainer
@@ -15,8 +16,8 @@ import numpy as np
 torch.set_grad_enabled(False)
 from collections import OrderedDict
 
-clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/test_noisy_sampled_x'
+clean_path = 'data/test_noisy_sampled/'
+noisy_path = 'data/test_raw/'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
@@ -69,20 +70,30 @@ def model_load(model_path):
 
 def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
-    _, _, model = model_load(model_path)
+    #_, _, model = model_load(model_path)
+
+    model = pl_Discriminator.load_from_checkpoint(model_path)
+    
+    # Get the standardmodel generator
+    autoencoder = Autoencoder.load_from_checkpoint('models/standardmodel1000.ckpt')
+    generator = autoencoder.generator
 
     model.to(device)
     model.eval()
 
-    with open('discriminator_scores.csv', 'w', newline='') as file:
+    with open('discriminator_scores_authentic.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["D_Real", "D_Fake"])
+        writer.writerow(["D_clean", "D_fake", "D_noisy"])
         for batch in tqdm.tqdm(data_loader):
-            real_clean = batch[0].squeeze(1).to(device)
-            real_noisy = batch[1].squeeze(1).to(device)
+            real_clean = batch[0].to(device)
+            real_noisy = batch[1].to(device)
+            fake_clean = generator(real_noisy)[0]
+
             D_clean = model(real_clean)
             D_noisy = model(real_noisy)
-            writer.writerow([D_clean.item(), D_noisy.item()])
+            D_fake = model(fake_clean)
+
+            writer.writerow([D_clean.item(), D_fake.item(), D_noisy.item()])
 
 def generator_scores(model_path):
     if model_path:
