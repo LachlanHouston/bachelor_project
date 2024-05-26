@@ -134,6 +134,7 @@ def main(cfg):
         print("Starting new training")
         trainer.fit(model, data_module)
 
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
