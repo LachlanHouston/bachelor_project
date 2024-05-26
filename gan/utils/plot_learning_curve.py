@@ -70,6 +70,7 @@ import matplotlib.pyplot as plt
 
 total_training_examples = 11572
 fractions_of_data = [0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+fractions_of_data = [x*100 for x in fractions_of_data]
 training_examples = [int(total_training_examples * frac) for frac in fractions_of_data]
 
 # Validation
@@ -78,27 +79,27 @@ val_sisnr_2, val_sisnr_se_2 = 13.8, 0
 val_sisnr_3, val_sisnr_se_3 = 14.3, 0
 val_sisnr_5, val_sisnr_se_5 = 14.6, 0
 val_sisnr_8, val_sisnr_se_8 = 15.8, 0
-val_sisnr_10, val_sisnr_se_10 = 15.441953917440859, 0.14363883202515607
-val_sisnr_20, val_sisnr_se_20 = 16.47603084566524, 0.14294986711534546
-val_sisnr_30, val_sisnr_se_30 = 16.20867671636702, 0.15588626642327436
-val_sisnr_40, val_sisnr_se_40 = 16.483256264219005, 0.14216727486513273
-val_sisnr_50, val_sisnr_se_50 = 16.35517001991133, 0.14348859858726945
-val_sisnr_60, val_sisnr_se_60 = 16.175808554424822, 0.14096763352884184
-val_sisnr_70, val_sisnr_se_70 = 16.666244394570878, 0.1432565742760529
-val_sisnr_80, val_sisnr_se_80 = 16.648266483857793, 0.13842938219873466
-val_sisnr_90, val_sisnr_se_90 = 16.350830761553013, 0.1484269456651788
-val_sisnr_100, val_sisnr_se_100 = 16.107284186710828, 0.13237278740425423
+val_sisnr_10, val_sisnr_se_10 = 15.441953917440859, 0 #.14363883202515607
+val_sisnr_20, val_sisnr_se_20 = 16.47603084566524, 0 #.14294986711534546
+val_sisnr_30, val_sisnr_se_30 = 16.20867671636702, 0 #.15588626642327436
+val_sisnr_40, val_sisnr_se_40 = 16.483256264219005, 0 #.14216727486513273
+val_sisnr_50, val_sisnr_se_50 = 16.35517001991133, 0 #.14348859858726945
+val_sisnr_60, val_sisnr_se_60 = 16.175808554424822, 0 #.14096763352884184
+val_sisnr_70, val_sisnr_se_70 = 16.666244394570878, 0 #.1432565742760529
+val_sisnr_80, val_sisnr_se_80 = 16.648266483857793, 0 #.13842938219873466
+val_sisnr_90, val_sisnr_se_90 = 16.350830761553013, 0 #.1484269456651788
+val_sisnr_100, val_sisnr_se_100 = 16.107284186710828, 0 #.13237278740425423
 
-val_squim_mos_10, val_squim_mos_se_10 = 3.8459095251791684, 0.022879437318376196
-val_squim_mos_20, val_squim_mos_se_20 = 3.971659612597771, 0.02143530861088559
-val_squim_mos_30, val_squim_mos_se_30 = 3.91085997513197, 0.022633777779394293
-val_squim_mos_40, val_squim_mos_se_40 = 3.9448364793675617, 0.021412188796201936
-val_squim_mos_50, val_squim_mos_se_50 = 4.013431800800619, 0.020381643001799708
-val_squim_mos_60, val_squim_mos_se_60 = 3.997125227185129, 0.020627241630852583
-val_squim_mos_70, val_squim_mos_se_70 = 4.004416220685811, 0.020308686152108468
-val_squim_mos_80, val_squim_mos_se_80 = 4.090607931023663, 0.017952077167521528
-val_squim_mos_90, val_squim_mos_se_90 = 3.97871040748161, 0.020787025400390822
-val_squim_mos_100, val_squim_mos_se_100 = 4.046145101774086, 0.018766099495034026
+val_squim_mos_10, val_squim_mos_se_10 = 3.8459095251791684, 0 #.022879437318376196
+val_squim_mos_20, val_squim_mos_se_20 = 3.971659612597771, 0 #.02143530861088559
+val_squim_mos_30, val_squim_mos_se_30 = 3.91085997513197, 0 #.022633777779394293
+val_squim_mos_40, val_squim_mos_se_40 = 3.9448364793675617, 0 #.021412188796201936
+val_squim_mos_50, val_squim_mos_se_50 = 4.013431800800619, 0 #.020381643001799708
+val_squim_mos_60, val_squim_mos_se_60 = 3.997125227185129, 0 #.020627241630852583
+val_squim_mos_70, val_squim_mos_se_70 = 4.004416220685811, 0 #.020308686152108468
+val_squim_mos_80, val_squim_mos_se_80 = 4.090607931023663, 0 #.017952077167521528
+val_squim_mos_90, val_squim_mos_se_90 = 3.97871040748161, 0 #.020787025400390822
+val_squim_mos_100, val_squim_mos_se_100 = 4.046145101774086, 0 #.018766099495034026
 
 
 validation_sisnr = [val_sisnr_1, val_sisnr_2, val_sisnr_3, val_sisnr_5, val_sisnr_8, val_sisnr_10, val_sisnr_20, val_sisnr_30, val_sisnr_40, val_sisnr_50, val_sisnr_60, val_sisnr_70, val_sisnr_80, val_sisnr_90, val_sisnr_100]

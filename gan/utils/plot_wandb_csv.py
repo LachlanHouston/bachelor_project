@@ -1,35 +1,31 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-filename = 'val_mos'
-title = 'Squim MOS (Test)'
+filename = 'FT_1,3,5,12s'
+title = 'SI-SNR on Test Set during Supervised Fine-tuning'
 xlabel = 'Epoch'
-ylabel = 'MOS value'
+ylabel = 'SI-SNR value'
+cols = [22, 16, 10, 4]
+names = ['1 Speaker', '3 Speakers', '5 Speakers', '12 Speakers']
 
-
-
-
-# Load values from the CSV file
-csv_file = f'/Users/fredmac/Documents/DTU-FredMac/{filename}.csv'  # Replace with the path to your CSV file
+# Load the CSV file once (outside the loop)
+csv_file = f'/Users/fredmac/Documents/DTU-FredMac/{filename}.csv'
 data = pd.read_csv(csv_file)
 
-# Extract the values from the CSV
-values = data.iloc[:, 4][:1001]  # Assumes the values are in the first column
+# Create a single figure for all plots
+plt.figure(figsize=(4*1.6, 3*1.5))  # Adjust the figsize as needed
 
-# Plot the values
-plt.figure(figsize=(4, 4))  # Adjust the figsize to change the size of the plot
-plt.plot(values)
+for col, name in zip(cols, names):
+    # Extract values and plot
+    values = data.iloc[:, col]
+    plt.plot(values, label=name)  # Add a label for the legend
+
 plt.title(title)
 plt.xlabel(xlabel)
 plt.ylabel(ylabel)
 plt.grid(axis='y')
-
-# Disable scientific notation
 plt.ticklabel_format(style='plain')
-plt.tight_layout()  # Add this line to adjust the spacing and make sure labels are within the frame
+plt.legend()  # Add a legend to distinguish the lines
 
-# Set the thousand separator
-# plt.gca().get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, p: format(int(x), ',')))
-
-plt.savefig(f'/Users/fredmac/Documents/DTU-FredMac/{filename}.png')  # Save the plot to a file
-
+plt.tight_layout()
+plt.savefig(f'/Users/fredmac/Downloads/bachelor_project/{filename}.png', dpi=300) 

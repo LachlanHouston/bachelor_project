@@ -16,8 +16,8 @@ import numpy as np
 torch.set_grad_enabled(False)
 from collections import OrderedDict
 
-clean_path = 'data/test_noisy_sampled/'
-noisy_path = 'data/test_raw/'
+clean_path = 'data/test_clean_sampled_x'
+noisy_path = 'data/test_noisy_sampled_x'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
@@ -25,7 +25,7 @@ noisy_path = 'data/test_raw/'
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/Finetune/Unsuper50p_889e.ckpt'             
+    '/Users/fredmac/Downloads/bachelor_project/models/Finetune/new/sisnr_loss_epoch=876.ckpt',
               ]
 fraction = 1.
 csv_name = 'FT'

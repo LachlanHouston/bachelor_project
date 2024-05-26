@@ -24,19 +24,9 @@ noisy_path = 'data/test_noisy_sampled_x'
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s1_o2epoch=480.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s1_o3epoch=424.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s2_o2epoch=486.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s3_o2epoch=491.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s4_o2epoch=489.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s4_o3epoch=458.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s5_o2epoch=496.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s5_o3epoch=449.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s6_o3epoch=463.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s7_o2epoch=439.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s7_o3epoch=426.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s8_o3epoch=420.ckpt',
-        '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/_s28_o2epoch=422.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/new/_s10_o2epoch=344.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/new/_s25_o3epoch=448.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/LC_o2_o3/new/_s28_o3epoch=422.ckpt',
               ]
 fraction = 1.
 csv_name = 'LC'
