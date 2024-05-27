@@ -11,6 +11,8 @@ torch.set_float32_matmul_precision('medium')
 torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
 torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
+torch.autograd.set_detect_anomaly(True)
+
 
 
 # define the Autoencoder class containing the training setup
