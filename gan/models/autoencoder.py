@@ -2,6 +2,7 @@ from gan.models.generator import Generator
 from gan.models.discriminator import Discriminator
 from gan.utils.utils import stft_to_waveform, perfect_shuffle, visualize_stft_spectrogram
 import pytorch_lightning as L
+from torch.optim import Adam
 import torch
 import numpy as np
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
@@ -13,151 +14,78 @@ torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 
 
-# define the Autoencoder class containing the training setup
+# Define the Autoencoder class containing the training setup
 class Autoencoder(L.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         for key, value in kwargs.items():
             setattr(self, key, value)
-        # define the discriminator and generator
-        self.discriminator=Discriminator().to(self.device)
-        self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
+        # Define the generator
+        self.generator = Generator(in_channels=2, out_channels=2).to(self.device)
         self.custom_global_step = 0
-        self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
+        self.save_hyperparameters(kwargs)  # Save hyperparameters to Weights and Biases
         self.automatic_optimization = False
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
 
-    def _get_reconstruction_loss(self, real_noisy, fake_clean, D_fake, real_clean, p=1):
-        # compute the Lp loss between the real noisy and the fake clean
+    def _get_reconstruction_loss(self, real_noisy, fake_clean, real_clean, p=1):
+        # Compute the Lp loss between the real noisy and the fake clean
         G_fidelity_loss = torch.norm(fake_clean - real_noisy, p=p)
-        # normalize the loss by the number of elements in the tensor
+        # Normalize the loss by the number of elements in the tensor
         G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
-        # adversarial loss
-        G_adv_loss = - torch.mean(D_fake)
-        # total generator loss
-        G_loss = self.alpha_fidelity * G_fidelity_loss + G_adv_loss
-        # extra supervised SI-SNR loss term if specified in the config
-        if self.sisnr_loss or self.dataset == 'Finetune':
-            if self.sisnr_loss is False:
-                self.sisnr_loss = 10 # set to 10 in case dataset is "Finetune" and it is not already set
-            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-            fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
-            # use SI-SDR instead of SI-SNR if dataset is AudioSet
-            if self.dataset == 'AudioSet':
-                objective_model = SQUIM_OBJECTIVE.get_model()
-                _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-                # define the loss as the negative mean of the SI-SDR                    
-                sisnr_loss = - si_sdr_pred.mean()
-            else:
-                sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-                # define the loss as the negative mean of the SI-SNR
-                sisnr_loss = - sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            # multiply the SI-SNR loss by a scaling factor specified in the config
-            sisnr_loss *= self.sisnr_loss
-            # add the SI-SNR loss to the total generator loss
-            G_loss += sisnr_loss
-            return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
 
-        return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, None
-    
-    def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
-        # create interpolated samples
-        alpha = torch.rand(self.batch_size, 1, 1, 1, device=self.device) # B x 1 x 1 x 1
-        # alpha = alpha.expand(real_clean.size()) # B x C x H x W
-        differences = fake_clean - real_clean # B x C x H x W
-        interpolates = real_clean + (alpha * differences) # B x C x H x W
-        interpolates.requires_grad_(True)
+        # Compute SI-SDR loss
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
+        objective_model = SQUIM_OBJECTIVE.get_model()
+        _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
+        # Define the loss as the negative mean of the SI-SDR
+        sisnr_loss = -si_sdr_pred.mean()
+        sisnr_loss *= self.sisnr_loss
 
-        # calculate the output of the discriminator for the interpolated samples and compute the gradients
-        D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
-        ones = torch.ones(D_interpolates.size(), device=self.device) # B x 1
-        gradients = torch.autograd.grad(outputs=D_interpolates, inputs=interpolates, grad_outputs=ones, 
-                                        create_graph=True, retain_graph=True)[0] # B x C x H x W
-        
-        # calculate the gradient penalty
-        gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
-        grad_norms = gradients.norm(2, dim=1) # B
-        gradient_penalty = ((grad_norms - 1) ** 2).mean()
-
-        # adversarial loss
-        D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
-
-        # total discriminator loss
-        D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
-
-        return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
-    
+        # Total generator loss
+        G_loss = self.alpha_fidelity * G_fidelity_loss + sisnr_loss
+        return G_loss, self.alpha_fidelity * G_fidelity_loss, sisnr_loss
 
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
-        d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
-        return g_opt, d_opt
-
+        g_opt = Adam(self.generator.parameters(), lr=self.g_learning_rate)
+        return g_opt
 
     def training_step(self, batch, batch_idx):
-        g_opt, d_opt = self.optimizers()
-        # unpack batched data
+        g_opt = self.optimizers()
+        # Unpack batched data
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
 
-        train_G = (self.custom_global_step + 1) % self.n_critic == 0
-        if train_G:
-            self.toggle_optimizer(g_opt)
-            # generate fake clean
-            fake_clean, mask = self.generator(real_noisy)
-            D_fake = self.discriminator(fake_clean)
-            G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
-            # compute generator gradients
-            self.manual_backward(G_loss)
-            g_opt.step()
-            g_opt.zero_grad()
-            self.untoggle_optimizer(g_opt)
+        # Generate fake clean
+        fake_clean, mask = self.generator(real_noisy)
+        G_loss, G_fidelity_alpha, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, real_clean=real_clean)
+        
+        # Compute generator gradients
+        self.manual_backward(G_loss)
+        g_opt.step()
+        g_opt.zero_grad()
 
-        self.toggle_optimizer(d_opt)
-        fake_clean_no_grad = self.generator(real_noisy)[0].detach()
-        D_fake_no_grad = self.discriminator(fake_clean_no_grad)
-        D_real = self.discriminator(real_clean)
-        D_loss, D_gp_alpha, D_adv_loss = self._get_discriminator_loss(real_clean=real_clean, fake_clean=fake_clean_no_grad, D_real=D_real, D_fake_no_grad=D_fake_no_grad)
-        # compute discriminator gradients
-        self.manual_backward(D_loss)
-        # update discriminator weights
-        d_opt.step()
-        d_opt.zero_grad()
-        self.untoggle_optimizer(d_opt)
+        # Log generator losses
+        self.log('G_Loss', G_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('G_Fidelity', G_fidelity_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('G_SI-SDR_Loss', sisnr_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        D_fake = D_fake_no_grad
-        # log discriminator losses
-        self.log('D_Loss', D_loss,        on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Real', D_real.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Fake', D_fake.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Penalty', D_gp_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        # log generator losses
-        if train_G:
-            self.log('G_Loss', G_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('G_Adversarial', G_adv_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('G_Fidelity', G_fidelity_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            if self.sisnr_loss:
-                self.log('G_SI-SNR_Loss', sisnr_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        if self.custom_global_step % 10 == 0 and self.dataset == "VCTK":        
+        if self.custom_global_step % 10 == 0 and self.dataset == "AudioSet":
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
+            fake_clean_waveforms = stft_to_waveform(fake_clean.detach(), device=self.device).cpu().squeeze()
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('SI-SDR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         if self.log_all_scores and self.custom_global_step % 50 == 0:
-            fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
-            # predicted objective metric: SI-SDR
+            fake_clean_waveforms = stft_to_waveform(fake_clean.detach(), device=self.device).cpu().squeeze()
+            # Predicted objective metric: SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
-            stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
+            _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
             self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('STOI pred Training', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('PESQ pred Training', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        
+
         self.custom_global_step += 1
 
 
@@ -166,11 +94,8 @@ class Autoencoder(L.LightningModule):
         if self.current_epoch % 1 == 0:
             for name, param in self.generator.named_parameters():
                 self.log(f'Weight Norms/Gen_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            for name, param in self.discriminator.named_parameters():
-                self.log(f'Weight Norms/Disc_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
             # also log the overall norm of the generator and discriminator parameters
             self.log('Weight Norms/Gen_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log('Weight Norms/Disc_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
 
     def validation_step(self, batch, batch_idx):

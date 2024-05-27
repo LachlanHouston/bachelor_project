@@ -6,13 +6,13 @@ hyperparameters:
   g_learning_rate: 1e-4     # 1e-4  used in UnSE paper
   alpha_penalty: 10    # 10 used in UnSE paper
   alpha_fidelity: 10   # 10 used in UnSE paper
-  n_critic: 10         # 10 used in UnSE paper
+  n_critic: 1         # 10 used in UnSE paper
 
-  dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
+  dataset: "AudioSet"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
   num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
   train_fraction: 1.
   val_fraction: 1.
-  sisnr_loss: False    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
+  sisnr_loss: 10    # False or integer alpha value (automatically set to 10 if dataset is "Finetune")
 
 system:
   checkpointing: True

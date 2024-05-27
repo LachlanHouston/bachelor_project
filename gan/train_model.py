@@ -116,7 +116,7 @@ def main(cfg):
         devices=cfg.hyperparameters.num_gpus if cfg.hyperparameters.num_gpus >= 1 and torch.cuda.is_available() else 'auto',
         strategy='ddp_find_unused_parameters_true' if cfg.hyperparameters.num_gpus > 1 and torch.cuda.is_available() else 'auto',
         max_epochs=cfg.hyperparameters.max_epochs,
-        check_val_every_n_epoch=500,
+        check_val_every_n_epoch=1,
         logger=wandb_logger if cfg.wandb.use_wandb else None,
         callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
         deterministic=True,
