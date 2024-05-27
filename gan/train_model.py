@@ -121,7 +121,6 @@ def main(cfg):
             check_val_every_n_epoch=500,
             logger=wandb_logger if cfg.wandb.use_wandb else None,
             callbacks=[checkpoint_callback] if cfg.system.checkpointing else None,
-            profiler=cfg.system.profiler if cfg.system.profiler else None,
             deterministic=True,
             limit_val_batches=cfg.hyperparameters.val_fraction,
             limit_train_batches=cfg.hyperparameters.train_fraction if cfg.hyperparameters.dataset == 'dummy' else 1.0,

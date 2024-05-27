@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import altair as alt
 import pandas as pd
 
-fractions_of_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 28]
 
 # Initialize lists for storing SI-SNR and Squim MOS values
 # Lists are formatted as: [Ordering 1, Ordering 2, Ordering 3]
@@ -41,80 +40,32 @@ val_squim_mos = [
 ]
 
 
+fractions_of_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 28]
+
 # Calculate means
 validation_sisnr = [sum(vals) / len(vals) for vals in val_sisnr]
 validation_squim_mos = [sum(vals) / len(vals) for vals in val_squim_mos]
 
-# # Creating subplots
-# fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # 1 row, 2 columns
 
-# # SI-SNR subplot
-# axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
-# axs[0].set_title('Speaker-separated Learning Curve (SI-SNR)')
-# axs[0].set_xlabel('Number of speakers used for training')
-# axs[0].set_ylabel('SI-SNR')
-# axs[0].set_xticks(fractions_of_data)
+fig, axs = plt.subplots(1, 2, figsize=(20*0.7, 6*0.7))
 
-# # Squim MOS subplot
-# axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
-# axs[1].set_title('Speaker-separated Learning Curve (Squim MOS)')
-# axs[1].set_xlabel('Number of speakers used for training')
-# axs[1].set_ylabel('Squim MOS')
-# axs[1].set_xticks(fractions_of_data)
+# SI-SNR subplot
+axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
+axs[0].set_title('Speaker-separated Learning Curve (SI-SNR)')
+axs[0].set_xlabel('Number of speakers used for training')
+axs[0].set_ylabel('SI-SNR')
+axs[0].set_xticks(fractions_of_data)
+axs[0].grid(axis='x')
 
-# plt.savefig('learning_curves.png', dpi=300)
+# Squim MOS subplot
+axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
+axs[1].set_title('Speaker-separated Learning Curve (Squim MOS)')
+axs[1].set_xlabel('Number of speakers used for training')
+axs[1].set_ylabel('Squim MOS')
+axs[1].set_xticks(fractions_of_data)
+axs[1].grid(axis='x')
+
+plt.tight_layout()
+plt.savefig('learning_curves_speakers.png', dpi=300)
 # plt.show()
 
-def create_plots(fractions_of_data, validation_sisnr, validation_squim_mos):
-    fig, axs = plt.subplots(1, 2, figsize=(20*0.7, 6*0.7))
-
-    # SI-SNR subplot
-    axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
-    axs[0].set_title('Speaker-separated Learning Curve (SI-SNR)')
-    axs[0].set_xlabel('Number of speakers used for training')
-    axs[0].set_ylabel('SI-SNR')
-    axs[0].set_xticks(fractions_of_data)
-    axs[0].grid(axis='x')
-    
-    # Squim MOS subplot
-    axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
-    axs[1].set_title('Speaker-separated Learning Curve (Squim MOS)')
-    axs[1].set_xlabel('Number of speakers used for training')
-    axs[1].set_ylabel('Squim MOS')
-    axs[1].set_xticks(fractions_of_data)
-    axs[1].grid(axis='x')
-    
-    # # Add vertical lines (SI-SNR) - Corrected
-    # for x, y in zip(fractions_of_data, validation_sisnr):
-    #     axs[0].vlines(x, 12.5, y, colors='white', linestyles='dashed')
-
-    # # Add vertical lines (Squim MOS) - Corrected
-    # for x, y in zip(fractions_of_data, validation_squim_mos):
-    #     axs[1].vlines(x, 3.75, y, colors='gray', linestyles='dashed')
-
-    # Create Altair chart for SI-SNR
-    chart1 = alt.Chart(pd.DataFrame({'x': fractions_of_data, 'y': validation_sisnr})).mark_line(point=True).encode(
-        x='x',
-        y='y',
-        tooltip=['x', 'y']
-    ).properties(
-        title='Speaker-separated Learning Curve (SI-SNR)'
-    ).interactive()
-
-    chart1.save('si_snr_learning_curve.json')
-
-    # Create Altair chart for Squim MOS
-    chart2 = alt.Chart(pd.DataFrame({'x': fractions_of_data, 'y': validation_squim_mos})).mark_line(point=True).encode(
-        x='x',
-        y='y',
-        tooltip=['x', 'y']
-    ).properties(
-        title='Speaker-separated Learning Curve (Squim MOS)'
-    ).interactive()
-
-    chart2.save('squim_mos_learning_curve.json')
-
-    plt.savefig('learning_curves.png', dpi=300)
-    # plt.show()
-
-create_plots(fractions_of_data, validation_sisnr, validation_squim_mos)

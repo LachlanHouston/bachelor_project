@@ -17,18 +17,17 @@ torch.set_grad_enabled(False)
 from collections import OrderedDict
 
 clean_path = 'data/test_clean_sampled_x'
-noisy_path = 'data/test_noisy_sampled_x'
+# noisy_path = 'data/test_noisy_sampled_x'
 
-# fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
-# fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
+fake_clean_path = clean_path
 
 
 # set model path to False if you don't want to generate new samples
-model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/Finetune/new/sisnr_loss_epoch=876.ckpt',
-              ]
+# model_paths = [
+#     '/Users/fredmac/Downloads/bachelor_project/models/Finetune/new/sisnr_loss_epoch=876.ckpt',
+#               ]
 fraction = 1.
-csv_name = 'FT'
+csv_name = 'VCTK_clean'
 device = torch.device('mps')
 authentic = False
 
@@ -326,10 +325,11 @@ def generate_fake_clean(model_path):
 
 
 if __name__ == '__main__':
-    # generator_scores(model_path)
+    generator_scores(False)
+    
     # generate_fake_clean(model_path)
-    for model_path in model_paths:
-        generator_scores_model_sampled_clean_noisy(model_path)
+    # for model_path in model_paths:
+    #     generator_scores_model_sampled_clean_noisy(model_path)
 
 
 

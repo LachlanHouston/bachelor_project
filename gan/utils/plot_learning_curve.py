@@ -74,11 +74,11 @@ fractions_of_data = [x*100 for x in fractions_of_data]
 training_examples = [int(total_training_examples * frac) for frac in fractions_of_data]
 
 # Validation
-val_sisnr_1, val_sisnr_se_1 = 13.1, 0
-val_sisnr_2, val_sisnr_se_2 = 13.8, 0
-val_sisnr_3, val_sisnr_se_3 = 14.3, 0
-val_sisnr_5, val_sisnr_se_5 = 14.6, 0
-val_sisnr_8, val_sisnr_se_8 = 15.8, 0
+val_sisnr_1, val_sisnr_se_1 = 12.539, 0
+val_sisnr_2, val_sisnr_se_2 = 14.055, 0
+val_sisnr_3, val_sisnr_se_3 = 14.736, 0
+val_sisnr_5, val_sisnr_se_5 = 15.297, 0
+val_sisnr_8, val_sisnr_se_8 = 16.006, 0
 val_sisnr_10, val_sisnr_se_10 = 15.441953917440859, 0 #.14363883202515607
 val_sisnr_20, val_sisnr_se_20 = 16.47603084566524, 0 #.14294986711534546
 val_sisnr_30, val_sisnr_se_30 = 16.20867671636702, 0 #.15588626642327436
@@ -90,6 +90,11 @@ val_sisnr_80, val_sisnr_se_80 = 16.648266483857793, 0 #.13842938219873466
 val_sisnr_90, val_sisnr_se_90 = 16.350830761553013, 0 #.1484269456651788
 val_sisnr_100, val_sisnr_se_100 = 16.107284186710828, 0 #.13237278740425423
 
+val_squim_mos_1, val_squim_mos_se_1 = 3.663, 0
+val_squim_mos_2, val_squim_mos_se_2 = 3.705, 0
+val_squim_mos_3, val_squim_mos_se_3 = 3.736, 0
+val_squim_mos_5, val_squim_mos_se_5 = 3.91, 0
+val_squim_mos_8, val_squim_mos_se_8 = 3.831, 0
 val_squim_mos_10, val_squim_mos_se_10 = 3.8459095251791684, 0 #.022879437318376196
 val_squim_mos_20, val_squim_mos_se_20 = 3.971659612597771, 0 #.02143530861088559
 val_squim_mos_30, val_squim_mos_se_30 = 3.91085997513197, 0 #.022633777779394293
@@ -104,51 +109,34 @@ val_squim_mos_100, val_squim_mos_se_100 = 4.046145101774086, 0 #.018766099495034
 
 validation_sisnr = [val_sisnr_1, val_sisnr_2, val_sisnr_3, val_sisnr_5, val_sisnr_8, val_sisnr_10, val_sisnr_20, val_sisnr_30, val_sisnr_40, val_sisnr_50, val_sisnr_60, val_sisnr_70, val_sisnr_80, val_sisnr_90, val_sisnr_100]
 validation_sisnr_se = [val_sisnr_se_1, val_sisnr_se_2, val_sisnr_se_3, val_sisnr_se_5, val_sisnr_se_8, val_sisnr_se_10, val_sisnr_se_20, val_sisnr_se_30, val_sisnr_se_40, val_sisnr_se_50, val_sisnr_se_60, val_sisnr_se_70, val_sisnr_se_80, val_sisnr_se_90, val_sisnr_se_100]
-validation_squim_mos = [val_squim_mos_10, val_squim_mos_20, val_squim_mos_30, val_squim_mos_40, val_squim_mos_50, val_squim_mos_60, val_squim_mos_70, val_squim_mos_80, val_squim_mos_90, val_squim_mos_100]
-validation_squim_mos_se = [val_squim_mos_se_10, val_squim_mos_se_20, val_squim_mos_se_30, val_squim_mos_se_40, val_squim_mos_se_50, val_squim_mos_se_60, val_squim_mos_se_70, val_squim_mos_se_80, val_squim_mos_se_90, val_squim_mos_se_100]
+validation_squim_mos = [val_squim_mos_1, val_squim_mos_2, val_squim_mos_3, val_squim_mos_5, val_squim_mos_8, val_squim_mos_10, val_squim_mos_20, val_squim_mos_30, val_squim_mos_40, val_squim_mos_50, val_squim_mos_60, val_squim_mos_70, val_squim_mos_80, val_squim_mos_90, val_squim_mos_100]
+validation_squim_mos_se = [val_squim_mos_se_1, val_squim_mos_se_2, val_squim_mos_se_3, val_squim_mos_se_5, val_squim_mos_se_8, val_squim_mos_se_10, val_squim_mos_se_20, val_squim_mos_se_30, val_squim_mos_se_40, val_squim_mos_se_50, val_squim_mos_se_60, val_squim_mos_se_70, val_squim_mos_se_80, val_squim_mos_se_90, val_squim_mos_se_100]
 
 
-
+ticks = [1, 3, 5, 8, 12, 15, 25, 40-5, 50-5, 60-5, 70-5, 80-5, 90-5, 100-5, 110-5]
 
 # Creating subplots
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # 1 row, 2 columns
+fig, axs = plt.subplots(1, 2, figsize=(20*0.7, 6*0.7))
 
 # SI-SNR subplot
-# axs[0].plot(fractions_of_data, training_sisnr, label='Training SI-SNR', marker='o', color='blue')
-# axs[0].fill_between(fractions_of_data, 
-#                     [a - b for a, b in zip(training_sisnr, training_sisnr_se)], 
-#                     [a + b for a, b in zip(training_sisnr, training_sisnr_se)], 
-#                     color='blue', alpha=0.2)
-axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
-axs[0].fill_between(fractions_of_data, 
-                    [a - b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
-                    [a + b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
-                    color='red', alpha=0.2)
-axs[0].set_title('SI-SNR Learning Curves')
-axs[0].set_xlabel('Fraction of Data Used')
+axs[0].plot(ticks, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
+axs[0].set_title('Data Fraction Learning Curve (SI-SNR)')
+axs[0].set_xlabel('Percentage of data used for training')
 axs[0].set_ylabel('SI-SNR')
-axs[0].set_xticks(fractions_of_data)
-axs[0].legend()
+axs[0].set_xticks(ticks)  # Manually specify the ticks
+axs[0].set_xticklabels(['1', '2', '3', '5', '8', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100'])
+axs[0].grid(axis='x')
 
 # Squim MOS subplot
-# axs[1].plot(fractions_of_data, training_squim_mos, label='Training Squim MOS', marker='o',color='blue')
-# axs[1].fill_between(fractions_of_data, 
-#                     [a - b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
-#                     [a + b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
-#                     color='blue', alpha=0.2)
-fractions_of_data = fractions_of_data[:10]
-axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
-axs[1].fill_between(fractions_of_data, 
-                    [a - b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
-                    [a + b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
-                    color='red', alpha=0.2)
-axs[1].set_title('Squim MOS Learning Curves')
-axs[1].set_xlabel('Fraction of Data Used')
+axs[1].plot(ticks, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
+axs[1].set_title('Data Fraction Learning Curve (Squim MOS)')
+axs[1].set_xlabel('Percentage of data used for training')
 axs[1].set_ylabel('Squim MOS')
-axs[1].set_xticks(fractions_of_data)
-axs[1].legend()
+axs[1].set_xticks(ticks)  # Manually specify the ticks
+axs[1].set_xticklabels(['1', '2', '3', '5', '8', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100'])
+axs[1].grid(axis='x')
 
-plt.savefig('learning_curves.png', dpi=300)
-plt.show()
-
+plt.tight_layout()
+plt.savefig('learning_curves_fraction.png', dpi=300)
+# plt.show()
 
