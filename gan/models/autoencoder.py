@@ -96,6 +96,13 @@ class Autoencoder(L.LightningModule):
         return g_opt, d_opt
 
 
+    def get_gradient_norms(self, model):
+        norms = {}
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                norms[name] = param.grad.norm().item()
+        return norms
+
     def training_step(self, batch, batch_idx):
         g_opt, d_opt = self.optimizers()
         # unpack batched data
@@ -109,9 +116,28 @@ class Autoencoder(L.LightningModule):
             fake_clean, mask = self.generator(real_noisy)
             D_fake = self.discriminator(fake_clean)
             G_loss, G_fidelity_alpha, G_adv_loss, sisnr_loss = self._get_reconstruction_loss(real_noisy=real_noisy, fake_clean=fake_clean, D_fake=D_fake, real_clean=real_clean)
-            # compute generator gradients
-            self.manual_backward(G_loss)
+
+            # compute generator gradients for G_loss with retain_graph=True
+            self.manual_backward(G_loss, retain_graph=True)
+
+            # Log generator gradients after main loss backward pass
+            main_gradient_norms = self.get_gradient_norms(self.generator)
+            self.log_dict({f"main_grad_norm_{name}": norm for name, norm in main_gradient_norms.items()})
+
+            # Step the optimizer to update generator weights based on G_loss
             g_opt.step()
+
+            # Zero gradients to isolate D_fake.backward gradients
+            g_opt.zero_grad()
+
+            # Perform a backward pass on D_fake without updating the gradients
+            D_fake.backward(torch.ones_like(D_fake), retain_graph=True)
+
+            # Log generator gradients after D_fake backward pass
+            D_fake_gradient_norms = self.get_gradient_norms(self.generator)
+            self.log_dict({f"D_fake_grad_norm_{name}": norm for name, norm in D_fake_gradient_norms.items()})
+
+            # Clear gradients after logging
             g_opt.zero_grad()
             self.untoggle_optimizer(g_opt)
 
@@ -239,7 +265,7 @@ if __name__ == "__main__":
     
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), alpha_penalty=10, alpha_fidelity=10,
                         n_critic=1, d_learning_rate=1e-4, g_learning_rate=1e-4,
-                        batch_size=4, log_all_scores=True, val_fraction = 1.)
+                        batch_size=4, log_all_scores=True, val_fraction = 1., sisnr_loss=False)
     
     trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,logger=False, fast_dev_run=False)
