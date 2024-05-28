@@ -132,8 +132,10 @@ class Autoencoder(L.LightningModule):
             # Zero gradients to isolate D_fake.backward gradients
             g_opt.zero_grad()
 
+            D_fake_norm_log = - torch.mean(self.discriminator(self.generator(real_noisy)[0]))
+
             # Perform a backward pass on D_fake without updating the gradients
-            D_fake.backward(torch.ones_like(D_fake), retain_graph=True)
+            D_fake_norm_log.backward()
 
             # Log generator gradients after D_fake backward pass
             D_fake_gradient_norms = self.get_gradient_norms(self.generator)
@@ -267,7 +269,7 @@ if __name__ == "__main__":
     
     model = Autoencoder(discriminator=Discriminator(), generator=Generator(), alpha_penalty=10, alpha_fidelity=10,
                         n_critic=1, d_learning_rate=1e-4, g_learning_rate=1e-4,
-                        batch_size=4, log_all_scores=True, val_fraction = 1., sisnr_loss=False)
+                        batch_size=4, log_all_scores=True, val_fraction = 1., sisnr_loss=False, dataset=None)
     
     trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
                         log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,logger=False, fast_dev_run=False)
