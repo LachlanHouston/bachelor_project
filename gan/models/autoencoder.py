@@ -21,7 +21,8 @@ class Autoencoder(L.LightningModule):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Define the generator
-        self.generator = Generator(in_channels=2, out_channels=2).to(self.device)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.generator = Generator(in_channels=2, out_channels=2).to(device)
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs)  # Save hyperparameters to Weights and Biases
         self.automatic_optimization = False
@@ -36,8 +37,8 @@ class Autoencoder(L.LightningModule):
         G_fidelity_loss = G_fidelity_loss / (real_noisy.size(1) * real_noisy.size(2) * real_noisy.size(3))
 
         # Compute SI-SDR loss
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device_).cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device_).cpu().squeeze()
         objective_model = SQUIM_OBJECTIVE.get_model()
         _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
         # Define the loss as the negative mean of the SI-SDR
@@ -54,9 +55,12 @@ class Autoencoder(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         g_opt = self.optimizers()
+        self.device_ = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if self.device_ == 'cpu':
+            raise ValueError("The device is CPU, but the model is designed for GPU. Please run on a GPU.")
         # Unpack batched data
-        real_clean = batch[0].to(self.device)
-        real_noisy = batch[1].to(self.device)
+        real_clean = batch[0].to(self.device_)
+        real_noisy = batch[1].to(self.device_)
 
         # Generate fake clean
         fake_clean, mask = self.generator(real_noisy)
@@ -72,15 +76,8 @@ class Autoencoder(L.LightningModule):
         self.log('G_Fidelity', G_fidelity_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log('G_SI-SDR_Loss', sisnr_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        if self.custom_global_step % 10 == 0 and self.dataset == "AudioSet":
-            real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-            fake_clean_waveforms = stft_to_waveform(fake_clean.detach(), device=self.device).cpu().squeeze()
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SDR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-        if self.log_all_scores and self.custom_global_step % 50 == 0:
-            fake_clean_waveforms = stft_to_waveform(fake_clean.detach(), device=self.device).cpu().squeeze()
+        if self.custom_global_step % 50 == 0:
+            fake_clean_waveforms = stft_to_waveform(fake_clean.detach(), device=self.device_).cpu().squeeze()
             # Predicted objective metric: SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
@@ -100,17 +97,20 @@ class Autoencoder(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # remove tuples and convert to tensors
-        real_clean = batch[0].to(self.device)
-        real_noisy = batch[1].to(self.device)
+        self.device_ = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if self.device_ == 'cpu':
+            raise ValueError("The device is CPU, but the model is designed for GPU. Please run on a GPU.")
+        real_clean = batch[0].to(self.device_)
+        real_noisy = batch[1].to(self.device_)
 
         fake_clean, mask = self.generator(real_noisy)
 
-        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
+        real_clean_waveforms = stft_to_waveform(real_clean, device=self.device_).cpu().squeeze()
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device_).cpu().squeeze()
 
         if self.dataset != 'AudioSet':
             # Scale Invariant Signal-to-Noise Ratio
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
+            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device_)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
             self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
@@ -126,7 +126,7 @@ class Autoencoder(L.LightningModule):
         mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
         self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        if (self.log_all_scores or self.dataset == "AudioSet") and batch_idx % 10 == 0:
+        if batch_idx % 10 == 0:
             # Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
@@ -140,10 +140,10 @@ class Autoencoder(L.LightningModule):
         if batch_idx == self.vis_batch_idx:
             vis_idx = torch.randint(0, self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
             # log waveforms
-            fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
-            mask_waveform =       stft_to_waveform(mask[vis_idx],       device=self.device).cpu().numpy().squeeze()
-            real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device).cpu().numpy().squeeze()
-            real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
+            fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device_).cpu().numpy().squeeze()
+            mask_waveform =       stft_to_waveform(mask[vis_idx],       device=self.device_).cpu().numpy().squeeze()
+            real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device_).cpu().numpy().squeeze()
+            real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device_).cpu().numpy().squeeze()
             self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
             self.logger.experiment.log({"mask_waveform":       [wandb.Audio(mask_waveform,       sample_rate=16000, caption="Learned Mask by Generator")]})
             self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})

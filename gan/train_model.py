@@ -95,11 +95,14 @@ def main(cfg):
     
     # define saving of checkpoints
     checkpoint_callback = ModelCheckpoint(
-        save_top_k = -1,  # save all checkpoints
+        save_top_k = 10,
         dirpath="models/",  # path where checkpoints will be saved
-        filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=5,  # how often to save a model checkpoint
-    )
+        every_n_epochs=1,  # how often to save a model checkpoint
+        monitor='SI-SDR Pred',  # quantity to monitor
+        mode='max',  # mode to monitor
+        filename=cfg.wandb.name,  # name of the checkpoint file
+        save_last=True
+        )
 
     # configure wandb
     if cfg.wandb.use_wandb:
