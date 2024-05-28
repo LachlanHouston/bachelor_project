@@ -191,6 +191,11 @@ data/
 
 /FrederikTests
 reports/figures/unused_figures/
+reports/scores_for_graphs/
+reports/weight_norms
+reports/scores/0/
+reports/scores/AudioSet/unused/
+reports/scores/StandardModel/old_scores/
 
 
 
