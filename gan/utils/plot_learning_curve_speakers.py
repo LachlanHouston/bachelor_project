@@ -46,8 +46,7 @@ fractions_of_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 28]
 validation_sisnr = [sum(vals) / len(vals) for vals in val_sisnr]
 validation_squim_mos = [sum(vals) / len(vals) for vals in val_squim_mos]
 
-
-fig, axs = plt.subplots(1, 2, figsize=(20*0.7, 6*0.7))
+fig, axs = plt.subplots(1, 2, figsize=(20*0.6, 6*0.6))
 
 # SI-SNR subplot
 axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
@@ -55,7 +54,9 @@ axs[0].set_title('Speaker-separated Learning Curve (SI-SNR)')
 axs[0].set_xlabel('Number of speakers used for training')
 axs[0].set_ylabel('SI-SNR')
 axs[0].set_xticks(fractions_of_data)
-axs[0].grid(axis='x')
+# Add vertical lines
+for i in range(len(fractions_of_data)):
+    axs[0].axvline(x=fractions_of_data[i], ymin=0, ymax=(validation_sisnr[i] - axs[0].get_ylim()[0]) / (axs[0].get_ylim()[1] - axs[0].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
 # Squim MOS subplot
 axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
@@ -63,9 +64,12 @@ axs[1].set_title('Speaker-separated Learning Curve (Squim MOS)')
 axs[1].set_xlabel('Number of speakers used for training')
 axs[1].set_ylabel('Squim MOS')
 axs[1].set_xticks(fractions_of_data)
-axs[1].grid(axis='x')
+# Add vertical lines
+for i in range(len(fractions_of_data)):
+    axs[1].axvline(x=fractions_of_data[i], ymin=0, ymax=(validation_squim_mos[i] - axs[1].get_ylim()[0]) / (axs[1].get_ylim()[1] - axs[1].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
 plt.tight_layout()
 plt.savefig('learning_curves_speakers.png', dpi=300)
+
 # plt.show()
 

@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from utils.utils import stft_to_waveform, compute_scores
 from pytorch_lightning import Trainer
 import os
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import numpy as np
 import tqdm
 import csv
@@ -15,8 +16,12 @@ import random
 import numpy as np
 torch.set_grad_enabled(False)
 from collections import OrderedDict
+import librosa
+import soundfile as sf
+from scipy.io.wavfile import write
 
-clean_path = 'data/test_clean_sampled_x'
+
+clean_path = 'data/test_clean_sampled'
 noisy_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampled'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
@@ -25,11 +30,11 @@ noisy_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampl
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/Audioset/used_for_results/AudioSet_epoch=999.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/Finetune,_sisnr_loss/final_sisnr_loss_epoch=876.ckpt',
               ]
 fraction = 1.
-csv_name = ''
-device = torch.device('mps')
+csv_name = 'supervised_model_AudioSet'
+device = torch.device('cpu')
 authentic = True
 
 ### Metrics ###
@@ -205,7 +210,7 @@ def generator_scores_model_sampled_clean_noisy(model_path):
     all_rows = []
     with open(f'{csv_name}_{model_path.split("/")[-1]}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
+        writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred Noisy", "SI-SDR pred", "SI-SDR pred Improvement", "Noisy filename", "Clean filename"])
 
         for i in tqdm.tqdm(range(len(noisy_files)), f'Computing scores for {model_path.split("/")[-1]}'):
             noisy_waveform = noisy_files[i]
@@ -215,7 +220,7 @@ def generator_scores_model_sampled_clean_noisy(model_path):
             noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1).to(device)
             fake_clean = generator(noisy_file)
             fake_clean = stft_to_waveform(fake_clean[0].to(torch.device('cpu')), device = 'cpu')
-
+            noisy_wav = stft_to_waveform(noisy_file, device = 'cpu')
 
             if use_mos_squim:
                 reference_index = random.choice(range(len(clean_reference_filenames)))
@@ -231,14 +236,34 @@ def generator_scores_model_sampled_clean_noisy(model_path):
                                             use_estoi=     use_estoi,
                                             use_pesq=      use_pesq, 
                                             use_pred=      use_pred)
+            _, _, _, _, _, _, _, _, si_sdr_pred_noisy = compute_scores(
+                                                                                                clean_files[i], noisy_wav, non_matching_reference_waveform,
+                                            use_sisnr=     use_sisnr, 
+                                            use_dnsmos=    use_dnsmos, 
+                                            use_mos_squim= use_mos_squim, 
+                                            use_estoi=     use_estoi,
+                                            use_pesq=      use_pesq, 
+                                            use_pred=      use_pred)
+            si_sdr_pred_improvement = si_sdr_pred - si_sdr_pred_noisy
             
-            all_rows.append([sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred])
+            all_rows.append([sisnr_score,
+                             dnsmos_score,
+                             mos_squim_score,
+                             estoi_score,
+                             pesq_normal_score,
+                             pesq_torch_score,
+                             stoi_pred,
+                             pesq_pred,
+                             si_sdr_pred_noisy,
+                             si_sdr_pred,
+                             si_sdr_pred_improvement,
+                             noisy_filenames[i],
+                             real_clean_filenames[i]])
 
-        sisnr_scores, dnsmos_scores, mos_squim_scores, estoi_scores, pesq_normal_scores, pesq_torch_scores, stoi_preds, pesq_preds, si_sdr_preds = zip(*all_rows)
+        sisnr_scores, dnsmos_scores, mos_squim_scores, estoi_scores, pesq_normal_scores, pesq_torch_scores, stoi_preds, pesq_preds, si_sdr_preds_noisy, si_sdr_preds, si_sdr_preds_improvement, _, _ = zip(*all_rows)
         pesq_normal_scores = [score for score in pesq_normal_scores if score != "Error"]
-        stoi_preds = [score for score in stoi_preds if score > 0]
+        stoi_preds = [score for score in stoi_preds if score > 0]   
         pesq_preds = [score for score in pesq_preds if score > 0]
-        si_sdr_preds = [score for score in si_sdr_preds if score > 0]
         
         ## Means
         writer.writerow(["Mean scores"])
@@ -251,8 +276,10 @@ def generator_scores_model_sampled_clean_noisy(model_path):
         stoi_pred_mean = np.mean(stoi_preds)
         pesq_pred_mean = np.mean(pesq_preds)
         si_sdr_pred_mean = np.mean(si_sdr_preds)
+        si_sdr_pred_noisy_mean = np.mean(si_sdr_preds_noisy)
+        si_sdr_pred_improvement_mean = np.mean(si_sdr_preds_improvement)
 
-        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean]
+        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean, si_sdr_pred_noisy_mean, si_sdr_pred_improvement_mean]
         writer.writerow(mean_scores)
 
         ## Standard errors of the means
@@ -266,8 +293,10 @@ def generator_scores_model_sampled_clean_noisy(model_path):
         stoi_pred_sem = np.std(stoi_preds) / np.sqrt(len(stoi_preds))
         pesq_pred_sem = np.std(pesq_preds) / np.sqrt(len(pesq_preds))
         si_sdr_pred_sem = np.std(si_sdr_preds) / np.sqrt(len(si_sdr_preds))
+        si_sdr_pred_noisy_sem = np.std(si_sdr_preds_noisy) / np.sqrt(len(si_sdr_preds_noisy))
+        si_sdr_pred_improvement_sem = np.std(si_sdr_preds_improvement) / np.sqrt(len(si_sdr_preds_improvement))
 
-        sem_scores = [sisnr_sem, dnsmos_sem, mos_squim_sem, estoi_sem, pesq_normal_sem, pesq_torch_sem, stoi_pred_sem, pesq_pred_sem, si_sdr_pred_sem]
+        sem_scores = [sisnr_sem, dnsmos_sem, mos_squim_sem, estoi_sem, pesq_normal_sem, pesq_torch_sem, stoi_pred_sem, pesq_pred_sem, si_sdr_pred_sem, si_sdr_pred_noisy_sem, si_sdr_pred_improvement_sem]
         writer.writerow(sem_scores)
         
         ## All scores
@@ -324,6 +353,33 @@ def generate_fake_clean(model_path):
     #     fake_clean = stft_to_waveform(fake_clean[0], device = device)
     #     torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_800e_y/{noisy_filenames[i][:-7]}.wav', fake_clean, 16000)
 
+def load_generate_save():
+    autoencoder, generator, discriminator = model_load(model_paths[0])
+    generator.eval()
+
+    noisy_filenames = sorted([file for file in os.listdir(noisy_path) if file.endswith('.wav')])
+    
+    for noisy_file in tqdm.tqdm(noisy_filenames, desc='Generating and saving audio files'):
+        # Load noisy waveform
+        noisy_waveform, sr = torchaudio.load(os.path.join(noisy_path, noisy_file))
+        
+        # Compute the STFT of the noisy audio
+        noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
+        
+        # Stack the real and imaginary parts of the STFT
+        noisy_stft = torch.stack((noisy_stft.real, noisy_stft.imag), dim=1).to(device)
+        
+        # Generate clean waveform using the generator
+        fake_clean_stft = generator(noisy_stft)
+        fake_clean_waveform = stft_to_waveform(fake_clean_stft[0].to('cpu'), device='cpu')
+        
+        # Save the generated clean waveform
+        save_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/fake_clean_AudioSet_model/'
+
+        torchaudio.save(save_path + noisy_file, fake_clean_waveform, sr)
+        # write(save_path, 16000, fake_clean_waveform)
+
+
 
 if __name__ == '__main__':
     # generator_scores(model_path)
@@ -331,6 +387,7 @@ if __name__ == '__main__':
     for model_path in model_paths:
         generator_scores_model_sampled_clean_noisy(model_path)
 
+    # load_generate_save()
 
 
 

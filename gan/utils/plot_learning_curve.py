@@ -116,7 +116,7 @@ validation_squim_mos_se = [val_squim_mos_se_1, val_squim_mos_se_2, val_squim_mos
 ticks = [1, 3, 5, 8, 12, 15, 25, 40-5, 50-5, 60-5, 70-5, 80-5, 90-5, 100-5, 110-5]
 
 # Creating subplots
-fig, axs = plt.subplots(1, 2, figsize=(20*0.7, 6*0.7))
+fig, axs = plt.subplots(1, 2, figsize=(20*0.6, 6*0.6))
 
 # SI-SNR subplot
 axs[0].plot(ticks, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
@@ -125,7 +125,9 @@ axs[0].set_xlabel('Percentage of data used for training')
 axs[0].set_ylabel('SI-SNR')
 axs[0].set_xticks(ticks)  # Manually specify the ticks
 axs[0].set_xticklabels(['1', '2', '3', '5', '8', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100'])
-axs[0].grid(axis='x')
+# Add vertical lines
+for i in range(len(ticks)):
+    axs[0].axvline(x=ticks[i], ymin=0, ymax=(validation_sisnr[i] - axs[0].get_ylim()[0]) / (axs[0].get_ylim()[1] - axs[0].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
 # Squim MOS subplot
 axs[1].plot(ticks, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
@@ -134,9 +136,12 @@ axs[1].set_xlabel('Percentage of data used for training')
 axs[1].set_ylabel('Squim MOS')
 axs[1].set_xticks(ticks)  # Manually specify the ticks
 axs[1].set_xticklabels(['1', '2', '3', '5', '8', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100'])
-axs[1].grid(axis='x')
+# Add vertical lines
+for i in range(len(ticks)):
+    axs[1].axvline(x=ticks[i], ymin=0, ymax=(validation_squim_mos[i] - axs[1].get_ylim()[0]) / (axs[1].get_ylim()[1] - axs[1].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
 plt.tight_layout()
 plt.savefig('learning_curves_fraction.png', dpi=300)
+
 # plt.show()
 

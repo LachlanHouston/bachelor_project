@@ -10,9 +10,9 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
                    use_sisnr=True, use_dnsmos=True, use_mos_squim=True, use_estoi=True,
                    use_pesq=True, use_pred=True):
     
-    if real_clean_waveform.numpy().shape == (1, 32000):
+    if real_clean_waveform.cpu().numpy().shape == (1, 32000):
         real_clean_waveform = real_clean_waveform.squeeze(0)
-    if fake_clean_waveform.numpy().shape == (1, 32000):
+    if fake_clean_waveform.cpu().numpy().shape == (1, 32000):
         fake_clean_waveform = fake_clean_waveform.squeeze(0)
 
     sisnr_score = 0
@@ -75,8 +75,7 @@ def compute_scores(real_clean_waveform, fake_clean_waveform, non_matching_refere
         pesq_pred = pesq_pred.item()
         si_sdr_pred = si_sdr_pred.item()
 
-    return (sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, 
-            pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred)
+    return (sisnr_score, dnsmos_score, mos_squim_score, estoi_score, pesq_normal_score, pesq_torch_score, stoi_pred, pesq_pred, si_sdr_pred)
 
 
 def perfect_shuffle(tensor):
