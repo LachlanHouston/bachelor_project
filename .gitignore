@@ -183,6 +183,7 @@ personal/
 outputs/
 lightning_logs/
 checkpoints/
+reports/figures/
 
 # Data
 data/clean_raw/
