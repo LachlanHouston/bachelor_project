@@ -1,5 +1,4 @@
 import os
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import torch
 import hydra
 import wandb
@@ -9,9 +8,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-# Import data
-from gan import AudioDataModule, DummyDataModule, MixDataModule, SpeakerDataModule, FinetuneDataModule
-
+from gan import Autoencoder, AudioDataModule, DummyDataModule, SpeakerDataModule, FinetuneDataModule
 
 # main function using Hydra to organize configuration
 @hydra.main(config_name="config.yaml", config_path="config")
@@ -65,19 +62,6 @@ def main(cfg):
                                         test_clean_path = VCTK_test_clean_path,
                                         test_noisy_path = VCTK_test_noisy_path,
                                         batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction)
-    if cfg.hyperparameters.dataset == "Mix":
-        print("Using a mixture of AudioSet and VCTK data")
-        data_module = MixDataModule(clean_path = VCTK_clean_path,
-                                    noisy_path_authentic = AudioSet_noisy_path,
-                                    noisy_path_paired = VCTK_noisy_path,
-                                    test_clean_path = VCTK_test_clean_path,
-                                    test_noisy_path_authentic = AudioSet_test_noisy_path,
-                                    test_noisy_path_paired = VCTK_test_noisy_path,
-                                    batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction)
-    # define the autoencoder class containing the training setup
-        from gan import AutoencoderMix as Autoencoder
-    else:
-        from gan import Autoencoder
         
         
     model = Autoencoder(alpha_penalty =         cfg.hyperparameters.alpha_penalty,

@@ -184,19 +184,11 @@ outputs/
 lightning_logs/
 checkpoints/
 
+models/other_models/
+
 # Data
-data/clean_raw/
-data/clean_processed/
-data/noisy_raw/
-data/noisy_processed/
 data/
-data2/
-org_data/
-/new_data
-new_data/clean_raw/
-new_data/clean_processed/
-new_data/noisy_raw/
-new_data/noisy_processed/
+
 
 testquick.py
 models/wav2vec2.ckpt
