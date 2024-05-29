@@ -22,7 +22,7 @@ from scipy.io.wavfile import write
 
 
 clean_path = 'data/test_clean_sampled'
-noisy_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampled'
+noisy_path = 'data/test_noisy_sampled'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
@@ -30,12 +30,12 @@ noisy_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampl
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/Finetune,_sisnr_loss/final_sisnr_loss_epoch=876.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/final_standard_model945.ckpt',
               ]
 fraction = 1.
 csv_name = 'supervised_model_AudioSet'
 device = torch.device('cpu')
-authentic = True
+authentic = False
 
 ### Metrics ###
 use_sisnr=     False
@@ -319,39 +319,18 @@ def visualize_feature_maps(model, input):
     return feature_maps
 
 def generate_fake_clean(model_path):
-    #### from Waveform files ####
     autoencoder, generator, discriminator = model_load(model_path)
     noisy_filenames = sorted([file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.wav')])
     noisy_files = [torchaudio.load(os.path.join(os.getcwd(), noisy_path, file))[0] for file in noisy_filenames]
-
-    clean_filenames = sorted([file for file in os.listdir(os.path.join(os.getcwd(), clean_path)) if file.endswith('.wav')])
-    clean_files = [torchaudio.load(os.path.join(os.getcwd(), clean_path, file))[0] for file in clean_filenames]
-
+    
     for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
         noisy_waveform = noisy_file
-        clean_waveform = clean_files[i]
         # Compute the STFT of the audio
         noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-        clean_file = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-
-        # Stack the real and imaginary parts of the STFT
         noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
-        clean_file = torch.stack((clean_file.real, clean_file.imag), dim=1)
-
-        input_file = noisy_file - clean_file
-
-        fake_clean = generator(input_file)
+        fake_clean = generator(noisy_file)
         fake_clean = stft_to_waveform(fake_clean[0], device = device)
-        torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/AudioSet/fake_clean_triple_train/{noisy_filenames[i]}', fake_clean, 16000)
-
-    # #### from STFT files ####
-    # autoencoder, generator, discriminator = model_load(model_path)
-    # noisy_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), noisy_path)) if file.endswith('.pt')]
-    # noisy_files = [torch.load(os.path.join(os.getcwd(), noisy_path, file)) for file in noisy_filenames]
-    # for i, noisy_file in tqdm.tqdm(enumerate(noisy_files)):
-    #     fake_clean = generator(noisy_file)
-    #     fake_clean = stft_to_waveform(fake_clean[0], device = device)
-    #     torchaudio.save(f'/Users/fredmac/Library/CloudStorage/OneDrive-DanmarksTekniskeUniversitet/bachelor_project/data/fake_clean_test_800e_y/{noisy_filenames[i][:-7]}.wav', fake_clean, 16000)
+        torchaudio.save(f'/Users/fredmac/Downloads/bachelor_project/data/test_fake_clean/{noisy_filenames[i]}', fake_clean, 16000)
 
 def load_generate_save():
     autoencoder, generator, discriminator = model_load(model_paths[0])
@@ -383,9 +362,9 @@ def load_generate_save():
 
 if __name__ == '__main__':
     # generator_scores(model_path)
-    # generate_fake_clean(model_path)
-    for model_path in model_paths:
-        generator_scores_model_sampled_clean_noisy(model_path)
+    generate_fake_clean(model_paths[0])
+    # for model_path in model_paths:
+    #     generator_scores_model_sampled_clean_noisy(model_path)
 
     # load_generate_save()
 

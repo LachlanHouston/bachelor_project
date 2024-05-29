@@ -187,7 +187,33 @@ checkpoints/
 models/other_models/
 
 # Data
-data/
+data/clean_raw_speakers/
+data/clean_sampled/
+data/noise_test2/
+data/noise_train2/
+data/noisy_raw_speakers/
+data/noisy_sampled/
+data/speakers_backup/
+data/test_clean_sampled/
+data/test_fake_clean/
+data/test_noisy_sampled/
+data/noise_test/
+data/noise_train/
+data/test_on_train/
+data/unused/
+data/clean_raw/*.wav
+data/noisy_raw/*.wav
+data/test_clean_raw/*.wav
+data/test_noisy_raw/*.wav
+data/AudioSet/fake_clean_AudioSet_model/
+data/AudioSet/highest_improvement/
+data/AudioSet/lowest_improvement/
+data/AudioSet/mono_from_six_channels/
+data/AudioSet/removed files raw/
+data/AudioSet/test_sampled/
+data/AudioSet/train_sampled/
+data/AudioSet/train_raw/*.wav
+data/AudioSet/test_raw/*.wav
 
 /FrederikTests
 reports/figures/unused_figures/
