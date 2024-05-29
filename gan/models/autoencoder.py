@@ -80,13 +80,10 @@ class Autoencoder(L.LightningModule):
         gradients = gradients.view(self.batch_size, -1) # B x (C*H*W)
         grad_norms = gradients.norm(2, dim=1) # B
         gradient_penalty = ((grad_norms - 1) ** 2).mean()
-
         # adversarial loss
         D_adv_loss = D_fake_no_grad.mean() - D_real.mean()
-
         # total discriminator loss
         D_loss = self.alpha_penalty * gradient_penalty + D_adv_loss
-
         return D_loss, self.alpha_penalty * gradient_penalty, D_adv_loss
     
 
@@ -94,6 +91,10 @@ class Autoencoder(L.LightningModule):
         g_opt = torch.optim.Adam(self.generator.parameters(), lr=self.g_learning_rate)
         d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.d_learning_rate)
         return g_opt, d_opt
+
+    # Helper function to log values to Weights and Biases
+    def log_value(self, name, value):
+        self.log(name, value, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 
     def training_step(self, batch, batch_idx):
@@ -128,35 +129,34 @@ class Autoencoder(L.LightningModule):
         self.untoggle_optimizer(d_opt)
 
         D_fake = D_fake_no_grad
+
         # log discriminator losses
-        self.log('D_Loss', D_loss,        on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Real', D_real.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Fake', D_fake.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('D_Penalty', D_gp_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_value('D_Loss', D_loss)
+        self.log_value('D_Real', D_real.mean())
+        self.log_value('D_Fake', D_fake.mean())
+        self.log_value('D_Penalty', D_gp_alpha)
 
         # log generator losses
         if train_G:
-            self.log('G_Loss', G_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('G_Adversarial', G_adv_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True) # opposite sign as D_fake
-            self.log('G_Fidelity', G_fidelity_alpha, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log_value('G_Loss', G_loss)
+            self.log_value('G_Adversarial', G_adv_loss)
+            self.log_value('G_Fidelity', G_fidelity_alpha)
             if self.sisnr_loss:
-                self.log('G_SI-SNR_Loss', sisnr_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                self.log_value('G_SI-SNR_Loss', sisnr_loss)
 
-        if self.custom_global_step % 10 == 0 and self.dataset == "VCTK":        
+        if self.custom_global_step % 10 == 0 and self.dataset == "VCTK":
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
-            sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
-            sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SNR training', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            sisnr_score = ScaleInvariantSignalNoiseRatio().to(self.device)(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log_value('SI-SNR training', sisnr_score)
 
-        if self.log_all_scores and self.custom_global_step % 50 == 0:
+        if self.log_all_scores and self.custom_global_step % 10 == 0:
             fake_clean_waveforms = stft_to_waveform(fake_clean_no_grad, device=self.device).cpu().squeeze()
-            # predicted objective metric: SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-            self.log('SI-SDR pred Training', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('STOI pred Training', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('PESQ pred Training', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log_value('SI-SDR pred Training', si_sdr_pred.mean())
+            self.log_value('STOI pred Training', stoi_pred.mean())
+            self.log_value('PESQ pred Training', pesq_pred.mean())
         
         self.custom_global_step += 1
 
@@ -165,21 +165,23 @@ class Autoencoder(L.LightningModule):
         # log the norms of the generator and discriminator parameters
         if self.current_epoch % 1 == 0:
             for name, param in self.generator.named_parameters():
-                self.log(f'Weight Norms/Gen_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+                self.log_value(f'Weight Norms/Gen_{name}_norm', param.norm())
             for name, param in self.discriminator.named_parameters():
-                self.log(f'Weight Norms/Disc_{name}_norm', param.norm(), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+                self.log_value(f'Weight Norms/Disc_{name}_norm', param.norm())
             # also log the overall norm of the generator and discriminator parameters
-            self.log('Weight Norms/Gen_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log('Weight Norms/Disc_mean_norm', torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()])), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            gen_mean_norm = torch.norm(torch.cat([param.view(-1) for param in self.generator.parameters()]))
+            disc_mean_norm = torch.norm(torch.cat([param.view(-1) for param in self.discriminator.parameters()]))
+            self.log_value('Weight Norms/Gen_mean_norm', gen_mean_norm)
+            self.log_value('Weight Norms/Disc_mean_norm', disc_mean_norm)
 
 
     def validation_step(self, batch, batch_idx):
         # remove tuples and convert to tensors
         real_clean = batch[0].to(self.device)
         real_noisy = batch[1].to(self.device)
-
+        # generate fake clean
         fake_clean, mask = self.generator(real_noisy)
-
+        # convert to waveforms
         real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
         fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
 
@@ -187,47 +189,46 @@ class Autoencoder(L.LightningModule):
             # Scale Invariant Signal-to-Noise Ratio
             sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
             sisnr_score = sisnr(preds=fake_clean_waveforms, target=real_clean_waveforms)
-            self.log('SI-SNR', sisnr_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log_value('SI-SNR', sisnr_score)
 
             # Extended Short Time Objective Intelligibility
-            estoi = ShortTimeObjectiveIntelligibility(16000, extended = True)
-            estoi_score = estoi(preds = fake_clean_waveforms, target = real_clean_waveforms)
-            self.log('eSTOI', estoi_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            estoi = ShortTimeObjectiveIntelligibility(16000, extended=True)
+            estoi_score = estoi(preds=fake_clean_waveforms, target=real_clean_waveforms)
+            self.log_value('eSTOI', estoi_score)
 
-        # if self.current_epoch % 10 == 0 and batch_idx % 5 == 0:
-        # Mean Opinion Score (SQUIM)
-        reference_waveforms = perfect_shuffle(real_clean_waveforms)
-        subjective_model = SQUIM_SUBJECTIVE.get_model()
-        mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
-        self.log('MOS SQUIM', mos_squim_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        
+        if self.current_epoch % 10 == 0 and batch_idx % 5 == 0:
+            # Mean Opinion Score (SQUIM)
+            reference_waveforms = perfect_shuffle(real_clean_waveforms)
+            subjective_model = SQUIM_SUBJECTIVE.get_model()
+            mos_squim_score = torch.mean(subjective_model(fake_clean_waveforms, reference_waveforms)).item()
+            self.log_value('MOS SQUIM', mos_squim_score)
+
         if (self.log_all_scores or self.dataset == "AudioSet") and batch_idx % 10 == 0:
             # Predicted objective metrics: STOI, PESQ, and SI-SDR
             objective_model = SQUIM_OBJECTIVE.get_model()
             stoi_pred, pesq_pred, si_sdr_pred = objective_model(fake_clean_waveforms)
-            self.log('SI-SDR Pred', si_sdr_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('STOI Pred', stoi_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('PESQ Pred', pesq_pred.mean(), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            preds = {'SI-SDR Pred': si_sdr_pred.mean(), 'STOI Pred': stoi_pred.mean(), 'PESQ Pred': pesq_pred.mean()}
+            for name, value in preds.items():
+                self.log_value(name, value)
 
         # visualize the waveforms and spectrograms
         if batch_idx == 0:
-            self.vis_batch_idx = torch.randint(0, (int(824*self.val_fraction)) // self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
+            self.vis_batch_idx = torch.randint(0, (int(824 * self.val_fraction)) // self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
         if batch_idx == self.vis_batch_idx:
             vis_idx = torch.randint(0, self.batch_size, (1,)).item() if self.dataset != 'dummy' else 0
             # log waveforms
-            fake_clean_waveform = stft_to_waveform(fake_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
-            mask_waveform =       stft_to_waveform(mask[vis_idx],       device=self.device).cpu().numpy().squeeze()
-            real_noisy_waveform = stft_to_waveform(real_noisy[vis_idx], device=self.device).cpu().numpy().squeeze()
-            real_clean_waveform = stft_to_waveform(real_clean[vis_idx], device=self.device).cpu().numpy().squeeze()
-            self.logger.experiment.log({"fake_clean_waveform": [wandb.Audio(fake_clean_waveform, sample_rate=16000, caption="Generated Clean Audio")]})
-            self.logger.experiment.log({"mask_waveform":       [wandb.Audio(mask_waveform,       sample_rate=16000, caption="Learned Mask by Generator")]})
-            self.logger.experiment.log({"real_noisy_waveform": [wandb.Audio(real_noisy_waveform, sample_rate=16000, caption="Original Noisy Audio")]})
-            self.logger.experiment.log({"real_clean_waveform": [wandb.Audio(real_clean_waveform, sample_rate=16000, caption="Original Clean Audio")]})
+            waveforms = {"fake_clean_waveform": stft_to_waveform(fake_clean[vis_idx], device=self.device).cpu().numpy().squeeze(),
+                         "mask_waveform": stft_to_waveform(mask[vis_idx], device=self.device).cpu().numpy().squeeze(),
+                         "real_noisy_waveform": stft_to_waveform(real_noisy[vis_idx], device=self.device).cpu().numpy().squeeze(),
+                         "real_clean_waveform": stft_to_waveform(real_clean[vis_idx], device=self.device).cpu().numpy().squeeze()}
+            for caption, waveform in waveforms.items():
+                self.logger.experiment.log({caption: [wandb.Audio(waveform, sample_rate=16000, caption=f"{caption.replace('_', ' ').title()}")]})
+
             # log spectrograms
-            plt = visualize_stft_spectrogram(real_clean_waveform, fake_clean_waveform, real_noisy_waveform)
+            plt = visualize_stft_spectrogram(waveforms["real_clean_waveform"], waveforms["fake_clean_waveform"], waveforms["real_noisy_waveform"])
             self.logger.experiment.log({"Spectrogram": [wandb.Image(plt, caption="Spectrogram")]})
             plt.close()
-            plt = visualize_stft_spectrogram(mask_waveform, np.zeros_like(mask_waveform), np.zeros_like(mask_waveform))
+            plt = visualize_stft_spectrogram(waveforms["mask_waveform"], np.zeros_like(waveforms["mask_waveform"]), np.zeros_like(waveforms["mask_waveform"]))
             self.logger.experiment.log({"Mask": [wandb.Image(plt, caption="Mask")]})
             plt.close()
 
