@@ -3,10 +3,12 @@
 Implementation of a Wasserstein GAN with gradient penalty to perform speech enhancement
 
 ## Location of important code
+
 All code can be found in the `gan` directory.
 
-`gan/models/Autoencoder.py` contains the training loop, including loss functions and training and validation steps
+`gan/models/autoencoder.py` contains the training loop, including loss functions and training and validation steps.
 
+`gan/models/discriminator.py` and `gan/models/generator.py` contain the implementation of the discriminator and generator.
 
 ## Repository file structure
 
