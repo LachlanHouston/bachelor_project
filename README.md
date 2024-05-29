@@ -14,19 +14,7 @@ The directory structure of the project looks like this:
 │   ├── processed        <- The final, canonical data sets for modeling.
 │   └── raw              <- The original, immutable data dump.
 │
-├── docs                 <- Documentation folder
-│   │
-│   ├── index.md         <- Homepage for your documentation
-│   │
-│   ├── mkdocs.yml       <- Configuration file for mkdocs
-│   │
-│   └── source/          <- Source directory for documentation files
-│
 ├── models               <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks            <- Jupyter notebooks.
-│
-├── pyproject.toml       <- Project configuration file
 │
 ├── reports              <- Generated analysis as HTML, PDF, LaTeX, etc.
 │   └── figures          <- Generated graphics and figures to be used in reporting
@@ -35,19 +23,17 @@ The directory structure of the project looks like this:
 |
 ├── requirements_dev.txt <- The requirements file for reproducing the analysis environment
 │
-├── tests                <- Test files
-│
 ├── gan  <- Source code for use in this project.
-│   │
-│   ├── __init__.py      <- Makes folder a Python module
 │   │
 │   ├── data             <- Scripts to download or generate data
 │   │   ├── __init__.py
 │   │   └── make_dataset.py
 │   │
-│   ├── models           <- model implementations, training script and prediction script
-│   │   ├── __init__.py
-│   │   ├── model.py
+│   ├── models           <- Model implementations, GAN training implementation
+│   │   ├── autoencoder.py     <- GAN training loop containing training step, validation step, and loss functions
+│   │   ├── generator.py       <- Generator model
+│   │   ├── discriminator.py   <- Discriminator model
+│   │   ├── DPRNN.py           <- Dual-path block in the discriminator model
 │   │
 │   ├── visualization    <- Scripts to create exploratory and results oriented visualizations
 │   │   ├── __init__.py
