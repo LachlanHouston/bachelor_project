@@ -8,7 +8,7 @@ hyperparameters:
   alpha_fidelity: 10   # 10 used in UnSE paper
   n_critic: 10         # 10 used in UnSE paper
 
-  dataset: "VCTK"   # "VCTK", "AudioSet", "Mix", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
+  dataset: "VCTK"   # "VCTK", "AudioSet", "Speaker", "Finetune", "Unsuper50p" or "dummy" 
   num_speakers: 7         # Used if dataset is "Speaker" or "FineTune"
   train_fraction: 1.
   val_fraction: 1.
@@ -19,11 +19,10 @@ system:
   continue_training: False
   ckpt_path: "models/test_unsuper50p_epoch=84.ckpt" # Or none
   num_workers: 20
-  profiler: False  # False or "simple" or "advanced" or "pytorch"
 
 wandb:
   name: ${now:%d/%m %H:%M:%S}
-  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is not "VCTK"
+  log_all_scores: False # Causes slow training. Automatically turns on in val if dataset is "AudioSet"
   use_wandb: True
   entity: turtle_team
   project: bachelor2

@@ -80,46 +80,6 @@ def plot_waveforms(clean_waveforms, clean_sample_rates, noisy_waveforms, noisy_s
     plt.savefig('reports/figures/' + save_name + '_waveforms.png')
     plt.show()
 
-
-def spectral_envelope(waveform, sample_rate, title, save_name):
-    """Plot the spectral envelope"""
-    # Apply STFT
-    Xstft = torch.stft(waveform, n_fft=512, hop_length=100, win_length=400, return_complex=True)
-    Xstft_real = Xstft.real
-    Xstft_imag = Xstft.imag
-    Xstft = torch.stack([Xstft_real, Xstft_imag], dim=1)
-    Xstft = torch.squeeze(Xstft, dim=0)
-
-    # Get the magnitude of the complex-valued spectrogram
-    Xmag = torch.sqrt(Xstft_real ** 2 + Xstft_imag ** 2)
-    Xmag = torch.squeeze(Xmag, dim=0)
-
-    # Get the phase of the complex-valued spectrogram
-    Xphase = torch.atan2(Xstft_imag, Xstft_real)
-    Xphase = torch.squeeze(Xphase, dim=0)
-
-    # Plot the magnitude of the complex-valued spectrogram
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.imshow(Xmag.t().numpy(), aspect='auto', origin='lower')
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
-    plt.title(title)
-
-    # Save the plot
-    plt.savefig('reports/figures/' + save_name + '_spectral_envelope.png')
-    plt.show()
-
-    # Plot the phase of the complex-valued spectrogram
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.imshow(Xphase.t().numpy(), aspect='auto', origin='lower')
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
-    plt.title(title)
-
-    # Save the plot
-    plt.savefig('reports/figures/' + save_name + '_spectral_envelope.png')
-    plt.show()
-
 def find_global_max(waveforms):
     """Find the global maximum of all the waveforms"""
     max_amplitude = 0

@@ -1,82 +1,75 @@
 import matplotlib.pyplot as plt
+import altair as alt
+import pandas as pd
+
+
+# Initialize lists for storing SI-SNR and Squim MOS values
+# Lists are formatted as: [Ordering 1, Ordering 2, Ordering 3]
+val_sisnr = [
+    [13.9153144159942, 13.189293809886100, 11.10213214036040],  # 1 Speaker
+    [14.906119079555100, 15.41700223724820, 15.165030516467000],  # 2 Speakers
+    [16.197081410190400, 16.605519061528400, 16.27967796105780],  # 3 Speakers
+    [16.327924684847400, 17.1632645066502, 16.4665124286147],  # 4 Speakers
+    [16.270611980875700, 17.198090776077800, 16.63455162117780],  # 5 Speakers
+    [16.190076402090100, 17.313562362807500, 16.6997183298023],  # 6 Speakers
+    [16.40012998864490, 17.26300370519600, 16.843865058375800],  # 7 Speakers
+    [16.187706014485000, 16.980047137702600, 16.88883875816770],  # 8 Speakers
+    [15.513570365396500, 16.68188836302570, 16.947607034907800],  # 9 Speakers
+    [15.493729346585500, 16.742680402924700, 16.73540992904640],  # 10 Speakers
+    [16.495837020063900, 16.87684010678130, 16.966102259830400],  # 15 Speakers
+    [16.289068239406500, 16.914295746863500, 16.82581686192350],  # 20 Speakers
+    [16.627839125186500, 16.896732028826900, 16.828513745254700],  # 25 Speakers
+    [16.828539498078000, 16.742823031342100, 16.742823031342100]   # 28 Speakers
+]
+
+val_squim_mos = [
+    [3.860970986699600, 3.7947750919073500, 3.7890711284956900],  # 1 Speaker
+    [3.6844534431267700, 3.8820226855069700, 3.781502538514370],  # 2 Speakers
+    [3.927155478197390, 3.91961699984606, 3.9020265158519000],  # 3 Speakers
+    [3.9351816504325700, 3.9297181200055200, 3.9104189305629500],  # 4 Speakers
+    [3.950356648384950, 3.9962740867462000, 3.945188513658580],  # 5 Speakers
+    [4.038887495554770, 3.992377680482220, 3.910675531162800],  # 6 Speakers
+    [3.938115499262670, 4.026432449956540, 3.9226014116435400],  # 7 Speakers
+    [3.9703056560558000, 3.9592953442948500, 3.9387088206786600],  # 8 Speakers
+    [3.853456943937880, 4.02619443935098, 3.972253864540640],  # 9 Speakers
+    [3.9355906285707200, 4.003380749989480, 3.978816347793470],  # 10 Speakers
+    [3.921639100151160, 4.049604207277300, 4.024022574852970],  # 15 Speakers
+    [3.9694400669880300, 4.034409024472380, 3.9897704416687000],  # 20 Speakers
+    [3.9411822985676900, 4.048992604017260, 4.011498986517340],  # 25 Speakers
+    [3.9984980891051800, 3.9335797440658500, 3.9390399033583500]   # 28 Speakers
+]
+
 
 fractions_of_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 28]
 
-# Validation (epoch 499)
-val_sisnr_1, val_sisnr_se_1 = 14.04, 0
-val_sisnr_2, val_sisnr_se_2 = 12.94, 0
-val_sisnr_3, val_sisnr_se_3 = 13.84, 0
-val_sisnr_4, val_sisnr_se_4 = 16.41, 0
-val_sisnr_5, val_sisnr_se_5 = 15.40, 0
-val_sisnr_6, val_sisnr_se_6 = 16.02, 0
-val_sisnr_7, val_sisnr_se_7 = 15.53, 0
-val_sisnr_8, val_sisnr_se_8 = 15.48, 0
-val_sisnr_9, val_sisnr_se_9 = 15.38, 0
-val_sisnr_10, val_sisnr_se_10 = 14.95, 0
-val_sisnr_15, val_sisnr_se_15 = 16.56, 0
-val_sisnr_20, val_sisnr_se_20 = 16.58, 0 #491e
-val_sisnr_25, val_sisnr_se_25 = 16.78, 0
-val_sisnr_28, val_sisnr_se_28 = 16.107284186710828, 0# 0.13237278740425423
+# Calculate means
+validation_sisnr = [sum(vals) / len(vals) for vals in val_sisnr]
+validation_squim_mos = [sum(vals) / len(vals) for vals in val_squim_mos]
 
-val_squim_mos_1, val_squim_mos_se_1 = 3.69, 0
-val_squim_mos_2, val_squim_mos_se_2 = 3.86, 0
-val_squim_mos_3, val_squim_mos_se_3 = 4.02, 0
-val_squim_mos_4, val_squim_mos_se_4 = 3.90, 0
-val_squim_mos_5, val_squim_mos_se_5 = 3.87, 0
-val_squim_mos_6, val_squim_mos_se_6 = 3.93, 0
-val_squim_mos_7, val_squim_mos_se_7 = 3.92, 0
-val_squim_mos_8, val_squim_mos_se_8 = 3.95, 0
-val_squim_mos_9, val_squim_mos_se_9 = 3.83, 0
-val_squim_mos_10, val_squim_mos_se_10 = 4.00, 0
-val_squim_mos_15, val_squim_mos_se_15 = 4.01, 0
-val_squim_mos_20, val_squim_mos_se_20 = 3.90, 0
-val_squim_mos_25, val_squim_mos_se_25 = 3.95, 0
-val_squim_mos_28, val_squim_mos_se_28 =  4.046145101774086, 0# 0.018766099495034026
-
-validation_sisnr = [val_sisnr_1, val_sisnr_2, val_sisnr_3, val_sisnr_4, val_sisnr_5, val_sisnr_6, val_sisnr_7, val_sisnr_8, val_sisnr_9, val_sisnr_10, val_sisnr_15, val_sisnr_20, val_sisnr_25, val_sisnr_28]
-validation_sisnr_se = [val_sisnr_se_1, val_sisnr_se_2, val_sisnr_se_3, val_sisnr_se_4, val_sisnr_se_5, val_sisnr_se_6, val_sisnr_se_7, val_sisnr_se_8, val_sisnr_se_9, val_sisnr_se_10, val_sisnr_se_15, val_sisnr_se_20, val_sisnr_se_25, val_sisnr_se_28]
-validation_squim_mos = [val_squim_mos_1, val_squim_mos_2, val_squim_mos_3, val_squim_mos_4, val_squim_mos_5, val_squim_mos_6, val_squim_mos_7, val_squim_mos_8, val_squim_mos_9, val_squim_mos_10, val_squim_mos_15, val_squim_mos_20, val_squim_mos_25, val_squim_mos_28]
-validation_squim_mos_se = [val_squim_mos_se_1, val_squim_mos_se_2, val_squim_mos_se_3, val_squim_mos_se_4, val_squim_mos_se_5, val_squim_mos_se_6, val_squim_mos_se_7, val_squim_mos_se_8, val_squim_mos_se_9, val_squim_mos_se_10, val_squim_mos_se_15, val_squim_mos_se_20, val_squim_mos_se_25, val_squim_mos_se_28]
-
-
-# Creating subplots
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # 1 row, 2 columns
+fig, axs = plt.subplots(1, 2, figsize=(20*0.6, 6*0.6))
 
 # SI-SNR subplot
-# axs[0].plot(fractions_of_data, training_sisnr, label='Training SI-SNR', marker='o', color='blue')
-# axs[0].fill_between(fractions_of_data, 
-#                     [a - b for a, b in zip(training_sisnr, training_sisnr_se)], 
-#                     [a + b for a, b in zip(training_sisnr, training_sisnr_se)], 
-#                     color='blue', alpha=0.2)
 axs[0].plot(fractions_of_data, validation_sisnr, label='Validation SI-SNR', marker='o', color='red')
-axs[0].fill_between(fractions_of_data, 
-                    [a - b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
-                    [a + b for a, b in zip(validation_sisnr, validation_sisnr_se)], 
-                    color='red', alpha=0.2)
-axs[0].set_title('SI-SNR Learning Curves')
-axs[0].set_xlabel('Number of speakers')
+axs[0].set_title('Speaker-separated Learning Curve (SI-SNR)')
+axs[0].set_xlabel('Number of speakers used for training')
 axs[0].set_ylabel('SI-SNR')
 axs[0].set_xticks(fractions_of_data)
-axs[0].legend()
+# Add vertical lines
+for i in range(len(fractions_of_data)):
+    axs[0].axvline(x=fractions_of_data[i], ymin=0, ymax=(validation_sisnr[i] - axs[0].get_ylim()[0]) / (axs[0].get_ylim()[1] - axs[0].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
 # Squim MOS subplot
-# axs[1].plot(fractions_of_data, training_squim_mos, label='Training Squim MOS', marker='o',color='blue')
-# axs[1].fill_between(fractions_of_data, 
-#                     [a - b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
-#                     [a + b for a, b in zip(training_squim_mos, training_squim_mos_se)], 
-#                     color='blue', alpha=0.2)
 axs[1].plot(fractions_of_data, validation_squim_mos, label='Validation Squim MOS', marker='o', color='red')
-axs[1].fill_between(fractions_of_data, 
-                    [a - b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
-                    [a + b for a, b in zip(validation_squim_mos, validation_squim_mos_se)], 
-                    color='red', alpha=0.2)
-axs[1].set_title('Squim MOS Learning Curves')
-axs[1].set_xlabel('Number of speakers')
+axs[1].set_title('Speaker-separated Learning Curve (Squim MOS)')
+axs[1].set_xlabel('Number of speakers used for training')
 axs[1].set_ylabel('Squim MOS')
 axs[1].set_xticks(fractions_of_data)
-axs[1].legend()
+# Add vertical lines
+for i in range(len(fractions_of_data)):
+    axs[1].axvline(x=fractions_of_data[i], ymin=0, ymax=(validation_squim_mos[i] - axs[1].get_ylim()[0]) / (axs[1].get_ylim()[1] - axs[1].get_ylim()[0]), color='gray', linestyle='--', alpha=0.5)
 
-plt.savefig('learning_curves.png', dpi=300)
-plt.show()
+plt.tight_layout()
+plt.savefig('learning_curves_speakers.png', dpi=300)
 
+# plt.show()
 
