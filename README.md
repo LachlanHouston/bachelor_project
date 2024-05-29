@@ -1,6 +1,6 @@
-# gan
+# Deep Learning for Speech Enhancement
 
-Deep Learning for Speech Enhancement
+Implementation of a Wasserstein GAN with gradient penalty to perform speech enhancement
 
 ## Project structure
 
@@ -8,20 +8,13 @@ The directory structure of the project looks like this:
 
 ```txt
 
-├── Makefile             <- Makefile with convenience commands like `make data` or `make train`
-├── README.md            <- The top-level README for developers using this project.
-├── data
-│   ├── processed        <- The final, canonical data sets for modeling.
-│   └── raw              <- The original, immutable data dump.
-│
-├── models               <- Trained and serialized models, model predictions, or model summaries
-│
-├── reports              <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures          <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt     <- The requirements file for reproducing the analysis environment
-|
-├── requirements_dev.txt <- The requirements file for reproducing the analysis environment
+
+├── data                 <- Where data should be located (VCTKD can be downloaded from https://datashare.ed.ac.uk/handle/10283/2791)
+│   ├── clean_raw        <- Clean VCTKD training data
+│   ├── noisy_raw        <- Noisy VCTKD training data
+│   └── AudioSet         <- Where AudioSet data should be located
+│       ├── train_raw    <- AudioSet training data
+│       └── test_raw     <- AudioSet test data
 │
 ├── gan  <- Source code for use in this project.
 │   │
@@ -41,7 +34,18 @@ The directory structure of the project looks like this:
 │   ├── train_model.py   <- script for training the model
 │   └── predict_model.py <- script for predicting from a model
 │
-└── LICENSE              <- Open-source license if one is chosen
+├── models               <- Trained and serialized models, model predictions, or model summaries
+│
+├── reports              <- Generated analysis as HTML, PDF, LaTeX, etc.
+│   └── figures          <- Generated graphics and figures to be used in reporting
+│
+├── Makefile             <- Makefile with convenience commands like `make data` or `make train`
+│
+├── README.md            <- The top-level README for developers using this project.
+│
+├── requirements.txt     <- The requirements file for reproducing the analysis environment
+|
+└── requirements_dev.txt <- The requirements file for reproducing the analysis environment
 ```
 
 

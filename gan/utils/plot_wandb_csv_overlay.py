@@ -1,8 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-filename = 'AS_D_out'
-title = 'Outputs of AudioSet Discriminator'
+filename = 'AS_pre_D_out'
+title = 'Discriminator Outputs on AudioSet after Pretraining'
 xlabel = 'Epoch'
 ylabel = 'Output value'
 cols = [7, 4]
