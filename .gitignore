@@ -223,5 +223,9 @@ reports/scores/0/
 reports/scores/AudioSet/unused/
 reports/scores/StandardModel/old_scores/
 
+gan/data/make_dataset.py
+gan/data/make_dataset_AudioSet.py
+
+
 
 
