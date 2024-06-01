@@ -1,6 +1,6 @@
 import torch
 import torchaudio
-from models.autoencoder import Autoencoder
+from gan.models.autoencoder import Autoencoder
 from models.generator import Generator
 from gan.models.discriminator import pl_Discriminator
 from data.data_loader import AudioDataset, PreMadeDataset
@@ -22,7 +22,7 @@ from scipy.io.wavfile import write
 
 
 clean_path = 'data/test_clean_sampled'
-noisy_path = 'data/test_noisy_sampled'
+noisy_path = 'data/AudioSet/test_sampled'
 
 # fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
@@ -30,12 +30,12 @@ noisy_path = 'data/test_noisy_sampled'
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/final_standard_model945.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/AudioSet_new.ckpt',
               ]
 fraction = 1.
-csv_name = 'supervised_model_AudioSet'
+csv_name = 'new_AudioSet'
 device = torch.device('cpu')
-authentic = False
+authentic = True
 
 ### Metrics ###
 use_sisnr=     False
@@ -279,7 +279,7 @@ def generator_scores_model_sampled_clean_noisy(model_path):
         si_sdr_pred_noisy_mean = np.mean(si_sdr_preds_noisy)
         si_sdr_pred_improvement_mean = np.mean(si_sdr_preds_improvement)
 
-        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean, si_sdr_pred_noisy_mean, si_sdr_pred_improvement_mean]
+        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_noisy_mean, si_sdr_pred_mean, si_sdr_pred_improvement_mean]
         writer.writerow(mean_scores)
 
         ## Standard errors of the means
@@ -362,9 +362,9 @@ def load_generate_save():
 
 if __name__ == '__main__':
     # generator_scores(model_path)
-    generate_fake_clean(model_paths[0])
-    # for model_path in model_paths:
-    #     generator_scores_model_sampled_clean_noisy(model_path)
+    # generate_fake_clean(model_paths[0])
+    for model_path in model_paths:
+        generator_scores_model_sampled_clean_noisy(model_path)
 
     # load_generate_save()
 

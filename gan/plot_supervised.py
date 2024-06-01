@@ -40,7 +40,7 @@ def plot_mask(filename, savename):
     if savename == 'standard':
         (clean_waveform, noisy_waveform), (clean_stft, noisy_stft), (generator, discriminator) = get_data_and_model(filename, 'models/final_standard_model945.ckpt')
     elif savename == 'supervised':
-        (clean_waveform, noisy_waveform), (clean_stft, noisy_stft), (generator, discriminator) = get_data_and_model(filename, 'models/Finetune,_sisnr_loss/final_sisnr_loss_epoch=876.ckpt')
+        (clean_waveform, noisy_waveform), (clean_stft, noisy_stft), (generator, discriminator) = get_data_and_model(filename, 'models/final_sisnr_loss_epoch=876.ckpt')
 
     output, mask = generator(noisy_stft)
     output = stft_to_waveform(output, device='cpu')
