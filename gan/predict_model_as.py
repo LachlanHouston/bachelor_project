@@ -1,6 +1,6 @@
 import torch
 import torchaudio
-from models.autoencoder import Autoencoder
+from gan.models.autoencoder import Autoencoder
 from models.generator import Generator
 from gan.models.discriminator import pl_Discriminator
 from data.data_loader import AudioDataset, PreMadeDataset
@@ -280,7 +280,7 @@ def generator_scores_model_sampled_clean_noisy(model_path):
         si_sdr_pred_noisy_mean = np.mean(si_sdr_preds_noisy)
         si_sdr_pred_improvement_mean = np.mean(si_sdr_preds_improvement)
 
-        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_mean, si_sdr_pred_noisy_mean, si_sdr_pred_improvement_mean]
+        mean_scores = [sisnr_mean, dnsmos_mean, mos_squim_mean, estoi_mean, pesq_normal_mean, pesq_torch_mean, stoi_pred_mean, pesq_pred_mean, si_sdr_pred_noisy_mean, si_sdr_pred_mean, si_sdr_pred_improvement_mean]
         writer.writerow(mean_scores)
 
         ## Standard errors of the means
