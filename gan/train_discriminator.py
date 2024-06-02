@@ -1,6 +1,6 @@
+import os
 import torch
 import hydra
-import os
 import wandb
 import pytorch_lightning as L
 from pytorch_lightning import Trainer
@@ -8,8 +8,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import warnings
 warnings.filterwarnings("ignore")
-# Import data
-from gan import AudioDataModule, DummyDataModule, MixDataModule, pl_Discriminator
+from gan import Autoencoder, AudioDataModule, DummyDataModule, SpeakerDataModule, FinetuneDataModule, pl_Discriminator
 
 
 # main function using Hydra to organize configuration
@@ -34,8 +33,45 @@ def main(cfg):
     VCTK_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw/')
     VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_raw/')
     VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
+    VCTK_unsuper50p_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/unsuper50p/')
+    VCTK_unsuper50p_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/unsuper50p/')
+    VCTK_clean_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/clean_raw_speakers/super50p/')
+    VCTK_noisy_finetune_path = os.path.join(hydra.utils.get_original_cwd(), 'data/noisy_raw_speakers/super50p/')
+    AudioSet_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/train_raw/')
+    AudioSet_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/AudioSet/test_raw/')
 
-    data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.hyperparameters.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
+    # load the data loaders
+    if cfg.hyperparameters.dataset == "dummy":
+        print("Using dummy data")
+        data_module = DummyDataModule(batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers)
+    elif cfg.hyperparameters.dataset == "VCTK":
+        print("Using VCTK data")
+        data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
+    elif cfg.hyperparameters.dataset == "AudioSet":
+        print("Using AudioSet data")
+        # use AudioSet as noisy data and VCTK as clean data
+        data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
+    elif cfg.hyperparameters.dataset == "Speaker":
+        print("Using data with a custom number of speakers")
+        data_module = SpeakerDataModule(clean_path = VCTK_clean_path,
+                                        noisy_path = VCTK_noisy_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction, num_speakers=cfg.hyperparameters.num_speakers)      
+    elif cfg.hyperparameters.dataset == "Finetune":
+        print("Using data for finetuning")
+        data_module = FinetuneDataModule(clean_path = VCTK_clean_finetune_path,
+                                        noisy_path = VCTK_noisy_finetune_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, num_speakers=cfg.hyperparameters.num_speakers, fraction = cfg.hyperparameters.train_fraction)
+    elif cfg.hyperparameters.dataset == "Unsuper50p":
+        print("Using data with 50 percent of the speakers for unsupervised training")
+        data_module = AudioDataModule(clean_path = VCTK_unsuper50p_clean_path,
+                                        noisy_path = VCTK_unsuper50p_noisy_path,
+                                        test_clean_path = VCTK_test_clean_path,
+                                        test_noisy_path = VCTK_test_noisy_path,
+                                        batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction)
 
 
     model = pl_Discriminator(batch_size=cfg.hyperparameters.batch_size, d_learning_rate=cfg.hyperparameters.d_learning_rate, 
@@ -46,7 +82,7 @@ def main(cfg):
         save_top_k = -1,  # save all checkpoints
         dirpath="models/",  # path where checkpoints will be saved
         filename="{epoch}",  # the name of the checkpoint files
-        every_n_epochs=5,  # how often to save a model checkpoint
+        every_n_epochs=25,  # how often to save a model checkpoint
     )
 
     # define Weights and Biases logger
