@@ -22,20 +22,21 @@ from scipy.io.wavfile import write
 
 
 clean_path = 'data/test_clean_sampled'
-noisy_path = 'data/test_noisy_sampled'
+noisy_path = 'data/AudioSet/test_raw/'
 
-# fake_clean_path = 'data/AudioSet/fake_clean_triple_train'
+fake_clean_path = 'data/AudioSet/test_raw/'
 # fake_clean_path = 'data/fake_clean_test_1000e_30_april_x' # if you want to use pre-generated samples or untouched noisy samples (no model)
 
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/final_standard_model945.ckpt',
+    'models/epoch=1099.ckpt',
               ]
 fraction = 1.
-csv_name = 'supervised_model_AudioSet'
-device = torch.device('cpu')
-authentic = False
+csv_name = 'supervised_model_AudioSet_finetuned_100_epochs'
+device = torch.device('cuda')
+authentic = True
+torch.manual_seed(100)
 
 ### Metrics ###
 use_sisnr=     False
@@ -57,8 +58,8 @@ def data_load():
 def model_load(model_path):
     try:
         autoencoder = Autoencoder.load_from_checkpoint(model_path, map_location=device)
-        generator = autoencoder.generator
-        discriminator = autoencoder.discriminator
+        generator = autoencoder.generator.to(device=device)
+        discriminator = autoencoder.discriminator.to(device=device)
         return autoencoder, generator, discriminator
     except:
         print("Could not load autoencoder, trying to load generator only")
@@ -77,10 +78,10 @@ def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
     #_, _, model = model_load(model_path)
 
-    model = pl_Discriminator.load_from_checkpoint(model_path)
+    model = pl_Discriminator.load_from_checkpoint('models/discriminator_only.ckpt')
     
     # Get the standardmodel generator
-    autoencoder = Autoencoder.load_from_checkpoint('models/standardmodel1000.ckpt')
+    autoencoder = Autoencoder.load_from_checkpoint('models/AudioSet_epoch=999.ckpt')
     generator = autoencoder.generator
 
     model.to(device)
@@ -117,8 +118,8 @@ def generator_scores(model_path):
         # extract fake_clean and remove mask
         fake_clean = [p[:][1][0][:][:][:][:] for p in predictions]
     
-        real_clean = [stft_to_waveform(stft, device = device) for stft in real_clean]
-        fake_clean = [stft_to_waveform(stft, device = device) for stft in fake_clean]
+        real_clean = [stft_to_waveform(stft, device = device).detach().cpu() for stft in real_clean]
+        fake_clean = [stft_to_waveform(stft, device = device).detach().cpu() for stft in fake_clean]
 
     else:
         fake_clean_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), fake_clean_path)) if file.endswith('.wav')]
@@ -328,9 +329,9 @@ def generate_fake_clean(model_path):
         # Compute the STFT of the audio
         noisy_file = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
         noisy_file = torch.stack((noisy_file.real, noisy_file.imag), dim=1)
-        fake_clean = generator(noisy_file)
-        fake_clean = stft_to_waveform(fake_clean[0], device = device)
-        torchaudio.save(f'/Users/fredmac/Downloads/bachelor_project/data/test_fake_clean/{noisy_filenames[i]}', fake_clean, 16000)
+        fake_clean = generator(noisy_file.to(device))
+        fake_clean = stft_to_waveform(fake_clean[0], device = device).detach().cpu()
+        torchaudio.save(f'data/AudioSet/fake_test_clean/{noisy_filenames[i]}', fake_clean, 16000)
 
 def load_generate_save():
     autoencoder, generator, discriminator = model_load(model_paths[0])
@@ -361,7 +362,6 @@ def load_generate_save():
 
 
 if __name__ == '__main__':
-    # generator_scores(model_path)
     generate_fake_clean(model_paths[0])
     # for model_path in model_paths:
     #     generator_scores_model_sampled_clean_noisy(model_path)
