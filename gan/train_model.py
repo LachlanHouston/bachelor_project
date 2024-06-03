@@ -20,7 +20,8 @@ def main(cfg):
     print('CUDA available:', torch.cuda.is_available())
 
     seeds = [50]
-    fractions = [0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    #fractions = [0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    fractions = [1, 0.9, 0.8, 0.7, 0.6]
 
     for seed in seeds:
         print(f"Using seed {seed}")
@@ -53,23 +54,12 @@ def main(cfg):
                                 alpha_fidelity =        cfg.hyperparameters.alpha_fidelity,
 
                                 n_critic =              cfg.hyperparameters.n_critic,
-                                
+                             
                                 d_learning_rate =       cfg.hyperparameters.d_learning_rate,
-                                d_scheduler_step_size = cfg.hyperparameters.d_scheduler_step_size,
-                                d_scheduler_gamma =     cfg.hyperparameters.d_scheduler_gamma,
-
                                 g_learning_rate =       cfg.hyperparameters.g_learning_rate,
-                                g_scheduler_step_size = cfg.hyperparameters.g_scheduler_step_size,
-                                g_scheduler_gamma =     cfg.hyperparameters.g_scheduler_gamma,
-                                linear_lr_scheduling =  cfg.hyperparameters.linear_lr_scheduling,
-                                load_generator_only =   cfg.hyperparameters.load_generator_only,
-
                                 log_all_scores =        cfg.wandb.log_all_scores,
                                 batch_size =            cfg.hyperparameters.batch_size,
                                 sisnr_loss =            cfg.hyperparameters.sisnr_loss,
-                                sisnr_loss_half_batch = cfg.hyperparameters.sisnr_loss_half_batch,
-                                swa_start_epoch_g =     cfg.hyperparameters.swa_start_epoch_g,
-                                swa_lr =                cfg.hyperparameters.swa_lr,
                                 val_fraction =          cfg.hyperparameters.val_fraction,
                                 dataset =               cfg.hyperparameters.dataset,
                                 ckpt_path =             cfg.system.ckpt_path,
