@@ -19,15 +19,15 @@ def main(cfg):
     # Print GPU information
     print('CUDA available:', torch.cuda.is_available())
 
-    seeds = [50, 150]
-    speakers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 28]
+    seeds = [50]
+    fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     for seed in seeds:
         print(f"Using seed {seed}")
         L.seed_everything(seed, workers=True)
-        for num_speakers in speakers:
+        for fraction in fractions:
             import wandb
-            print(f"Training with {num_speakers} speakers")
+            print(f"Training with {fraction} of data")
 
             # configure wandb
             wandb_api_key = os.environ.get("WANDB_API_KEY")
@@ -39,11 +39,11 @@ def main(cfg):
             VCTK_test_clean_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_clean_raw/')
             VCTK_test_noisy_path = os.path.join(hydra.utils.get_original_cwd(), 'data/test_noisy_raw/')
 
-            data_module = SpeakerDataModule(clean_path = VCTK_clean_path,
+            data_module = AudioDataModule(clean_path = VCTK_clean_path,
                                             noisy_path = VCTK_noisy_path,
                                             test_clean_path = VCTK_test_clean_path,
                                             test_noisy_path = VCTK_test_noisy_path,
-                                            batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = cfg.hyperparameters.train_fraction, num_speakers=num_speakers)      
+                                            batch_size = cfg.hyperparameters.batch_size, num_workers = cfg.system.num_workers, fraction = fraction)      
 
             print("Using a single dataset")
             from gan import Autoencoder
@@ -77,12 +77,13 @@ def main(cfg):
             
             # define saving of checkpoints
             checkpoint_callback = ModelCheckpoint(
-                save_top_k = 5,
+                save_top_k = 30,
                 dirpath="models/",  # path where checkpoints will be saved
                 every_n_epochs=1,  # how often to save a model checkpoint
                 monitor='SI-SNR',  # quantity to monitor
                 mode='max',  # mode to monitor
-                filename="{epoch}-{cfg.hyperparameters.num_speakers}",  # name of the checkpoint file
+                filename="epoch-{epoch}-SISNR-{SI-SNR}",  # name of the checkpoint file
+                save_on_train_epoch_end=True,
                 )
             
             # define Weights and Biases logger
@@ -91,9 +92,6 @@ def main(cfg):
                 name=cfg.wandb.name,
                 entity=cfg.wandb.entity, 
             )
-
-            # log gradients and model topology
-            wandb_logger.watch(model, log='gradients', log_freq=25)
 
             # define the trainer 
             trainer = Trainer(
@@ -119,11 +117,6 @@ def main(cfg):
             else:
                 print("Starting new training")
                 trainer.fit(model, data_module)
-
-            # save profiling results
-            if cfg.system.profiler:
-                with open("profiling.txt", "w") as file:
-                    file.write(trainer.profiler.summary())
 
 
 if __name__ == "__main__":
