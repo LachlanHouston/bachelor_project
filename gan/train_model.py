@@ -20,7 +20,7 @@ def main(cfg):
     print('CUDA available:', torch.cuda.is_available())
 
     seeds = [50]
-    fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    fractions = [0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     for seed in seeds:
         print(f"Using seed {seed}")
