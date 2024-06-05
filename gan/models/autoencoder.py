@@ -60,7 +60,6 @@ class Autoencoder(L.LightningModule):
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
 
-<<<<<<< Updated upstream
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, None
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
@@ -70,15 +69,6 @@ class Autoencoder(L.LightningModule):
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
-=======
-        # Compute SI-SDR loss
-        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device_).cpu().squeeze()
-        objective_model = SQUIM_OBJECTIVE.get_model()
-        _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-        # Define the loss as the negative mean of the SI-SDR
-        sisnr_loss = -si_sdr_pred.mean()
-        sisnr_loss *= self.sisnr_loss
->>>>>>> Stashed changes
 
         # calculate the output of the discriminator for the interpolated samples and compute the gradients
         D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)
@@ -244,15 +234,4 @@ class Autoencoder(L.LightningModule):
 
 
 if __name__ == "__main__":
-    # pytorch lightning trainer with dummy data loaders for testing
-    train_loader = torch.utils.data.DataLoader([torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)], batch_size=4, shuffle=True)
-    val_loader = torch.utils.data.DataLoader([torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)], batch_size=4, shuffle=False)
-    
-    model = Autoencoder(discriminator=Discriminator(), generator=Generator(), alpha_penalty=10, alpha_fidelity=10,
-                        n_critic=1, d_learning_rate=1e-4, g_learning_rate=1e-4,
-                        batch_size=4, log_all_scores=True, val_fraction = 1.)
-    
-    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
-                        log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,logger=False, fast_dev_run=False)
-    
-    trainer.fit(model, train_loader, val_loader)
+    pass

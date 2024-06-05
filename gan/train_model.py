@@ -39,7 +39,6 @@ def main(cfg):
         data_module = AudioDataModule(VCTK_clean_path, VCTK_noisy_path, VCTK_test_clean_path, VCTK_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=False)
     elif cfg.hyperparameters.dataset == "AudioSet":
         print("Using AudioSet data")
-        # use AudioSet as noisy data and VCTK as clean data
         data_module = AudioDataModule(VCTK_clean_path, AudioSet_noisy_path, VCTK_test_clean_path, AudioSet_test_noisy_path, batch_size=cfg.hyperparameters.batch_size, num_workers=cfg.system.num_workers, fraction=cfg.hyperparameters.train_fraction, authentic=True)
     elif cfg.hyperparameters.dataset == "Speaker":
         print("Using data with a custom number of speakers")

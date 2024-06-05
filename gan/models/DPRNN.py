@@ -101,8 +101,4 @@ class DPRNN(nn.Module):
         return output
     
 if __name__ == '__main__':
-    # Test the model
-    model = DPRNN(128)
-    input = torch.randn(16, 128, 32, 321)
-    output = model(input)
-    print(output.shape)
+    pass

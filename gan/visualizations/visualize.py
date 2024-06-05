@@ -10,6 +10,7 @@ import librosa.display
 from gan.models.autoencoder import Autoencoder
 
 def get_data_and_model(data_file_name, model_path):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     clean_file = 'data/test_clean_sampled/' + data_file_name
     noisy_file = 'data/test_noisy_sampled/' + data_file_name
 
@@ -22,12 +23,12 @@ def get_data_and_model(data_file_name, model_path):
 
     # Transform to STFT
     clean_stft = torch.stft(clean_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-    clean_stft = torch.stack([clean_stft.real, clean_stft.imag], dim=1)
+    clean_stft = torch.stack([clean_stft.real, clean_stft.imag], dim=1).to(device)
 
     noisy_stft = torch.stft(noisy_waveform, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400), return_complex=True)
-    noisy_stft = torch.stack([noisy_stft.real, noisy_stft.imag], dim=1)
+    noisy_stft = torch.stack([noisy_stft.real, noisy_stft.imag], dim=1).to(device)
 
-    autoencoder = Autoencoder.load_from_checkpoint(model_path, return_waveform=True)
+    autoencoder = Autoencoder.load_from_checkpoint(model_path, return_waveform=True).to(device)
     generator = autoencoder.generator
     discriminator = autoencoder.discriminator
 
@@ -280,15 +281,24 @@ class GuidedBackprop:
 
 def plot_mask(filename, savename):
     # Load data and model
-    (clean_waveform, noisy_waveform), (clean_stft, noisy_stft), (generator, discriminator) = get_data_and_model(filename, 'models/standardmodel1000.ckpt')
+    (clean_waveform, noisy_waveform), (clean_stft, noisy_stft), (generator, discriminator) = get_data_and_model(filename, 'models/Supervised_Model.ckpt')
 
     output, mask = generator(noisy_stft)
+    output_real = output[:, 0, :, :]
+    output_imag = output[:, 1, :, :]
+    output = torch.complex(output_real, output_imag)
+    output_waveform = torch.istft(output, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(output.device))
+
+    mask_real = mask[:, 0, :, :]
+    mask_imag = mask[:, 1, :, :]
+    mask = torch.complex(mask_real, mask_imag)
+    mask_waveform = torch.istft(mask, n_fft=512, hop_length=100, win_length=400, window=torch.hann_window(400).to(mask.device))
 
     # Plot the mask with original input on the left and the output on the right
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     
     # Plot the original input
-    mel_spec_noisy = librosa.feature.melspectrogram(y=noisy_waveform[0].numpy(), sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64, fmax=8000)
+    mel_spec_noisy = librosa.feature.melspectrogram(y=noisy_waveform[0].numpy(), sr=16000, n_fft=512, hop_length=100)
     mel_spec_db_noisy = librosa.power_to_db(mel_spec_noisy, ref=np.max)
     librosa.display.specshow(mel_spec_db_noisy, y_axis='mel', x_axis='time', hop_length=100, sr=16000, ax=ax[0])
     ax[0].set_title('Noisy Input')
@@ -296,7 +306,7 @@ def plot_mask(filename, savename):
     ax[0].set_ylabel('Frequency (Hz)')
 
     # Plot the mask
-    mel_spec_mask = librosa.feature.melspectrogram(y=mask[0], sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64, fmax=8000)
+    mel_spec_mask = librosa.feature.melspectrogram(y=mask_waveform[0].detach().cpu().numpy(), sr=16000, n_fft=512, hop_length=100)
     mel_spec_db_mask = librosa.power_to_db(mel_spec_mask, ref=np.max)
     librosa.display.specshow(mel_spec_db_mask, y_axis='mel', x_axis='time', hop_length=100, sr=16000, ax=ax[1])
     ax[1].set_title('Mask')
@@ -304,7 +314,7 @@ def plot_mask(filename, savename):
     ax[1].yaxis.set_visible(False)
 
     # Plot the output
-    mel_spec_output = librosa.feature.melspectrogram(y=output[0], sr=16000, n_fft=512, hop_length=100, power=2, n_mels=64, fmax=8000)
+    mel_spec_output = librosa.feature.melspectrogram(y=output_waveform[0].detach().cpu().numpy(), sr=16000, n_fft=512, hop_length=100)
     mel_spec_db_output = librosa.power_to_db(mel_spec_output, ref=np.max)
     librosa.display.specshow(mel_spec_db_output, y_axis='mel', x_axis='time', hop_length=100, sr=16000, ax=ax[2])
     ax[2].set_title('Fake Clean Output')
@@ -324,6 +334,6 @@ if __name__ == '__main__':
     print("Visualizing")
 
     # Plot mask
-    plot_mask('p232_006.wav', 'standardmodel1000')
+    plot_mask('p232_006.wav', 'Supervised_Model')
 
 

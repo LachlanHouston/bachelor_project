@@ -213,39 +213,6 @@ def visualize_feature_maps(model, input):
     return feature_maps
 
 if __name__ == '__main__':
-    # print(torch.cuda.is_available())
-
-    # Dummy train_loader
-    train_loader = torch.utils.data.DataLoader(
-        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
-        batch_size=4,
-        shuffle=True
-    )
-
-    val_loader = torch.utils.data.DataLoader(
-        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
-        batch_size=4,
-        shuffle=False
-    )
-
-    # model = pl_Generator(batch_size=4, g_learning_rate=1e-4, 
-    #                          alpha_fidelity=10)
-    
-    # trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=0,
-    #                     log_every_n_steps=1, limit_train_batches=20, limit_val_batches=0,
-    #                     logger=False,
-    #                     fast_dev_run=False)
-    # trainer.fit(model, train_loader, val_loader)
-
-    model = Generator()
-
-    # Get one batch and put through the model
-    for batch in train_loader:
-        print(batch[0].shape, batch[1].shape)
-        real_clean = batch[0]
-        real_noisy = batch[1]
-        output, mask = model(real_noisy)
-        print(output.shape)
-        break
+    pass
 
 
