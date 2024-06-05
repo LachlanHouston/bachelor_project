@@ -18,7 +18,7 @@ The directory structure of the project looks like this:
 ┌── data                 <- Where data should be located (VCTKD can be downloaded from https://datashare.ed.ac.uk/handle/10283/2791)
 │   ├── clean_raw        <- Clean VCTKD training data
 │   ├── noisy_raw        <- Noisy VCTKD training data
-│   └── AudioSet         <- Where AudioSet data should be located
+│   └── AudioSet         <- Where AudioSet data from the "speech" class should be located
 │       ├── train_raw    <- AudioSet training data
 │       └── test_raw     <- AudioSet test data
 │
