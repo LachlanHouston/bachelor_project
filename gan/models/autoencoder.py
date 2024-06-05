@@ -60,6 +60,7 @@ class Autoencoder(L.LightningModule):
             G_loss += sisnr_loss
             return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, sisnr_loss
 
+<<<<<<< Updated upstream
         return G_loss, self.alpha_fidelity * G_fidelity_loss, G_adv_loss, None
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad):
@@ -69,6 +70,15 @@ class Autoencoder(L.LightningModule):
         differences = fake_clean - real_clean # B x C x H x W
         interpolates = real_clean + (alpha * differences) # B x C x H x W
         interpolates.requires_grad_(True)
+=======
+        # Compute SI-SDR loss
+        fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device_).cpu().squeeze()
+        objective_model = SQUIM_OBJECTIVE.get_model()
+        _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
+        # Define the loss as the negative mean of the SI-SDR
+        sisnr_loss = -si_sdr_pred.mean()
+        sisnr_loss *= self.sisnr_loss
+>>>>>>> Stashed changes
 
         # calculate the output of the discriminator for the interpolated samples and compute the gradients
         D_interpolates = self.discriminator(interpolates) # B x 1 (the output of the discriminator is a scalar value for each input sample)

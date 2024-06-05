@@ -214,6 +214,7 @@ data/AudioSet/test_sampled/
 data/AudioSet/train_sampled/
 data/AudioSet/train_raw/*.wav
 data/AudioSet/test_raw/*.wav
+data/test_fake_clean_supervised/*
 
 /FrederikTests
 reports/figures/unused_figures/
@@ -223,5 +224,17 @@ reports/scores/0/
 reports/scores/AudioSet/unused/
 reports/scores/StandardModel/old_scores/
 
+gan/data/make_dataset.py
+gan/data/make_dataset_AudioSet.py
 
 
+
+
+*.wav
+/data/test_fake_clean_supervised
+/data/test_fake_clean_supervised
+data/test_fake_clean_supervised/p257_433.wav
+/data/test_fake_clean_supervised
+/reports/unused
+gan/utils/plot_learning_curve_finetune.py
+gan/utils/plot_learning_curve_speakers.py

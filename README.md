@@ -1,47 +1,64 @@
-# gan
+# Deep Learning for Speech Enhancement
 
-Deep Learning for Speech Enhancement
+Implementation of a Wasserstein GAN with gradient penalty to perform speech enhancement
 
-## Project structure
+## Location of important code
+
+All code can be found in the `gan` directory.
+
+`gan/models/autoencoder.py` contains the training loop, including loss functions and training and validation steps.
+
+`gan/models/discriminator.py` and `gan/models/generator.py` contain the implementation of the discriminator and generator.
+
+## Repository file structure
 
 The directory structure of the project looks like this:
 
 ```txt
-
-├── Makefile             <- Makefile with convenience commands like `make data` or `make train`
-├── README.md            <- The top-level README for developers using this project.
-├── data
-│   ├── processed        <- The final, canonical data sets for modeling.
-│   └── raw              <- The original, immutable data dump.
+┌── data                 <- Where data should be located (VCTKD can be downloaded from https://datashare.ed.ac.uk/handle/10283/2791)
+│   ├── clean_raw        <- Clean VCTKD training data
+│   ├── noisy_raw        <- Noisy VCTKD training data
+│   └── AudioSet         <- Where AudioSet data should be located
+│       ├── train_raw    <- AudioSet training data
+│       └── test_raw     <- AudioSet test data
 │
-├── models               <- Trained and serialized models, model predictions, or model summaries
-│
-├── reports              <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures          <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt     <- The requirements file for reproducing the analysis environment
-|
-├── requirements_dev.txt <- The requirements file for reproducing the analysis environment
-│
-├── gan  <- Source code for use in this project.
+├── gan  <- All scripts used in this project
 │   │
-│   ├── data             <- Scripts to download or generate data
-│   │   ├── __init__.py
-│   │   └── make_dataset.py
+│   ├── config             
+│   │   └── config.yaml  <- Configuration file to specify hyperparameters
+│   │
+│   ├── data             
+│   │   └── data_loader.py     <- Script to load data to the GAN
 │   │
 │   ├── models           <- Model implementations, GAN training implementation
 │   │   ├── autoencoder.py     <- GAN training loop containing training step, validation step, and loss functions
 │   │   ├── generator.py       <- Generator model
 │   │   ├── discriminator.py   <- Discriminator model
-│   │   ├── DPRNN.py           <- Dual-path block in the discriminator model
+│   │   └── DPRNN.py           <- Dual-path block in the discriminator model
 │   │
-│   ├── visualization    <- Scripts to create exploratory and results oriented visualizations
+│   ├── utils            <- Utility scripts
+│   │   ├── compute_learning_curve.py   <- Compute scores for creating learning curves
+│   │   ├── plot_learning_curve.py      <- Plot learning curves
+│   │   └── utils.py                    <- Helper functions
+│   │
+│   ├── visualizations   <- Scripts to create exploratory and results oriented visualizations
 │   │   ├── __init__.py
 │   │   └── visualize.py
+│   │
 │   ├── train_model.py   <- script for training the model
 │   └── predict_model.py <- script for predicting from a model
 │
-└── LICENSE              <- Open-source license if one is chosen
+├── models               <- Most important model checkpoints
+│
+├── reports              <- Generated figures and scores with relevant subfolders
+│
+├── Makefile             <- Makefile with convenience commands like `make train`
+│
+├── README.md            <- README detailing the structure of this repository
+│
+├── requirements.txt     <- The requirements file for reproducing the analysis environment
+|
+└── requirements_dev.txt <- The requirements file for reproducing the analysis environment
 ```
 
 
