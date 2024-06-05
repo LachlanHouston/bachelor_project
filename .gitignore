@@ -236,3 +236,5 @@ gan/data/make_dataset_AudioSet.py
 data/test_fake_clean_supervised/p257_433.wav
 /data/test_fake_clean_supervised
 /reports/unused
+gan/utils/plot_learning_curve_finetune.py
+gan/utils/plot_learning_curve_speakers.py

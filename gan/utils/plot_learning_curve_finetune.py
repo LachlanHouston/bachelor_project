@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+from matplotlib.lines import Line2D 
 
 # Sample data: fractions of data used and their corresponding performance metrics.
 fractions_of_data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 28]
