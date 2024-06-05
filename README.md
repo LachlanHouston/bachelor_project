@@ -2,13 +2,31 @@
 
 Implementation of a Wasserstein GAN with gradient penalty to perform speech enhancement
 
+## Environment setup
+
+The conda environment can be setup by using make commands. The following command will create a new conda environment with the necessary dependencies:
+
+`make create_environment` will create a new conda environment with the necessary dependencies (from the `requirements.txt` file). Remember to activate the environment before running the code.
+
+## Training the model
+
+The training script can be either run from an IDE or by using the `make train` command. The training script will train the model using the configuration specified in the `gan/config/config.yaml` file. The training script will save the model checkpoints in the `models` directory.
+
 ## Location of important code
 
 All code can be found in the `gan` directory.
 
+`gan/config/config.yaml` contains the configuration for the model, including hyperparameters and wandb settings.
+
+`gan/train_model.py` contains the training script for the model using PyTorch Lightning.
+
 `gan/models/autoencoder.py` contains the training loop, including loss functions and training and validation steps.
 
 `gan/models/discriminator.py` and `gan/models/generator.py` contain the implementation of the discriminator and generator.
+
+## WANDB
+
+To log the training process, we use WANDB. To use WANDB, you need to create an account and create a secrets.env file under the personal folder. The secrets.env file should contain the following: WAND_API_KEY=YOUR_API_KEY. The WANDB API key can be found in your account settings.
 
 ## Repository file structure
 
@@ -43,7 +61,7 @@ The directory structure of the project looks like this:
 │   │
 │   ├── visualizations   <- Scripts to create exploratory and results oriented visualizations
 │   │   ├── __init__.py
-│   │   └── visualize.py
+│   │   └── visualize.py <- Visualize different aspects of the GAN and results
 │   │
 │   ├── train_model.py   <- script for training the model
 │   └── predict_model.py <- script for predicting from a model
@@ -56,9 +74,7 @@ The directory structure of the project looks like this:
 │
 ├── README.md            <- README detailing the structure of this repository
 │
-├── requirements.txt     <- The requirements file for reproducing the analysis environment
-|
-└── requirements_dev.txt <- The requirements file for reproducing the analysis environment
+└── requirements.txt     <- The requirements file for reproducing the analysis environment
 ```
 
 

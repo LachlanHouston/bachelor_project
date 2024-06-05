@@ -177,7 +177,7 @@ cython_debug/
 #.idea/
 
 # User-specific stuff
-personal/
+personal/secrets.env
 
 # Outputs
 outputs/
