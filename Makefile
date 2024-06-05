@@ -36,21 +36,9 @@ clean:
 # PROJECT RULES                                                                 #
 #################################################################################
 
-## Process raw data into processed data
-data:
-	python $(PROJECT_NAME)/data/make_dataset.py
-
 ## Train model
 train:
 	python $(PROJECT_NAME)/train_model.py
-
-## Predict
-predict:
-	python $(PROJECT_NAME)/predict_model.py
-
-# Visualize
-visualize:
-	python $(PROJECT_NAME)/visualizations/visualize.py
 
 #################################################################################
 # Documentation RULES                                                           #
