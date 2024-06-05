@@ -37,7 +37,6 @@ The directory structure of the project looks like this:
 │   │   └── DPRNN.py           <- Dual-path block in the discriminator model
 │   │
 │   ├── utils            <- Utility scripts
-│   │   ├── compute_learning_curve.py   <- Compute scores for creating learning curves
 │   │   ├── plot_learning_curve.py      <- Plot learning curves
 │   │   └── utils.py                    <- Helper functions
 │   │
