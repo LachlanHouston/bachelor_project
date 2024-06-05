@@ -61,7 +61,7 @@ class pl_Discriminator(L.LightningModule):
         self.save_hyperparameters(kwargs)
 
     def forward(self, batch): # Batch is a tuple of (real_clean, real_noisy)
-        return [self.discriminator(batch[0]), self.discriminator(batch[1])]
+        return self.discriminator(batch)
     
     def _get_discriminator_loss(self, real_clean, fake_clean, D_real, D_fake_no_grad): 
         # Create interpolated samples
@@ -135,29 +135,7 @@ class pl_Discriminator(L.LightningModule):
         self.log('Adv_Loss_val', adv_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
 if __name__ == '__main__':
-    # Print Device
-    print(torch.cuda.is_available())
-
-    # Dummy train_loader
-    train_loader = torch.utils.data.DataLoader(
-        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
-        batch_size=4,
-        shuffle=True
-    )
-
-    val_loader = torch.utils.data.DataLoader(
-        [torch.randn(4, 2, 257, 321), torch.randn(4, 2, 257, 321)],
-        batch_size=4,
-        shuffle=False
-    )
-
-    model = pl_Discriminator(batch_size=4, d_learning_rate=1e-4, alpha_penalty=10)
-    
-    trainer = L.Trainer(max_epochs=5, accelerator='cuda' if torch.cuda.is_available() else 'cpu', num_sanity_val_steps=1,
-                        log_every_n_steps=1, limit_train_batches=1, limit_val_batches=1,
-                        logger=False,
-                        fast_dev_run=False)
-    trainer.fit(model, train_loader, val_loader)
+    pass
 
         
         

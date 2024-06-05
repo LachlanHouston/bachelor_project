@@ -17,14 +17,14 @@ torch.set_grad_enabled(False)
 from collections import OrderedDict
 
 clean_path = 'data/test_clean_sampled'
-noisy_path = '/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampled' #'/Users/fredmac/Downloads/bachelor_project/data/AudioSet/test_sampled'
+noisy_path = 'data/AudioSet/test_sampled'
 
-# fake_clean_path = clean_path
+fake_clean_path = clean_path
 
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    '/Users/fredmac/Downloads/bachelor_project/models/AS_FT_VCTKD_epoch=1004.ckpt',
+    'models/AS_FT_VCTKD_epoch=1004.ckpt',
               ]
 fraction = 1.
 csv_name = 'AS_FT_VCTKD'
@@ -71,16 +71,16 @@ def discriminator_scores(model_path, device='cuda'):
     data_loader = data_load()
     #_, _, model = model_load(model_path)
 
-    model = pl_Discriminator.load_from_checkpoint(model_path)
+    model = pl_Discriminator.load_from_checkpoint(model_path).to(device)
     
     # Get the standardmodel generator
     autoencoder = Autoencoder.load_from_checkpoint('models/standardmodel1000.ckpt')
-    generator = autoencoder.generator
+    generator = autoencoder.generator.to(device)
 
     model.to(device)
     model.eval()
 
-    with open('discriminator_scores_authentic.csv', 'w', newline='') as file:
+    with open('discriminator_scores.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["D_clean", "D_fake", "D_noisy"])
         for batch in tqdm.tqdm(data_loader):
@@ -301,10 +301,6 @@ def generate_fake_clean(model_path):
 
 
 if __name__ == '__main__':
-    # generator_scores(False)
-    
-    # generate_fake_clean(model_paths[0])
-    for model_path in model_paths:
-        generator_scores_model_sampled_clean_noisy(model_path)
+    pass
 
 
