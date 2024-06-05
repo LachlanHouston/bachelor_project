@@ -72,6 +72,8 @@ The directory structure of the project looks like this:
 │
 ├── Makefile             <- Makefile with convenience commands like `make train`
 │
+├── personal             <- Folder for personal files like secrets.env (gitignored)
+│
 ├── README.md            <- README detailing the structure of this repository
 │
 └── requirements.txt     <- The requirements file for reproducing the analysis environment
