@@ -8,6 +8,10 @@ The conda environment can be setup by using make commands. The following command
 
 `make create_environment` will create a new conda environment with the necessary dependencies (from the `requirements.txt` file). Remember to activate the environment before running the code.
 
+## Data
+
+The data used in this project is the VCTKD dataset, which can be downloaded from [here](https://datashare.ed.ac.uk/handle/10283/2791). The data should be placed in the `data` directory in the `clean_raw` and `noisy_raw` folders, while test data should be placed in `test_clean_raw` and `test_noisy_raw`. Other audio datasets should be placed in another folder in the `data` directory. The data should be in the form of `.wav` files.
+
 ## Training the model
 
 The training script can be either run from an IDE or by using the `make train` command. The training script will train the model using the configuration specified in the `gan/config/config.yaml` file. The training script will save the model checkpoints in the `models` directory.
