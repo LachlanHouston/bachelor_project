@@ -22,7 +22,7 @@ All code can be found in the `gan` directory.
 
 `gan/config/config.yaml` contains the configuration for the model, including hyperparameters and wandb settings.
 
-`gan/train_model.py` contains the training script for the model using PyTorch Lightning.
+`gan/train_model.py` contains the training script for the model using PyTorch Lightning. If using an IDE, this script can be run to train the model.
 
 `gan/models/autoencoder.py` contains the training loop, including loss functions and training and validation steps.
 
