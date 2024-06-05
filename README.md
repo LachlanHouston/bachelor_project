@@ -26,7 +26,7 @@ All code can be found in the `gan` directory.
 
 ## WANDB
 
-To log the training process, we use WANDB. To use WANDB, you need to create an account and create a secrets.env file under the personal folder. The secrets.env file should contain the following: WAND_API_KEY=YOUR_API_KEY. The WANDB API key can be found in your account settings.
+To log the training process, we use WANDB. To use WANDB, you need to create an account and create a secrets.env file under the personal folder, if the personal folder does not exist, create it under the primary folder. The secrets.env file should contain the following: WAND_API_KEY=YOUR_API_KEY. The WANDB API key can be found in your account settings. This is gitignored to prevent the key from being uploaded to the repository.
 
 ## Repository file structure
 
