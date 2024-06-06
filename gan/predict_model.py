@@ -17,27 +17,27 @@ torch.set_grad_enabled(False)
 from collections import OrderedDict
 
 clean_path = 'data/test_clean_sampled'
-noisy_path = 'data/AudioSet/test_sampled'
+noisy_path = 'data/test_noisy_sampled'
 
 fake_clean_path = clean_path
 
 
 # set model path to False if you don't want to generate new samples
 model_paths = [
-    'models/AS_FT_VCTKD_epoch=1004.ckpt',
+    '/Users/fredmac/Downloads/bachelor_project/models/lc_frac_new/0.6_epoch-epoch=445-SISNR-SI-SNR=16.875402450561523.ckpt',
               ]
 fraction = 1.
-csv_name = 'AS_FT_VCTKD'
-device = torch.device('cpu')
-authentic = True
+csv_name = 'lc_frac_'
+device = torch.device('mps')
+authentic = False
 
 ### Metrics ###
-use_sisnr=     False
-use_dnsmos=    True
+use_sisnr=     True
+use_dnsmos=    False
 use_mos_squim= True
 use_estoi=     False
 use_pesq=      False
-use_pred=      True
+use_pred=      False
 ###############
 
 
@@ -189,7 +189,7 @@ def generator_scores(model_path):
             writer.writerow(row)
 
 
-def generator_scores_model_sampled_clean_noisy(model_path):
+def generator_scores_model_sampled_data(model_path):
     autoencoder, generator, discriminator = model_load(model_path)
     generator.eval()
 
@@ -202,7 +202,7 @@ def generator_scores_model_sampled_clean_noisy(model_path):
         mos_reference_path = clean_path
         clean_reference_filenames = [file for file in os.listdir(os.path.join(os.getcwd(), mos_reference_path)) if file.endswith('.wav')]
     all_rows = []
-    with open(f'{csv_name}_{model_path.split("/")[-1]}.csv', 'w', newline='') as file:
+    with open(f'{csv_name}_{model_path.split("/")[-1][:4]}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["SI-SNR", "DNSMOS", "MOS Squim", "eSTOI", "PESQ", "PESQ Torch", "STOI pred", "PESQ pred", "SI-SDR pred"])
 
@@ -301,6 +301,7 @@ def generate_fake_clean(model_path):
 
 
 if __name__ == '__main__':
-    pass
+    for model_path in model_paths:
+        generator_scores_model_sampled_data(model_path)
 
 
