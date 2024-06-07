@@ -13,7 +13,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 import wandb
 
 
-# define the Autoencoder class containing the training setup
+# define the Autoencoder class containing the training and validation steps
 class Autoencoder(L.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
@@ -24,7 +24,7 @@ class Autoencoder(L.LightningModule):
         self.generator=Generator(in_channels=2, out_channels=2).to(self.device)
         self.custom_global_step = 0
         self.save_hyperparameters(kwargs) # save hyperparameters to Weights and Biases
-        self.automatic_optimization = False
+        self.automatic_optimization = False # we use manual optimization because we have two optimizers
 
     def forward(self, real_noisy):
         return self.generator(real_noisy)
@@ -44,11 +44,11 @@ class Autoencoder(L.LightningModule):
                 self.sisnr_loss = 10 # set to 10 in case dataset is "Finetune" and it is not already set
             real_clean_waveforms = stft_to_waveform(real_clean, device=self.device).cpu().squeeze()
             fake_clean_waveforms = stft_to_waveform(fake_clean, device=self.device).cpu().squeeze()
-            # use SI-SDR instead of SI-SNR if dataset is AudioSet
+            # use predicted SI-SDR instead of SI-SNR if dataset is AudioSet
             if self.dataset == 'AudioSet':
                 objective_model = SQUIM_OBJECTIVE.get_model()
                 _, _, si_sdr_pred = objective_model(fake_clean_waveforms)
-                # define the loss as the negative mean of the SI-SDR                    
+                # define the loss as the negative mean of the predicted SI-SDR                    
                 sisnr_loss = - si_sdr_pred.mean()
             else:
                 sisnr = ScaleInvariantSignalNoiseRatio().to(self.device)
