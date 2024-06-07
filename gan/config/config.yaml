@@ -17,7 +17,7 @@ hyperparameters:
 system:
   checkpointing: True
   continue_training: False
-  ckpt_path: "models/test_unsuper50p_epoch=84.ckpt" # Or none
+  ckpt_path: "models/Standard_Model.ckpt" # Or none
   num_workers: 20
 
 wandb:
