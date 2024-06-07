@@ -26,4 +26,3 @@ wandb:
   use_wandb: True
   entity: turtle_team
   project: bachelor2
-  
